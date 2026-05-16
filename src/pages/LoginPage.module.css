@@ -1,0 +1,230 @@
+.page {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 16px;
+  overflow: hidden;
+}
+
+/* Background gradient inspired by the university campus sky */
+.background {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    160deg,
+    #0d2147 0%,
+    #1e3a6e 30%,
+    #2d5aa0 60%,
+    #4a7fd4 85%,
+    #6fa3e0 100%
+  );
+}
+
+/* Decorative grid overlay */
+.background::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* Decorative blobs */
+.background::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 80% 20%, rgba(74, 127, 212, 0.3) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 35% at 10% 80%, rgba(21, 43, 84, 0.5) 0%, transparent 55%);
+}
+
+.backgroundOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(14, 32, 64, 0.15) 100%
+  );
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+/* Top decorative strip */
+.campusStrip {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+}
+
+.campusStripLine {
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.campusStripText {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+/* Login card */
+.loginCard {
+  width: 100%;
+  overflow: visible !important;
+}
+
+/* Card brand section */
+.cardBrand {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 28px 28px 24px;
+  background: linear-gradient(
+    135deg,
+    var(--color-primary-dark) 0%,
+    var(--color-primary) 100%
+  );
+  border-radius: 16px 16px 0 0;
+  position: relative;
+}
+
+.cardBrand::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-dark) 100%);
+}
+
+.cardBrandText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cardBrandTitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+}
+
+.cardBrandSub {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+/* Form */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 28px;
+}
+
+/* Error alert */
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background-color: var(--color-error-bg);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  border-radius: var(--radius-md);
+  color: var(--color-error);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.alertIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* Forgot link */
+.forgotLink {
+  text-align: center;
+  margin-top: -4px;
+}
+
+.forgotLink a {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  transition: color var(--transition-fast);
+}
+
+.forgotLink a:hover {
+  color: var(--color-primary-medium);
+}
+
+/* Info badges */
+.infoBadges {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.badgeDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding: 24px 12px;
+    align-items: flex-start;
+  }
+
+  .cardBrand {
+    padding: 20px 20px 18px;
+    gap: 14px;
+  }
+
+  .cardBrandTitle {
+    font-size: 18px;
+  }
+
+  .form {
+    padding: 20px;
+  }
+
+  .infoBadges {
+    gap: 10px;
+  }
+}
