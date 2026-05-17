@@ -38,7 +38,7 @@ export function LoginPage() {
     setLoading(true)
     try {
       await authApi.login(credentials)
-      // TODO: redirect to dashboard after login
+      window.location.href = "/control"
     } catch (err) {
       const error = err as ApiError
       if (error.status === 401) {
@@ -72,7 +72,7 @@ export function LoginPage() {
         <Card variant="elevated" padding="none" className={styles.loginCard}>
           {/* Card header with brand */}
           <div className={styles.cardBrand}>
-            <UnetLogo size={64} />
+            <UnetLogo />
             <div className={styles.cardBrandText}>
               <span className={styles.cardBrandTitle}>Iniciar Sesión</span>
               <span className={styles.cardBrandSub}>

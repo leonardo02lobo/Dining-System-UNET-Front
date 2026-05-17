@@ -6,6 +6,10 @@
   padding: 0;
 }
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   --color-primary: #1e3a6e;
   --color-primary-dark: #152b54;
