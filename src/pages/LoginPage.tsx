@@ -38,7 +38,7 @@ export function LoginPage() {
     setLoading(true)
     try {
       await authApi.login(credentials)
-      window.location.href = "/control"
+      window.location.href = "/"
     } catch (err) {
       const error = err as ApiError
       if (error.status === 401) {

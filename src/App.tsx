@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { Footer } from './components/layout/Footer'
 import { Header } from './components/layout/Header'
 import { LoginPage } from './pages/LoginPage'
+import { Index } from './pages/Index'
 import './App.css'
 
 export default function App() {
@@ -10,7 +11,7 @@ export default function App() {
       <div className="app">
         <Header />
         <Routes>
-          <Route path="/" element={<LoginPage />} />
+          <Route path="/" element={<Index />} />
           <Route path="/login" element={<LoginPage />} />
         </Routes>
         <Footer />

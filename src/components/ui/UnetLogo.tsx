@@ -1,7 +1,17 @@
 import styles from "./UnetLogo.module.css"
 
-export function UnetLogo() {
+type UnetLogoProps = {
+  size?: number
+}
+
+export function UnetLogo({ size }: UnetLogoProps) {
   return (
-    <img src="/assets/logo-unet.png" alt="UNET" className={styles.img} />
+    <img
+      src="/assets/logo-unet.png"
+      alt="UNET"
+      className={styles.img}
+      width={size}
+      height={size}
+    />
   )
 }
