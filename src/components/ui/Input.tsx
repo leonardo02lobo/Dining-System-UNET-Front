@@ -1,6 +1,5 @@
 import { Eye, EyeOff } from 'lucide-react'
 import { forwardRef, useState, type InputHTMLAttributes, type ReactNode } from 'react'
-import styles from './Input.module.css'
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string
@@ -18,17 +17,17 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     const inputType = isPassword ? (showPassword ? 'text' : 'password') : type
 
     const wrapperClass = [
-      styles.wrapper,
-      fullWidth ? styles.fullWidth : '',
+      'flex flex-col gap-1.5',
+      fullWidth ? 'w-full' : '',
     ]
       .filter(Boolean)
       .join(' ')
 
     const inputClass = [
-      styles.input,
-      error ? styles.hasError : '',
-      leftIcon ? styles.withLeftIcon : '',
-      isPassword ? styles.withRightIcon : '',
+      'h-11 w-full rounded-md border border-slate-300 bg-white px-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-60',
+      error ? 'border-red-600 focus:border-red-600 focus:ring-red-500/15' : '',
+      leftIcon ? 'pl-10' : '',
+      isPassword ? 'pr-10' : '',
       className ?? '',
     ]
       .filter(Boolean)
@@ -37,14 +36,16 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className={wrapperClass}>
         {label && (
-          <label className={styles.label} htmlFor={id}>
+          <label className="select-none text-[13px] font-semibold text-slate-900" htmlFor={id}>
             {label}
           </label>
         )}
 
-        <div className={styles.inputWrapper}>
+        <div className="relative flex items-center">
           {leftIcon && (
-            <span className={styles.leftIcon}>{leftIcon}</span>
+            <span className="pointer-events-none absolute left-3 flex items-center text-slate-400">
+              {leftIcon}
+            </span>
           )}
 
           <input
@@ -60,7 +61,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           {isPassword && (
             <button
               type="button"
-              className={styles.togglePassword}
+              className="absolute right-2 flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
               onClick={() => setShowPassword((v) => !v)}
               tabIndex={-1}
               aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
@@ -71,13 +72,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         </div>
 
         {error && (
-          <span id={`${id}-error`} className={styles.error} role="alert">
+          <span id={`${id}-error`} className="flex items-center gap-1 text-xs text-red-600" role="alert">
             {error}
           </span>
         )}
 
         {hint && !error && (
-          <span id={`${id}-hint`} className={styles.hint}>
+          <span id={`${id}-hint`} className="text-xs text-slate-500">
             {hint}
           </span>
         )}

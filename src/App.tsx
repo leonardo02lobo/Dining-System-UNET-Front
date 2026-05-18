@@ -3,15 +3,18 @@ import { Footer } from './components/layout/Footer'
 import { Header } from './components/layout/Header'
 import { LoginPage } from './pages/LoginPage'
 import { Index } from './pages/Index'
-import './App.css'
+import { Dashboard } from './pages/Dashboard'
 
 export default function App() {
   return (
     <BrowserRouter>
-      <div className="app">
+      <div className="flex min-h-screen flex-col">
         <Header />
         <Routes>
-          <Route path="/" element={<Index />} />
+          <Route path="/" element={<Index />}>
+            <Route index element={<Dashboard />} />
+            <Route path="dashboard" element={<Dashboard />} />
+          </Route>
           <Route path="/login" element={<LoginPage />} />
         </Routes>
         <Footer />

@@ -1,6 +1,5 @@
 import { Loader2 } from 'lucide-react'
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
-import styles from './Button.module.css'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
@@ -23,12 +22,28 @@ export function Button({
   className,
   ...props
 }: ButtonProps) {
+  const variantClasses = {
+    primary:
+      'bg-slate-900 text-white shadow-[0_2px_6px_rgba(30,41,59,0.3)] hover:bg-slate-700 hover:shadow-[0_4px_12px_rgba(30,41,59,0.35)] active:bg-slate-950',
+    secondary:
+      'border-2 border-slate-900 bg-transparent text-slate-900 hover:border-blue-800 hover:bg-blue-100',
+    ghost: 'bg-transparent text-slate-500 hover:bg-slate-200 hover:text-slate-900',
+    danger: 'bg-red-600 text-white hover:bg-red-700',
+  } as const
+
+  const sizeClasses = {
+    sm: 'h-8 px-3 text-xs',
+    md: 'h-10 px-5 text-sm',
+    lg: 'h-12 px-7 text-[15px]',
+  } as const
+
   const classes = [
-    styles.button,
-    styles[variant],
-    styles[size],
-    fullWidth ? styles.fullWidth : '',
-    loading ? styles.loading : '',
+    'relative inline-flex items-center justify-center gap-2 rounded-md border border-transparent font-semibold whitespace-nowrap outline-none transition duration-200 ease-in-out focus-visible:ring-4 focus-visible:ring-blue-500/25 active:translate-y-px disabled:cursor-not-allowed',
+    variantClasses[variant],
+    sizeClasses[size],
+    fullWidth ? 'w-full' : '',
+    loading ? 'cursor-not-allowed opacity-75' : '',
+    disabled && !loading ? 'cursor-not-allowed opacity-45' : '',
     className ?? '',
   ]
     .filter(Boolean)
@@ -41,13 +56,13 @@ export function Button({
       {...props}
     >
       {loading ? (
-        <Loader2 className={styles.spinner} size={16} />
+        <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
       ) : (
-        leftIcon && <span className={styles.icon}>{leftIcon}</span>
+        leftIcon && <span className="flex-shrink-0">{leftIcon}</span>
       )}
       <span>{children}</span>
       {!loading && rightIcon && (
-        <span className={styles.icon}>{rightIcon}</span>
+        <span className="flex-shrink-0">{rightIcon}</span>
       )}
     </button>
   )

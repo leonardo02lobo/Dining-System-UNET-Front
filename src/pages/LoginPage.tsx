@@ -6,7 +6,6 @@ import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { UnetLogo } from '../components/ui/UnetLogo'
-import styles from './LoginPage.module.css'
 
 export function LoginPage() {
   const [credentials, setCredentials] = useState<LoginCredentials>({
@@ -54,38 +53,38 @@ export function LoginPage() {
   }
 
   return (
-    <main className={styles.page}>
-      <div className={styles.background}>
-        <div className={styles.backgroundOverlay} />
-      </div>
+    <main className="relative flex flex-1 items-center justify-center overflow-hidden px-3 py-6 sm:px-4 sm:py-10">
+      <div className="absolute inset-0 bg-[linear-gradient(160deg,#0d2147_0%,#1e3a6e_30%,#2d5aa0_60%,#4a7fd4_85%,#6fa3e0_100%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_0%,rgba(14,32,64,0.15)_100%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_80%_20%,rgba(74,127,212,0.3)_0%,transparent_60%),radial-gradient(ellipse_40%_35%_at_10%_80%,rgba(21,43,84,0.5)_0%,transparent_55%)]" />
 
-      <div className={styles.content}>
-        {/* Decorative campus strip */}
-        <div className={styles.campusStrip}>
-          <div className={styles.campusStripLine} />
-          <span className={styles.campusStripText}>
+      <div className="relative z-10 flex w-full max-w-[440px] flex-col items-center gap-6">
+        <div className="flex w-full items-center gap-3 sm:gap-4">
+          <div className="h-px flex-1 bg-white/25" />
+          <span className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.1em] text-white/60">
             Sistema de Comedor Universitario
           </span>
-          <div className={styles.campusStripLine} />
+          <div className="h-px flex-1 bg-white/25" />
         </div>
 
-        <Card variant="elevated" padding="none" className={styles.loginCard}>
-          {/* Card header with brand */}
-          <div className={styles.cardBrand}>
+        <Card variant="elevated" padding="none" className="w-full overflow-visible">
+          <div className="relative flex items-center gap-4 rounded-t-2xl bg-gradient-to-r from-slate-950 to-blue-950 px-6 py-7 sm:px-7">
             <UnetLogo />
-            <div className={styles.cardBrandText}>
-              <span className={styles.cardBrandTitle}>Iniciar Sesión</span>
-              <span className={styles.cardBrandSub}>
+            <div className="flex flex-col gap-1">
+              <span className="text-xl font-bold tracking-tight text-white">
+                Iniciar Sesión
+              </span>
+              <span className="text-xs text-white/65">
                 Accede con tus credenciales universitarias
               </span>
             </div>
+            <div className="absolute inset-x-0 bottom-0 h-[3px] bg-gradient-to-r from-amber-400 to-amber-600" />
           </div>
 
-          {/* Form body */}
-          <form className={styles.form} onSubmit={handleSubmit} noValidate>
+          <form className="flex flex-col gap-4 p-6 sm:p-7" onSubmit={handleSubmit} noValidate>
             {apiError && (
-              <div className={styles.alert} role="alert">
-                <AlertCircle size={16} className={styles.alertIcon} />
+              <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3.5 py-3 text-sm font-medium leading-6 text-red-600" role="alert">
+                <AlertCircle size={16} className="mt-px flex-shrink-0" />
                 <span>{apiError}</span>
               </div>
             )}
@@ -102,7 +101,8 @@ export function LoginPage() {
               value={credentials.username}
               onChange={(e) => {
                 setCredentials((c) => ({ ...c, username: e.target.value }))
-                if (errors.username) setErrors((er) => ({ ...er, username: undefined }))
+                if (errors.username)
+                  setErrors((er) => ({ ...er, username: undefined }))
               }}
               error={errors.username}
             />
@@ -118,7 +118,8 @@ export function LoginPage() {
               value={credentials.password}
               onChange={(e) => {
                 setCredentials((c) => ({ ...c, password: e.target.value }))
-                if (errors.password) setErrors((er) => ({ ...er, password: undefined }))
+                if (errors.password)
+                  setErrors((er) => ({ ...er, password: undefined }))
               }}
               error={errors.password}
             />
@@ -133,26 +134,29 @@ export function LoginPage() {
               Iniciar Sesión
             </Button>
 
-            <div className={styles.forgotLink}>
-              <a href="#" onClick={(e) => e.preventDefault()}>
+            <div className="-mt-1 text-center">
+              <a
+                href="#"
+                className="text-xs text-slate-500 transition hover:text-slate-700"
+                onClick={(e) => e.preventDefault()}
+              >
                 ¿Olvidaste tu contraseña?
               </a>
             </div>
           </form>
         </Card>
 
-        {/* Info badges */}
-        <div className={styles.infoBadges}>
-          <div className={styles.badge}>
-            <span className={styles.badgeDot} />
+        <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-white/55">
+          <div className="flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
             <span>Estudiantes de pregrado</span>
           </div>
-          <div className={styles.badge}>
-            <span className={styles.badgeDot} />
+          <div className="flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
             <span>Personal administrativo</span>
           </div>
-          <div className={styles.badge}>
-            <span className={styles.badgeDot} />
+          <div className="flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
             <span>Personal docente</span>
           </div>
         </div>

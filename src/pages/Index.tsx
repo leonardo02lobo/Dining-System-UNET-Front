@@ -1,3 +1,4 @@
+import { Outlet } from 'react-router-dom'
 import { NavBar } from '../components/ui/NavBar'
 
 export function Index() {
@@ -7,8 +8,7 @@ export function Index() {
                 <NavBar />
 
                 <section className="flex flex-col justify-between rounded-3xl border border-white/10 bg-white/10 p-8 shadow-2xl backdrop-blur-xl">
-                    <div className="space-y-6">
-                    </div>
+                    <Outlet />
                 </section>
             </div>
         </main>

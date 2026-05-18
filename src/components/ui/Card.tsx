@@ -1,5 +1,4 @@
 import type { HTMLAttributes, ReactNode } from 'react'
-import styles from './Card.module.css'
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
   variant?: 'default' | 'elevated' | 'outlined'
@@ -19,10 +18,23 @@ function Card({
   className,
   ...props
 }: CardProps) {
+  const variantClasses = {
+    default: 'shadow-md',
+    elevated: 'shadow-lg',
+    outlined: 'border border-slate-200 shadow-none',
+  } as const
+
+  const paddingClasses = {
+    none: 'p-0',
+    sm: 'p-4',
+    md: 'p-6',
+    lg: 'p-9',
+  } as const
+
   const classes = [
-    styles.card,
-    styles[variant],
-    styles[`padding-${padding}`],
+    'overflow-hidden rounded-2xl bg-white',
+    variantClasses[variant],
+    paddingClasses[padding],
     className ?? '',
   ]
     .filter(Boolean)
@@ -37,21 +49,24 @@ function Card({
 
 function CardHeader({ title, subtitle, action, children, className, ...props }: CardHeaderProps) {
   return (
-    <div className={[styles.cardHeader, className ?? ''].join(' ')} {...props}>
+    <div
+      className={['mb-5 flex items-start justify-between gap-4 border-b border-slate-200 pb-5', className ?? ''].join(' ')}
+      {...props}
+    >
       {(title || subtitle) ? (
-        <div className={styles.cardHeaderContent}>
-          {title && <h2 className={styles.cardTitle}>{title}</h2>}
-          {subtitle && <p className={styles.cardSubtitle}>{subtitle}</p>}
+        <div className="min-w-0 flex-1">
+          {title && <h2 className="text-lg font-bold leading-tight text-slate-900">{title}</h2>}
+          {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
         </div>
       ) : children}
-      {action && <div className={styles.cardHeaderAction}>{action}</div>}
+      {action && <div className="flex-shrink-0">{action}</div>}
     </div>
   )
 }
 
 function CardBody({ children, className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={[styles.cardBody, className ?? ''].join(' ')} {...props}>
+    <div className={className ?? ''} {...props}>
       {children}
     </div>
   )
@@ -59,7 +74,7 @@ function CardBody({ children, className, ...props }: HTMLAttributes<HTMLDivEleme
 
 function CardFooter({ children, className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={[styles.cardFooter, className ?? ''].join(' ')} {...props}>
+    <div className={['mt-5 flex items-center gap-3 border-t border-slate-200 pt-5', className ?? ''].join(' ')} {...props}>
       {children}
     </div>
   )
