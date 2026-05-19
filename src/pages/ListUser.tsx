@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react'
 import { Row } from '../types/user'
 import { getData } from '../api/user'
 
-
-
 export function ListUser() {
     const [rows, setRows] = useState<Row[]>([])
     const [loading, setLoading] = useState(true)
@@ -31,6 +29,7 @@ export function ListUser() {
     if (error) return <p className="text-sm text-red-400">Error: {error}</p>
 
     const careerOptions = [...new Set(rows.map((row) => row.career))].sort()
+
     const filteredRows = rows.filter((row) => {
         const genderMatch = selectedGender === 'all' || row.gender === selectedGender
         const careerMatch = selectedCareer === 'all' || row.career === selectedCareer
