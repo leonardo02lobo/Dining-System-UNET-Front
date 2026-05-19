@@ -1,51 +1,32 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
-import "./App.css";
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { Footer } from './components/layout/Footer'
+import { Header } from './components/layout/Header'
+import { LoginPage } from './pages/LoginPage'
+import { Index } from './pages/Index'
+import { Dashboard } from './pages/Dashboard'
+import { CheckConsumes } from './pages/CheckConsumes'
+import { RegisterDining } from './pages/RegisterDining'
+import { SuspendStudent } from './pages/SuspendStudent'
+import { ListUser } from './pages/ListUser'
 
-function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
-
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
-
+export default function App() {
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
-
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <BrowserRouter>
+      <div className="flex min-h-screen flex-col">
+        <Header />
+        <Routes>
+          <Route path="/" element={<Index />}>
+            <Route index element={<Dashboard />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="checkConsumes" element={<CheckConsumes />} />
+            <Route path="registerDining" element={<RegisterDining />} />
+            <Route path="suspendStudent" element={<SuspendStudent />} />
+            <Route path="listUser" element={<ListUser />} />
+          </Route>
+          <Route path="/login" element={<LoginPage />} />
+        </Routes>
+        <Footer />
       </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
-  );
+    </BrowserRouter>
+  )
 }
-
-export default App;
