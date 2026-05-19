@@ -12,7 +12,7 @@ import {
 	ChartData,
 	ChartOptions,
 } from 'chart.js'
-import { Line, Chart } from 'react-chartjs-2'
+import { Bar, Line, Chart } from 'react-chartjs-2'
 
 ChartJS.register(
 	CategoryScale,
@@ -26,11 +26,49 @@ ChartJS.register(
 )
 
 type LineData = ChartData<'line', number[], string>
+type BarData = ChartData<'bar', number[], string>
 type MixedData = ChartData<'bar' | 'line', number[], string>
 
 export interface SimpleChartProps<T> {
 	data?: T
 	options?: ChartOptions<any>
+}
+
+export const BarChart: React.FC<SimpleChartProps<BarData>> = ({ data, options }) => {
+	const defaultData: BarData = {
+		labels: ['Hombres', 'Mujeres'],
+		datasets: [
+			{
+				label: 'Cantidad de usuarios',
+				data: [0, 0],
+				backgroundColor: ['rgba(14, 165, 233, 0.8)', 'rgba(244, 114, 182, 0.8)'],
+				borderColor: ['rgba(14, 165, 233, 1)', 'rgba(244, 114, 182, 1)'],
+				borderWidth: 1,
+			},
+		],
+	}
+
+	const defaultOptions: ChartOptions<'bar'> = {
+		responsive: true,
+		plugins: {
+			legend: { display: false },
+			title: { display: true, text: 'Usuarios por sexo' },
+		},
+		scales: {
+			y: {
+				beginAtZero: true,
+				ticks: {
+					precision: 0,
+				},
+			},
+		},
+	}
+
+	return (
+		<div className="w-full max-w-2xl rounded-lg bg-slate-800/40 p-4">
+			<Bar data={data ?? defaultData} options={(options as any) ?? defaultOptions} />
+		</div>
+	)
 }
 
 export const LineChart: React.FC<SimpleChartProps<LineData>> = ({
