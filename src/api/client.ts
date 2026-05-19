@@ -56,7 +56,6 @@ export const apiClient = {
   put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body),
   delete: <T>(path: string) => request<T>('DELETE', path),
-  // POST form-urlencoded (used for OAuth2 password grant endpoints expecting form data)
   postForm: async <T>(path: string, form?: Record<string, string>): Promise<T> => {
     const headers: Record<string, string> = {
       'Content-Type': 'application/x-www-form-urlencoded',

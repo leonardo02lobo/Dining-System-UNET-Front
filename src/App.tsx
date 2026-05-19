@@ -4,6 +4,10 @@ import { Header } from './components/layout/Header'
 import { LoginPage } from './pages/LoginPage'
 import { Index } from './pages/Index'
 import { Dashboard } from './pages/Dashboard'
+import { CheckConsumes } from './pages/CheckConsumes'
+import { RegisterDining } from './pages/RegisterDining'
+import { SuspendStudent } from './pages/SuspendStudent'
+import { ListUser } from './pages/ListUser'
 
 export default function App() {
   return (
@@ -14,6 +18,10 @@ export default function App() {
           <Route path="/" element={<Index />}>
             <Route index element={<Dashboard />} />
             <Route path="dashboard" element={<Dashboard />} />
+            <Route path="checkConsumes" element={<CheckConsumes />} />
+            <Route path="registerDining" element={<RegisterDining />} />
+            <Route path="suspendStudent" element={<SuspendStudent />} />
+            <Route path="listUser" element={<ListUser />} />
           </Route>
           <Route path="/login" element={<LoginPage />} />
         </Routes>
