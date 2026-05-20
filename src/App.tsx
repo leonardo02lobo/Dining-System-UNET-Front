@@ -8,6 +8,7 @@ import { CheckConsumes } from './pages/CheckConsumes'
 import { RegisterDining } from './pages/RegisterDining'
 import { SuspendStudent } from './pages/SuspendStudent'
 import { ListUser } from './pages/ListUser'
+import { LoginAuditPage } from './pages/LoginAuditPage'
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
             <Route path="registerDining" element={<RegisterDining />} />
             <Route path="suspendStudent" element={<SuspendStudent />} />
             <Route path="listUser" element={<ListUser />} />
+            <Route path="loginAudit" element={<LoginAuditPage />} />
           </Route>
           <Route path="/login" element={<LoginPage />} />
         </Routes>

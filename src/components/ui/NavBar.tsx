@@ -15,6 +15,7 @@ const navBar: NavItem[] = [
     { to: '/registerDining', label: 'Registrar Consumo',    roles: ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'] },
     { to: '/suspendStudent', label: 'Suspender Estudiante', roles: ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'] },
     { to: '/listUser',       label: 'Listar Usuarios',      roles: ['SUPER_ADMIN', 'ADMIN'] },
+    { to: '/loginAudit',    label: 'Auditoría de Acceso',  roles: ['SUPER_ADMIN', 'ADMIN'] },
 ]
 
 export function NavBar() {
