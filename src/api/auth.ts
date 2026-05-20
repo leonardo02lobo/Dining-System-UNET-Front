@@ -1,4 +1,4 @@
-import { apiClient, tokenStorage } from './client'
+import { apiClient } from './client'
 import type { LoginCredentials, LoginResponse, User } from '../types/auth'
 
 export const authApi = {
@@ -7,8 +7,6 @@ export const authApi = {
       username: credentials.username,
       password: credentials.password,
     })
-
-    tokenStorage.set(tokenResponse.access_token)
 
     const user = await apiClient.get<User>('/users/me')
 
@@ -20,7 +18,7 @@ export const authApi = {
   },
 
   logout: async (): Promise<void> => {
-    tokenStorage.clear()
+    await apiClient.post('/auth/logout')
   },
 
   me: (): Promise<User> => apiClient.get<User>('/users/me'),

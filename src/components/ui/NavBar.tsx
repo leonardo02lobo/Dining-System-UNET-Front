@@ -1,6 +1,31 @@
+import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
+import { authApi } from '../../api/auth'
+import type { RoleName, User } from '../../types/auth'
+
+interface NavItem {
+    to: string
+    label: string
+    roles: RoleName[]
+}
+
+const navBar: NavItem[] = [
+    { to: '/dashboard',      label: 'Dashboard',            roles: ['SUPER_ADMIN'] },
+    { to: '/checkConsumes',  label: 'Consultar Consumo',    roles: ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'] },
+    { to: '/registerDining', label: 'Registrar Consumo',    roles: ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'] },
+    { to: '/suspendStudent', label: 'Suspender Estudiante', roles: ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'] },
+    { to: '/listUser',       label: 'Listar Usuarios',      roles: ['SUPER_ADMIN', 'ADMIN'] },
+]
 
 export function NavBar() {
+    const [user, setUser] = useState<User | null>(null)
+
+    useEffect(() => {
+        authApi.me().then(setUser).catch(() => setUser(null))
+    }, [])
+
+    const visibleLinks = navBar.filter(item => user && item.roles.includes(user.role.name))
+
     return (
         <aside className="flex h-full w-full flex-col gap-6 rounded-3xl bg-slate-950/95 p-6 text-white shadow-2xl ring-1 ring-white/10 backdrop-blur">
             <a href="/" className="flex items-center gap-4 border-b border-white/10 pb-6">
@@ -21,76 +46,23 @@ export function NavBar() {
             </a>
 
             <nav className="flex flex-1 flex-col gap-3">
-                <NavLink
-                    to="/dashboard"
-                    end
-                    className={({ isActive }) =>
-                        [
-                            'rounded-2xl px-4 py-3 text-sm font-medium transition',
-                            isActive
-                                ? 'bg-white/10 text-white'
-                                : 'text-slate-300 hover:bg-white/10 hover:text-white',
-                        ].join(' ')
-                    }
-                >
-                    Dashboard
-                </NavLink>
-                <NavLink
-                    to="/checkConsumes"
-                    end
-                    className={({ isActive }) =>
-                        [
-                            'rounded-2xl px-4 py-3 text-sm font-medium transition',
-                            isActive
-                                ? 'bg-white/10 text-white'
-                                : 'text-slate-300 hover:bg-white/10 hover:text-white',
-                        ].join(' ')
-                    }
-                >
-                    Consultar Consumo
-                </NavLink>
-                <NavLink
-                    to="/registerDining"
-                    end
-                    className={({ isActive }) =>
-                        [
-                            'rounded-2xl px-4 py-3 text-sm font-medium transition',
-                            isActive
-                                ? 'bg-white/10 text-white'
-                                : 'text-slate-300 hover:bg-white/10 hover:text-white',
-                        ].join(' ')
-                    }
-                >
-                    Registrar Consumo
-                </NavLink>
-                <NavLink
-                    to="/suspendStudent"
-                    end
-                    className={({ isActive }) =>
-                        [
-                            'rounded-2xl px-4 py-3 text-sm font-medium transition',
-                            isActive
-                                ? 'bg-white/10 text-white'
-                                : 'text-slate-300 hover:bg-white/10 hover:text-white',
-                        ].join(' ')
-                    }
-                >
-                    Suspender Estudiante
-                </NavLink>
-                <NavLink
-                    to="/listUser"
-                    end
-                    className={({ isActive }) =>
-                        [
-                            'rounded-2xl px-4 py-3 text-sm font-medium transition',
-                            isActive
-                                ? 'bg-white/10 text-white'
-                                : 'text-slate-300 hover:bg-white/10 hover:text-white',
-                        ].join(' ')
-                    }
-                >
-                    Listar Usuarios
-                </NavLink>
+                {visibleLinks.map(({ to, label }) => (
+                    <NavLink
+                        key={to}
+                        to={to}
+                        end
+                        className={({ isActive }) =>
+                            [
+                                'rounded-2xl px-4 py-3 text-sm font-medium transition',
+                                isActive
+                                    ? 'bg-white/10 text-white'
+                                    : 'text-slate-300 hover:bg-white/10 hover:text-white',
+                            ].join(' ')
+                        }
+                    >
+                        {label}
+                    </NavLink>
+                ))}
             </nav>
             <a href="/login" className="flex items-center gap-4 border-b border-white/10 pb-6">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400/15 ring-1 ring-amber-300/30">
