@@ -1,3 +1,5 @@
+export type RoleName = 'SUPER_ADMIN' | 'ADMIN' | 'TAQUILLERO'
+
 export interface LoginCredentials {
   username: string
   password: string
@@ -5,10 +7,13 @@ export interface LoginCredentials {
 
 export interface User {
   id: number
-  username: string
+  name: string
   email: string
-  full_name: string
-  role: 'student' | 'staff' | 'admin'
+  role_id: number
+  role: { id: number; name: RoleName }
+  is_active: boolean
+  created_at: string
+  updated_at: string | null
 }
 
 export interface LoginResponse {

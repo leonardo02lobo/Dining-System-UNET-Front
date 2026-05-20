@@ -17,20 +17,12 @@ async function request<T>(
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
 
-  if (response.status === 204) {
-    return undefined as T
-  }
+  if (response.status === 204) return undefined as T
 
-  const data = await response.json().catch(() => ({
-    message: 'Error de conexión con el servidor',
-  }))
+  const data = await response.json().catch(() => ({ message: 'Error de conexión con el servidor' }))
 
   if (!response.ok) {
-    throw {
-      message: data.message ?? data.detail ?? 'Error del servidor',
-      status: response.status,
-      details: data.details,
-    } as ApiError
+    throw { message: data.message ?? data.detail ?? 'Error del servidor', status: response.status, details: data.details } as ApiError
   }
 
   return data as T
@@ -58,11 +50,7 @@ export const apiClient = {
     const data = await response.json().catch(() => ({ message: 'Error de conexión con el servidor' }))
 
     if (!response.ok) {
-      throw {
-        message: data.message ?? data.detail ?? 'Error del servidor',
-        status: response.status,
-        details: data.details,
-      } as unknown as Error
+      throw { message: data.message ?? data.detail ?? 'Error del servidor', status: response.status, details: data.details } as unknown as Error
     }
 
     return data as T
