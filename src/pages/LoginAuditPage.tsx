@@ -1,128 +1,141 @@
 import { useEffect, useState } from 'react'
 import { auditApi } from '../api/audit'
 import type { LoginAuditEntry } from '../types/audit'
+import { Table, type ColumnDef } from '../components/ui/Table'
+import { Badge, type BadgeVariant } from '../components/ui/Badge'
+import { Button } from '../components/ui/Button'
+import { PageHeader } from '../components/ui/PageHeader'
 
 const PAGE_SIZE = 50
 
 function formatDate(iso: string): string {
-    return new Date(iso).toLocaleString('es-VE', {
-        dateStyle: 'short',
-        timeStyle: 'medium',
-    })
+  return new Date(iso).toLocaleString('es-VE', {
+    dateStyle: 'short',
+    timeStyle: 'medium',
+  })
 }
 
-function roleLabel(role: string): string {
-    const map: Record<string, string> = {
-        SUPER_ADMIN: 'Super Admin',
-        ADMIN: 'Admin',
-        TAQUILLERO: 'Taquillero',
-    }
-    return map[role] ?? role
+const ROLE_MAP: Record<string, { label: string; variant: BadgeVariant }> = {
+  SUPER_ADMIN: { label: 'Super Admin',  variant: 'danger'  },
+  ADMIN:       { label: 'Admin',        variant: 'info'    },
+  TAQUILLERO:  { label: 'Taquillero',   variant: 'neutral' },
 }
 
 export function LoginAuditPage() {
-    const [rows, setRows] = useState<LoginAuditEntry[]>([])
-    const [total, setTotal] = useState(0)
-    const [page, setPage] = useState(0)
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState<string | null>(null)
+  const [rows, setRows]     = useState<LoginAuditEntry[]>([])
+  const [total, setTotal]   = useState(0)
+  const [page, setPage]     = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [error, setError]   = useState<string | null>(null)
 
-    useEffect(() => {
-        setLoading(true)
-        auditApi
-            .getLogs(page * PAGE_SIZE, PAGE_SIZE)
-            .then((data) => {
-                setRows(data.items)
-                setTotal(data.total)
-            })
-            .catch((err: any) => setError(err.message ?? 'Error al cargar los registros'))
-            .finally(() => setLoading(false))
-    }, [page])
+  useEffect(() => {
+    setLoading(true)
+    auditApi
+      .getLogs(page * PAGE_SIZE, PAGE_SIZE)
+      .then((data) => {
+        setRows(data.items)
+        setTotal(data.total)
+      })
+      .catch((err: any) => setError(err.message ?? 'Error al cargar los registros'))
+      .finally(() => setLoading(false))
+  }, [page])
 
-    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
-    return (
-        <div className="p-4">
-            <h2 className="text-xl font-semibold mb-1">Auditoría de Inicio de Sesión</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                {total} registro{total !== 1 ? 's' : ''} en total
-            </p>
+  const columns: ColumnDef<LoginAuditEntry>[] = [
+    {
+      key: 'user_name',
+      header: 'Usuario',
+      sortable: true,
+      render: (_, row) => <span className="font-medium text-slate-800">{row.user_name}</span>,
+    },
+    {
+      key: 'user_email',
+      header: 'Correo',
+      render: (_, row) => <span className="text-slate-500">{row.user_email}</span>,
+    },
+    {
+      key: 'user_role',
+      header: 'Rol',
+      render: (_, row) => {
+        const { label, variant } = ROLE_MAP[row.user_role] ?? { label: row.user_role, variant: 'neutral' as BadgeVariant }
+        return <Badge variant={variant}>{label}</Badge>
+      },
+    },
+    {
+      key: 'ip_address',
+      header: 'IP',
+      render: (_, row) => (
+        <span className="font-mono text-xs text-slate-400">{row.ip_address ?? '—'}</span>
+      ),
+    },
+    {
+      key: 'user_agent',
+      header: 'Dispositivo / Navegador',
+      render: (_, row) => (
+        <span
+          className="block max-w-xs truncate text-xs text-slate-400"
+          title={row.user_agent ?? ''}
+        >
+          {row.user_agent ?? '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'logged_at',
+      header: 'Fecha y Hora',
+      sortable: true,
+      render: (_, row) => (
+        <span className="whitespace-nowrap text-slate-700">{formatDate(row.logged_at)}</span>
+      ),
+    },
+  ]
 
-            {loading && <p className="text-sm text-slate-300">Cargando registros...</p>}
-            {error && <p className="text-sm text-red-400">Error: {error}</p>}
+  return (
+    <div>
+      <PageHeader
+        title="Auditoría de Acceso"
+        subtitle={`${total} registro${total !== 1 ? 's' : ''} en total`}
+      />
 
-            {!loading && !error && (
-                <>
-                    <section className="overflow-x-auto">
-                        <table className="min-w-full bg-white dark:bg-slate-800 rounded-lg text-sm">
-                            <thead>
-                                <tr className="text-left border-b border-slate-200 dark:border-slate-700">
-                                    <th className="px-4 py-3 font-medium">Usuario</th>
-                                    <th className="px-4 py-3 font-medium">Correo</th>
-                                    <th className="px-4 py-3 font-medium">Rol</th>
-                                    <th className="px-4 py-3 font-medium">IP</th>
-                                    <th className="px-4 py-3 font-medium">Dispositivo / Navegador</th>
-                                    <th className="px-4 py-3 font-medium">Fecha y Hora</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {rows.map((r) => (
-                                    <tr
-                                        key={r.id}
-                                        className="border-b border-slate-100 dark:border-slate-700 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-700"
-                                    >
-                                        <td className="px-4 py-3 font-medium">{r.user_name}</td>
-                                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{r.user_email}</td>
-                                        <td className="px-4 py-3">
-                                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
-                                                {roleLabel(r.user_role)}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 font-mono text-xs text-slate-500 dark:text-slate-400">
-                                            {r.ip_address ?? '—'}
-                                        </td>
-                                        <td className="px-4 py-3 max-w-xs truncate text-xs text-slate-500 dark:text-slate-400" title={r.user_agent ?? ''}>
-                                            {r.user_agent ?? '—'}
-                                        </td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-slate-700 dark:text-slate-200">
-                                            {formatDate(r.logged_at)}
-                                        </td>
-                                    </tr>
-                                ))}
-                                {rows.length === 0 && (
-                                    <tr>
-                                        <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
-                                            No hay registros de inicio de sesión.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </section>
-
-                    {totalPages > 1 && (
-                        <div className="mt-4 flex items-center gap-3">
-                            <button
-                                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                                disabled={page === 0}
-                                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40 hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-700"
-                            >
-                                Anterior
-                            </button>
-                            <span className="text-sm text-slate-500">
-                                Página {page + 1} de {totalPages}
-                            </span>
-                            <button
-                                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                                disabled={page >= totalPages - 1}
-                                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40 hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-700"
-                            >
-                                Siguiente
-                            </button>
-                        </div>
-                    )}
-                </>
-            )}
+      {error && (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          Error: {error}
         </div>
-    )
+      )}
+
+      <Table<LoginAuditEntry>
+        columns={columns}
+        rows={rows}
+        keyField="id"
+        loading={loading}
+        emptyMessage="No hay registros de inicio de sesión."
+      />
+
+      {/* Paginación */}
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0}
+          >
+            ← Anterior
+          </Button>
+          <span className="text-sm text-slate-500">
+            Página {page + 1} de {totalPages}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+            disabled={page >= totalPages - 1}
+          >
+            Siguiente →
+          </Button>
+        </div>
+      )}
+    </div>
+  )
 }

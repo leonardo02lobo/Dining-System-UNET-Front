@@ -24,9 +24,9 @@ export function Button({
 }: ButtonProps) {
   const variantClasses = {
     primary:
-      'bg-slate-900 text-white shadow-[0_2px_6px_rgba(30,41,59,0.3)] hover:bg-slate-700 hover:shadow-[0_4px_12px_rgba(30,41,59,0.35)] active:bg-slate-950',
+      'bg-blue-600 text-white shadow-[0_2px_6px_rgba(37,99,235,0.3)] hover:bg-blue-700 hover:shadow-[0_4px_12px_rgba(37,99,235,0.35)] active:bg-blue-800',
     secondary:
-      'border-2 border-slate-900 bg-transparent text-slate-900 hover:border-blue-800 hover:bg-blue-100',
+      'border-2 border-slate-300 bg-white text-slate-700 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700',
     ghost: 'bg-transparent text-slate-500 hover:bg-slate-200 hover:text-slate-900',
     danger: 'bg-red-600 text-white hover:bg-red-700',
   } as const

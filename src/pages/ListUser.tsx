@@ -1,110 +1,165 @@
 import { useEffect, useState } from 'react'
-import { Row } from '../types/user'
+import { FileDown, UserPlus } from 'lucide-react'
 import { getData } from '../api/user'
+import type { Row } from '../types/user'
+import { Table, type ColumnDef } from '../components/ui/Table'
+import { Badge } from '../components/ui/Badge'
+import { Avatar } from '../components/ui/Avatar'
+import { Button } from '../components/ui/Button'
+import { PageHeader } from '../components/ui/PageHeader'
+import { SearchInput } from '../components/ui/SearchInput'
+import { Select } from '../components/ui/Select'
+import { Pencil, Trash2 } from 'lucide-react'
 
 export function ListUser() {
-    const [rows, setRows] = useState<Row[]>([])
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState<string | null>(null)
-    const [selectedGender, setSelectedGender] = useState('all')
-    const [selectedCareer, setSelectedCareer] = useState('all')
+  const [rows, setRows]               = useState<Row[]>([])
+  const [loading, setLoading]         = useState(true)
+  const [error, setError]             = useState<string | null>(null)
+  const [search, setSearch]           = useState('')
+  const [selectedGender, setGender]   = useState('all')
+  const [selectedCareer, setCareer]   = useState('all')
 
-    useEffect(() => {
-        const loadData = async () => {
-            try {
-                const dataRows = await getData()
-                setRows(dataRows)
-            } catch (err: any) {
-                console.error(err)
-                setError(err.message ?? 'Error desconocido')
-            } finally {
-                setLoading(false)
-            }
+  useEffect(() => {
+    void (async () => {
+      try {
+        const data = await getData()
+        setRows(data)
+      } catch (err: any) {
+        setError(err.message ?? 'Error desconocido')
+      } finally {
+        setLoading(false)
+      }
+    })()
+  }, [])
+
+  const careerOptions = [
+    { value: 'all', label: 'Todas las carreras' },
+    ...[...new Set(rows.map((r) => r.career))].sort().map((c) => ({ value: c, label: c })),
+  ]
+
+  const genderOptions = [
+    { value: 'all',    label: 'Todos' },
+    { value: 'male',   label: 'Masculino' },
+    { value: 'female', label: 'Femenino' },
+  ]
+
+  const filtered = rows.filter((r) => {
+    const matchGender = selectedGender === 'all' || r.gender === selectedGender
+    const matchCareer = selectedCareer === 'all' || r.career === selectedCareer
+    const matchSearch = search === '' ||
+      r.name.toLowerCase().includes(search.toLowerCase()) ||
+      r.email.toLowerCase().includes(search.toLowerCase())
+    return matchGender && matchCareer && matchSearch
+  })
+
+  const columns: ColumnDef<Row>[] = [
+    {
+      key: 'picture',
+      header: 'Foto',
+      width: '60px',
+      render: (_, row) => <Avatar name={row.name} size="sm" />,
+    },
+    {
+      key: 'name',
+      header: 'Nombre',
+      sortable: true,
+      render: (_, row) => <span className="font-medium text-slate-800">{row.name}</span>,
+    },
+    {
+      key: 'career',
+      header: 'Carrera',
+      sortable: true,
+    },
+    {
+      key: 'email',
+      header: 'Correo',
+      render: (_, row) => <span className="text-slate-500">{row.email}</span>,
+    },
+    {
+      key: 'gender',
+      header: 'Estado',
+      render: () => <Badge variant="success">Activo</Badge>,
+    },
+    {
+      key: 'gender',
+      header: 'Rol',
+      render: () => <Badge variant="info">Estudiante</Badge>,
+    },
+  ]
+
+  return (
+    <div>
+      <PageHeader
+        title="Directorio de Usuarios"
+        subtitle={`${filtered.length} usuario${filtered.length !== 1 ? 's' : ''} encontrado${filtered.length !== 1 ? 's' : ''}`}
+        actions={
+          <>
+            <Button variant="primary" leftIcon={<UserPlus size={15} />} size="sm">
+              Nuevo Usuario
+            </Button>
+            <Button variant="secondary" leftIcon={<FileDown size={15} />} size="sm">
+              Exportar PDF
+            </Button>
+          </>
         }
+      />
 
-        void loadData()
-    }, [])
-
-    if (loading) return <p className="text-sm text-slate-300">Cargando usuarios...</p>
-    if (error) return <p className="text-sm text-red-400">Error: {error}</p>
-
-    const careerOptions = [...new Set(rows.map((row) => row.career))].sort()
-
-    const filteredRows = rows.filter((row) => {
-        const genderMatch = selectedGender === 'all' || row.gender === selectedGender
-        const careerMatch = selectedCareer === 'all' || row.career === selectedCareer
-
-        return genderMatch && careerMatch
-    })
-
-    return (
-        <div className="p-4">
-            <h2 className="text-xl font-semibold mb-4">Listado de usuarios</h2>
-            <section>
-                <h3 className="text-xl font-semibold mb-4">Grupo de Filtros</h3>
-                <div className="grid gap-4 md:grid-cols-2 mb-4">
-                    <label className="flex flex-col gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-                        Filtrar por sexo
-                        <select
-                            value={selectedGender}
-                            onChange={(event) => setSelectedGender(event.target.value)}
-                            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-sm outline-none transition focus:border-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                        >
-                            <option value="all">Todos</option>
-                            <option value="male">Masculino</option>
-                            <option value="female">Femenino</option>
-                        </select>
-                    </label>
-
-                    <label className="flex flex-col gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-                        Filtrar por carrera
-                        <select
-                            value={selectedCareer}
-                            onChange={(event) => setSelectedCareer(event.target.value)}
-                            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-sm outline-none transition focus:border-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                        >
-                            <option value="all">Todas</option>
-                            {careerOptions.map((career) => (
-                                <option key={career} value={career}>
-                                    {career}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                </div>
-            </section>
-            <section className="overflow-x-auto">
-                <table className="min-w-full bg-white dark:bg-slate-800 rounded-lg">
-                    <thead>
-                        <tr className="text-left border-b">
-                            <th className="px-4 py-2">Nombre</th>
-                            <th className="px-4 py-2">Carrera</th>
-                            <th className="px-4 py-2">Correo</th>
-                            <th className="px-4 py-2">Sexo</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredRows.map((r, idx) => (
-                            <tr key={idx} className="border-b last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-700">
-                                <td className="px-4 py-3 flex flex-row items-center gap-4">
-                                    <img src={r.picture} alt={r.name} className="w-10 h-10 rounded-full" />
-                                    {r.name}
-                                </td>
-                                <td className="px-4 py-3">{r.career}</td>
-                                <td className="px-4 py-3 text-sm text-slate-600">{r.email}</td>
-                                <td className="px-4 py-3 capitalize">{r.gender}</td>
-                            </tr>
-                        ))}
-                        {filteredRows.length === 0 && (
-                            <tr>
-                                <td colSpan={4} className="px-4 py-6 text-center text-sm text-slate-500">
-                                    No hay resultados para los filtros seleccionados.
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-            </section>
+      {error && (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          Error: {error}
         </div>
-    )
+      )}
+
+      {/* Filtros */}
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <SearchInput
+          placeholder="Buscar por nombre o correo..."
+          fullWidth={false}
+          className="w-64"
+          onSearch={setSearch}
+          debounceMs={200}
+        />
+        <Select
+          options={genderOptions}
+          value={selectedGender}
+          onChange={(e) => setGender(e.target.value)}
+          className="w-44"
+        />
+        <Select
+          options={careerOptions}
+          value={selectedCareer}
+          onChange={(e) => setCareer(e.target.value)}
+          className="w-56"
+        />
+      </div>
+
+      <Table<Row>
+        columns={columns}
+        rows={filtered}
+        keyField="email"
+        loading={loading}
+        emptyMessage="No hay usuarios para los filtros seleccionados."
+        actions={(row) => (
+          <>
+            <button
+              type="button"
+              title="Editar"
+              className="rounded p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
+              onClick={() => console.log('Editar', row.name)}
+            >
+              <Pencil size={14} />
+            </button>
+            <button
+              type="button"
+              title="Eliminar"
+              className="rounded p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+              onClick={() => console.log('Eliminar', row.name)}
+            >
+              <Trash2 size={14} />
+            </button>
+          </>
+        )}
+      />
+    </div>
+  )
 }

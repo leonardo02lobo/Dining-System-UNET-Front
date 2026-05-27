@@ -1,5 +1,148 @@
-export function SuspendStudent(){
-    return (
-        <h1>Suspend Student</h1>
-    )
+import { useState } from 'react'
+import { Search } from 'lucide-react'
+import { Button } from '../components/ui/Button'
+import { Card } from '../components/ui/Card'
+import { Input } from '../components/ui/Input'
+import { PageHeader } from '../components/ui/PageHeader'
+import { Avatar } from '../components/ui/Avatar'
+import { Badge } from '../components/ui/Badge'
+import { Spinner } from '../components/ui/Spinner'
+import type { Student } from '../types/user'
+
+export function SuspendStudent() {
+  const [cedula, setCedula]     = useState('')
+  const [student, setStudent]   = useState<Student | null>(null)
+  const [loading, setLoading]   = useState(false)
+  const [saving, setSaving]     = useState(false)
+  const [error, setError]       = useState<string | null>(null)
+  const [searched, setSearched] = useState(false)
+
+  async function handleSearch() {
+    if (!cedula.trim()) return
+    setLoading(true)
+    setError(null)
+    setSearched(true)
+
+    try {
+      // TODO: reemplazar con llamada real a la API
+      // const result = await userApi.getStudentByCedula(cedula)
+      await new Promise((r) => setTimeout(r, 600))
+      setStudent(null)
+    } catch (err: any) {
+      setError(err.message ?? 'Error al consultar')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleToggleSuspend() {
+    if (!student) return
+    setSaving(true)
+    try {
+      // TODO: llamada real a la API
+      // await userApi.setSuspension(student.cedula, !student.is_suspended)
+      await new Promise((r) => setTimeout(r, 500))
+      setStudent((prev) => prev ? { ...prev, is_suspended: !prev.is_suspended } : prev)
+    } catch (err: any) {
+      setError(err.message ?? 'Error al guardar')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') void handleSearch()
+  }
+
+  return (
+    <div>
+      <PageHeader
+        title="Gestión de Estudiante"
+        subtitle="Consulta y administra el acceso al comedor de un estudiante"
+      />
+
+      {/* Búsqueda */}
+      <Card variant="outlined" padding="md" className="mb-6">
+        <div className="flex items-end gap-3">
+          <Input
+            id="cedula-suspend"
+            label="Cédula o Carnet"
+            placeholder="Ej: V-12345678"
+            value={cedula}
+            onChange={(e) => setCedula(e.target.value)}
+            onKeyDown={handleKeyDown}
+            leftIcon={<Search size={16} />}
+            fullWidth
+          />
+          <Button
+            variant="primary"
+            onClick={handleSearch}
+            loading={loading}
+            className="flex-shrink-0"
+          >
+            Consultar
+          </Button>
+        </div>
+      </Card>
+
+      {loading && (
+        <div className="flex justify-center py-12">
+          <Spinner size="lg" />
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {error}
+        </div>
+      )}
+
+      {!loading && searched && !student && !error && (
+        <div className="rounded-md border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-400">
+          No se encontró ningún estudiante con la cédula <strong>{cedula}</strong>.
+        </div>
+      )}
+
+      {/* Perfil del estudiante */}
+      {!loading && student && (
+        <Card variant="outlined" padding="lg">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
+            {/* Avatar */}
+            <div className="flex flex-col items-center gap-3">
+              <Avatar name={student.name} size="xl" />
+              <Badge variant={student.is_suspended ? 'danger' : 'success'}>
+                {student.is_suspended ? 'Suspendido' : 'Activo'}
+              </Badge>
+            </div>
+
+            {/* Campos solo lectura */}
+            <div className="flex flex-1 flex-col gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Input label="Documento"       value={student.cedula}    readOnly fullWidth />
+                <Input label="Nombre"          value={student.name}      readOnly fullWidth />
+                <Input label="Carrera"         value={student.career}    readOnly fullWidth />
+                <Input label="Tipo de Usuario" value={student.user_type} readOnly fullWidth />
+              </div>
+
+              {/* Acciones */}
+              <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
+                {student.is_suspended ? (
+                  <Button variant="secondary" onClick={handleToggleSuspend} loading={saving}>
+                    Reactivar acceso
+                  </Button>
+                ) : (
+                  <Button variant="danger" onClick={handleToggleSuspend} loading={saving}>
+                    Suspender acceso
+                  </Button>
+                )}
+                <Button variant="primary" disabled={saving}>
+                  Guardar Cambios
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+    </div>
+  )
 }

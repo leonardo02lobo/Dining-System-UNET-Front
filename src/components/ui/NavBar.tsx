@@ -1,83 +1,127 @@
-import { useEffect, useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { Lock, RotateCcw } from 'lucide-react'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { authApi } from '../../api/auth'
-import type { RoleName, User } from '../../types/auth'
+import { useAuth } from '../../context/AuthContext'
+import type { RoleName } from '../../types/auth'
 
 interface NavItem {
-    to: string
-    label: string
-    roles: RoleName[]
+  to: string
+  label: string
+  roles: RoleName[]
 }
 
-const navBar: NavItem[] = [
-    { to: '/dashboard',      label: 'Dashboard',            roles: ['SUPER_ADMIN'] },
-    { to: '/checkConsumes',  label: 'Consultar Consumo',    roles: ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'] },
-    { to: '/registerDining', label: 'Registrar Consumo',    roles: ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'] },
-    { to: '/suspendStudent', label: 'Suspender Estudiante', roles: ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'] },
-    { to: '/listUser',       label: 'Listar Usuarios',      roles: ['SUPER_ADMIN', 'ADMIN'] },
-    { to: '/loginAudit',    label: 'Auditoría de Acceso',  roles: ['SUPER_ADMIN', 'ADMIN'] },
+interface NavGroup {
+  label: string
+  items: NavItem[]
+}
+
+const navGroups: NavGroup[] = [
+  {
+    label: 'Comedor',
+    items: [
+      { to: '/comedor/consultar', label: 'Consultar Consumo',    roles: ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'] },
+      { to: '/comedor/registrar', label: 'Registro al Comedor',  roles: ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'] },
+      { to: '/comedor/reporte',   label: 'Reporte de Comedor',   roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/suspendStudent',    label: 'Suspender Usuario',    roles: ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'] },
+      { to: '/usuarios',          label: 'Lista de Usuario',     roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/dashboard',         label: 'Dashboard',            roles: ['SUPER_ADMIN', 'ADMIN'] },
+    ],
+  },
+  {
+    label: 'Inventario',
+    items: [
+      { to: '/inventario',       label: 'Registrar Inventario', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/inventario/crear', label: 'Crear Almuerzo',       roles: ['SUPER_ADMIN', 'ADMIN'] },
+    ],
+  },
+  {
+    label: 'Administración',
+    items: [
+      { to: '/auditoria', label: 'Auditoría de Acceso', roles: ['SUPER_ADMIN', 'ADMIN'] },
+    ],
+  },
 ]
 
 export function NavBar() {
-    const [user, setUser] = useState<User | null>(null)
+  const { user } = useAuth()
+  const navigate = useNavigate()
 
-    useEffect(() => {
-        authApi.me().then(setUser).catch(() => setUser(null))
-    }, [])
+  async function handleLogout() {
+    try {
+      await authApi.logout()
+    } catch {
+      // ignorar errores al cerrar sesión
+    }
+    navigate('/login')
+  }
 
-    const visibleLinks = navBar.filter(item => user && item.roles.includes(user.role.name))
+  const role = user?.role.name
 
-    return (
-        <aside className="flex h-full w-full flex-col gap-6 rounded-3xl bg-slate-950/95 p-6 text-white shadow-2xl ring-1 ring-white/10 backdrop-blur">
-            <a href="/" className="flex items-center gap-4 border-b border-white/10 pb-6">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400/15 ring-1 ring-amber-300/30">
-                    <img
-                        src="/assets/Atras.png"
-                        alt="Menú principal"
-                        className="h-8 w-8 object-contain"
-                    />
-                </div>
+  return (
+    <nav className="flex h-full flex-col bg-white">
 
-                <div>
-                    <p className="text-xs uppercase tracking-[0.3em] text-amber-200/80">
-                        Sistema
-                    </p>
-                    <h2 className="text-lg font-semibold leading-tight">Menú Principal</h2>
-                </div>
-            </a>
+      {/* ── Menu Principal ─────────────────────────── */}
+      <NavLink
+        to="/"
+        end
+        className="flex items-center gap-2 px-4 py-3 text-base font-bold text-slate-800 hover:bg-slate-50 transition-colors"
+      >
+        <RotateCcw size={22} className="text-green-500 flex-shrink-0" />
+        Menu Principal
+      </NavLink>
 
-            <nav className="flex flex-1 flex-col gap-3">
-                {visibleLinks.map(({ to, label }) => (
+      <hr className="border-slate-300" />
+
+      {/* ── Grupos ─────────────────────────────────── */}
+      <div className="flex flex-1 flex-col overflow-y-auto">
+        {navGroups.map((group) => {
+          const visible = group.items.filter(
+            (item) => role && item.roles.includes(role)
+          )
+          if (visible.length === 0) return null
+
+          return (
+            <div key={group.label}>
+              {/* Cabecera del grupo */}
+              <p className="px-4 pt-4 pb-1 text-sm font-bold text-slate-900">
+                {group.label}
+              </p>
+
+              {/* Items */}
+              <ul>
+                {visible.map((item) => (
+                  <li key={item.to}>
                     <NavLink
-                        key={to}
-                        to={to}
-                        end
-                        className={({ isActive }) =>
-                            [
-                                'rounded-2xl px-4 py-3 text-sm font-medium transition',
-                                isActive
-                                    ? 'bg-white/10 text-white'
-                                    : 'text-slate-300 hover:bg-white/10 hover:text-white',
-                            ].join(' ')
-                        }
+                      to={item.to}
+                      className={({ isActive }) =>
+                        `block px-6 py-1.5 text-sm transition-colors ${
+                          isActive
+                            ? 'font-semibold text-blue-600 bg-blue-50 border-l-2 border-blue-600'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                        }`
+                      }
                     >
-                        {label}
+                      {item.label}
                     </NavLink>
+                  </li>
                 ))}
-            </nav>
-            <a href="/login" className="flex items-center gap-4 border-b border-white/10 pb-6">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400/15 ring-1 ring-amber-300/30">
-                    <img
-                        src="/assets/logout4.png"
-                        alt="Menú principal"
-                        className="h-8 w-8 object-contain"
-                    />
-                </div>
+              </ul>
 
-                <div>
-                    <h2 className="text-lg font-semibold leading-tight">Cerrar Sesion</h2>
-                </div>
-            </a>
-        </aside>
-    )
+              <hr className="mt-3 border-slate-300" />
+            </div>
+          )
+        })}
+      </div>
+
+      {/* ── Cierra Sesion ──────────────────────────── */}
+      <button
+        type="button"
+        onClick={handleLogout}
+        className="flex items-center gap-2 px-4 py-3 text-base font-bold text-slate-800 hover:bg-red-50 hover:text-red-600 transition-colors"
+      >
+        <Lock size={20} className="text-red-500 flex-shrink-0" />
+        Cierra Sesion
+      </button>
+    </nav>
+  )
 }

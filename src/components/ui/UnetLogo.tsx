@@ -1,9 +1,8 @@
-export function UnetLogo() {
+export function UnetLogo({ className = 'h-16 w-16' }: { className?: string }) {
   return (
     <img
-      src="/assets/logo-unet.png"
       alt="UNET"
-      className="h-24 w-24 object-contain"
+      className={`object-contain ${className}`}
     />
   )
 }
