@@ -1,10 +1,11 @@
 import { AlertCircle, Lock, User } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import React, { useState } from 'react'
 import { authApi } from '../api/auth'
 import type { ApiError, LoginCredentials } from '../types/auth'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
+import { Header } from '../components/layout/Header'
 
 export function LoginPage() {
   const [credentials, setCredentials] = useState<LoginCredentials>({
@@ -27,7 +28,7 @@ export function LoginPage() {
     return Object.keys(next).length === 0
   }
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setApiError(null)
     if (!validate()) return
@@ -51,95 +52,96 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <div className="w-full max-w-sm">
-        <Card variant="elevated" padding="none" className="overflow-hidden">
-          {/* Cabecera de la card */}
-          <div className="flex flex-col items-center gap-3 border-b border-slate-100 bg-white px-8 py-7">
-            <img
-              alt="UNET"
-              className="h-20 w-20 object-contain"
-            />
-            <div className="text-center">
-              <h1 className="text-lg font-bold text-slate-800">Sistema de Comedor</h1>
-              <p className="text-xs text-slate-500">
-                Universidad Nacional Experimental del Táchira
-              </p>
-            </div>
-          </div>
-
-          {/* Formulario */}
-          <form className="flex flex-col gap-4 bg-white px-8 py-6" onSubmit={handleSubmit} noValidate>
-            {apiError && (
-              <div
-                className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3.5 py-3 text-sm font-medium leading-6 text-red-600"
-                role="alert"
-              >
-                <AlertCircle size={16} className="mt-px flex-shrink-0" />
-                <span>{apiError}</span>
-              </div>
-            )}
-
-            <Input
-              id="username"
-              label="Cédula / Usuario"
-              type="text"
-              placeholder="Ej: V-12345678"
-              autoComplete="username"
-              autoFocus
-              fullWidth
-              leftIcon={<User size={16} />}
-              value={credentials.username}
-              onChange={(e) => {
-                setCredentials((c) => ({ ...c, username: e.target.value }))
-                if (errors.username) setErrors((er) => ({ ...er, username: undefined }))
-              }}
-              error={errors.username}
-            />
-
-            <Input
-              id="password"
-              label="Contraseña"
-              type="password"
-              placeholder="Ingresa tu contraseña"
-              autoComplete="current-password"
-              fullWidth
-              leftIcon={<Lock size={16} />}
-              value={credentials.password}
-              onChange={(e) => {
-                setCredentials((c) => ({ ...c, password: e.target.value }))
-                if (errors.password) setErrors((er) => ({ ...er, password: undefined }))
-              }}
-              error={errors.password}
-            />
-
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              fullWidth
-              loading={loading}
-              rightIcon={<span className="text-lg">→</span>}
-            >
-              Iniciar Sesión
-            </Button>
-
-            <div className="text-center">
-              <a
-                href="#"
-                className="text-xs text-slate-400 transition hover:text-slate-600"
-                onClick={(e) => e.preventDefault()}
-              >
-                ¿Olvidaste tu contraseña?
-              </a>
-            </div>
-          </form>
-        </Card>
-
-        <p className="mt-4 text-center text-xs text-slate-400">
-          Estudiantes · Personal administrativo · Personal docente
-        </p>
+    <>
+      <div className="fixed top-0 left-0 w-full z-10">
+        <Header />
       </div>
-    </div>
+
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 pt-20">
+        <div className="w-full max-w-sm">
+          <Card variant="elevated" padding="none" className="overflow-hidden">
+            <div className="flex flex-col items-center gap-3 border-b border-slate-100 bg-white px-8 py-7">
+              <div className="text-center">
+                <h1 className="text-lg font-bold text-slate-800">Sistema de Comedor</h1>
+                <p className="text-xs text-slate-500">
+                  Universidad Nacional Experimental del Táchira
+                </p>
+              </div>
+            </div>
+
+            {/* Formulario */}
+            <form className="flex flex-col gap-4 bg-white px-8 py-6" onSubmit={handleSubmit} noValidate>
+              {apiError && (
+                <div
+                  className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3.5 py-3 text-sm font-medium leading-6 text-red-600"
+                  role="alert"
+                >
+                  <AlertCircle size={16} className="mt-px flex-shrink-0" />
+                  <span>{apiError}</span>
+                </div>
+              )}
+
+              <Input
+                id="username"
+                label="Cédula / Usuario"
+                type="text"
+                placeholder="Ej: V-12345678"
+                autoComplete="username"
+                autoFocus
+                fullWidth
+                leftIcon={<User size={16} />}
+                value={credentials.username}
+                onChange={(e) => {
+                  setCredentials((c) => ({ ...c, username: e.target.value }))
+                  if (errors.username) setErrors((er) => ({ ...er, username: undefined }))
+                }}
+                error={errors.username}
+              />
+
+              <Input
+                id="password"
+                label="Contraseña"
+                type="password"
+                placeholder="Ingresa tu contraseña"
+                autoComplete="current-password"
+                fullWidth
+                leftIcon={<Lock size={16} />}
+                value={credentials.password}
+                onChange={(e) => {
+                  setCredentials((c) => ({ ...c, password: e.target.value }))
+                  if (errors.password) setErrors((er) => ({ ...er, password: undefined }))
+                }}
+                error={errors.password}
+              />
+
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                fullWidth
+                loading={loading}
+                rightIcon={<span className="text-lg">→</span>}
+              >
+                Iniciar Sesión
+              </Button>
+
+              <div className="text-center">
+                <a
+                  href="#"
+                  className="text-xs text-slate-400 transition hover:text-slate-600"
+                  onClick={(e) => e.preventDefault()}
+                >
+                  ¿Olvidaste tu contraseña?
+                </a>
+              </div>
+            </form>
+          </Card>
+
+          <p className="mt-4 text-center text-xs text-slate-400">
+            Estudiantes · Personal administrativo · Personal docente
+          </p>
+        </div>
+      </div>
+    </>
   )
 }

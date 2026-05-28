@@ -1,35 +1,57 @@
-export function Header() {
+import { useState } from "react";
+
+interface Props {
+  isLogin?: boolean;
+}
+export function Header({isLogin}: Props) {
+  const [date, setDate] = useState(new Date())
+  const styles = isLogin
+    ? "flex-shrink-0 border-b bg-gradient-to-b from-[#03216A] via-[#7D8EB7] to-[#EBEFF4] p-4"
+    : "flex-shrink-0 border-b bg-gradient-to-b from-[#03216A] to-[#7D8EB7] p-4"
   return (
-    <header className="flex-shrink-0 border-b border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between px-6 py-3">
-        {/* Logo UNET + Nombre institución */}
+    <header className={styles}>
+      <div className="flex items-center justify-between px-6 py-3 bg-white rounded-2xl">
         <div className="flex items-center gap-4">
           <img
+            src="assets/logo-unet.png"
             alt="UNET"
-            className="h-14 w-14 object-contain"
+            className="h-36 w-36 object-contain"
           />
           <div className="flex flex-col gap-0.5">
-            <span className="text-sm font-bold leading-tight text-slate-800">
+            <span className="text-2xl font-bold leading-tight text-slate-800">
               UNIVERSIDAD NACIONAL EXPERIMENTAL DEL TÁCHIRA
             </span>
-            <span className="text-xs font-semibold text-slate-700">
-              SECRETARÍA
+            <span className="text-xl font-bold leading-tight text-slate-800">
+              VICERRECTORADO ACADEMICO
             </span>
-            <span className="text-[11px] text-slate-500">
-              COORDINACIÓN DE CONTROL Y EVALUACIÓN ESTUDIANTIL
+            <span className="text-xl font-bold leading-tight text-slate-800">
+              DECANATO DE DESARROLLO ESTUDIANTIL
             </span>
           </div>
         </div>
-
-        {/* Logo Decanato */}
         <div className="hidden flex-col items-end gap-1 md:flex">
           <img
+            src="assets/LOGO DECANATO.png"
             alt="Decanato de Orlando Student"
-            className="h-14 w-14 object-contain"
+            className="h-36 w-96 object-contain"
           />
           <span className="text-[10px] text-slate-400">Decanato</span>
         </div>
       </div>
+      {
+        isLogin && (
+          <div className="flex flex-row gap-1 font-bold justify-end p-3 text-xl">
+            <span>Hola Leonardo</span>
+            <img
+              src="assets/cara_normal.png"
+              alt="Cara normal"
+              className="h-6 w-6 object-contain"
+            />
+            <span>, Bienvenid@ a la sección para Administrador - </span>
+            <span>{date.toLocaleDateString()} {date.toLocaleTimeString()}</span>
+          </div>
+        )
+      }
     </header>
   )
 }

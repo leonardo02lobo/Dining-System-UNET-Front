@@ -8,7 +8,7 @@ export function Index() {
   return (
     <div className="flex h-screen flex-col bg-white">
       {/* Cabecera institucional */}
-      <Header />
+      <Header isLogin={true}/>
 
       {/* Barra de bienvenida con usuario y hora */}
       <GreetingBar />
