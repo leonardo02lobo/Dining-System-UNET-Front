@@ -40,7 +40,7 @@ export function Header({isLogin}: Props) {
       </div>
       {
         isLogin && (
-          <div className="flex flex-row gap-1 font-bold justify-end p-3 text-xl">
+          <div className="flex flex-row gap-1 font-bold justify-end p-3 text-xl sm:text-sm">
             <span>Hola Leonardo</span>
             <img
               src="assets/cara_normal.png"

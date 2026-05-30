@@ -22,7 +22,6 @@ export default function App() {
 
           {/* Layout principal con Header, GreetingBar, NavBar y Footer */}
           <Route path="/" element={<Index />}>
-            <Route index element={<Dashboard />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="comedor/consultar" element={<CheckConsumes />} />
             <Route path="comedor/registrar" element={<RegisterDining />} />

@@ -24,10 +24,15 @@ export function SuspendStudent() {
     setSearched(true)
 
     try {
-      // TODO: reemplazar con llamada real a la API
-      // const result = await userApi.getStudentByCedula(cedula)
       await new Promise((r) => setTimeout(r, 600))
-      setStudent(null)
+      setStudent({
+        "name": "Leonardo",
+        "cedula": "31489733",
+        "is_suspended": false,
+        "career": "Ing Informatica",
+        "user_type": "SUPER ADMIN",
+        "avatar_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQZ_gxAoOejX4BRTVTVejghk8MTbqJNivs1IQ&s",
+      })
     } catch (err: any) {
       setError(err.message ?? 'Error al consultar')
     } finally {
@@ -39,8 +44,6 @@ export function SuspendStudent() {
     if (!student) return
     setSaving(true)
     try {
-      // TODO: llamada real a la API
-      // await userApi.setSuspension(student.cedula, !student.is_suspended)
       await new Promise((r) => setTimeout(r, 500))
       setStudent((prev) => prev ? { ...prev, is_suspended: !prev.is_suspended } : prev)
     } catch (err: any) {
@@ -61,7 +64,6 @@ export function SuspendStudent() {
         subtitle="Consulta y administra el acceso al comedor de un estudiante"
       />
 
-      {/* Búsqueda */}
       <Card variant="outlined" padding="md" className="mb-6">
         <div className="flex items-end gap-3">
           <Input
@@ -103,28 +105,45 @@ export function SuspendStudent() {
         </div>
       )}
 
-      {/* Perfil del estudiante */}
       {!loading && student && (
         <Card variant="outlined" padding="lg">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-            {/* Avatar */}
             <div className="flex flex-col items-center gap-3">
-              <Avatar name={student.name} size="xl" />
+              <Avatar name={student.name} src={student.avatar_url}/>
               <Badge variant={student.is_suspended ? 'danger' : 'success'}>
                 {student.is_suspended ? 'Suspendido' : 'Activo'}
               </Badge>
             </div>
-
-            {/* Campos solo lectura */}
             <div className="flex flex-1 flex-col gap-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Input label="Documento"       value={student.cedula}    readOnly fullWidth />
-                <Input label="Nombre"          value={student.name}      readOnly fullWidth />
-                <Input label="Carrera"         value={student.career}    readOnly fullWidth />
-                <Input label="Tipo de Usuario" value={student.user_type} readOnly fullWidth />
+              <div className='flex flex-row gap-14 justify-center items-center'>
+                <p className="text-xs uppercase tracking-wide text-slate-400 w-48">Documento</p>
+                <Input
+                  value={student.cedula}
+                  fullWidth
+                />
+              </div>
+              <div className='flex flex-row gap-14 justify-center items-center'>
+                <p className="text-xs uppercase tracking-wide text-slate-400 w-48">Nombre</p>
+                <Input
+                  value={student.name}
+                  fullWidth
+                />
+              </div>
+              <div className='flex flex-row gap-14 justify-center items-center'>
+                <p className="text-xs uppercase tracking-wide text-slate-400 w-48">Carrera</p>
+                <Input
+                  value={student.career}
+                  fullWidth
+                />
+              </div>
+              <div className='flex flex-row gap-14 justify-center items-center'>
+                <p className="text-xs uppercase tracking-wide text-slate-400 w-48">Tipo de Usuario</p>
+                <Input
+                  value={student.user_type}
+                  fullWidth
+                />
               </div>
 
-              {/* Acciones */}
               <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
                 {student.is_suspended ? (
                   <Button variant="secondary" onClick={handleToggleSuspend} loading={saving}>
@@ -135,9 +154,6 @@ export function SuspendStudent() {
                     Suspender acceso
                   </Button>
                 )}
-                <Button variant="primary" disabled={saving}>
-                  Guardar Cambios
-                </Button>
               </div>
             </div>
           </div>
