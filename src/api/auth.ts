@@ -21,5 +21,5 @@ export const authApi = {
     await apiClient.post('/auth/logout')
   },
 
-  me: (): Promise<User> => apiClient.get<User>('/users/me'),
+  me: (): Promise<User> => apiClient.get<User>('/users/me', { noRefresh: true }),
 }

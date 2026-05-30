@@ -4,7 +4,7 @@ interface Props {
   isLogin?: boolean;
 }
 export function Header({isLogin}: Props) {
-  const [date, setDate] = useState(new Date())
+  const [date] = useState(new Date())
   const styles = isLogin
     ? "flex-shrink-0 border-b bg-gradient-to-b from-[#03216A] via-[#7D8EB7] to-[#EBEFF4] p-4"
     : "flex-shrink-0 border-b bg-gradient-to-b from-[#03216A] to-[#7D8EB7] p-4"

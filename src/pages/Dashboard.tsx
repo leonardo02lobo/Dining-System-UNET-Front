@@ -1,20 +1,20 @@
 import { useEffect, useState } from 'react'
-import { getData } from '../api/user'
-import type { Row } from '../types/user'
+import { userApi } from '../api/user'
+import type { UserAccount } from '../types/user'
 import { BarChart, PieChart } from '../components/ui/Chart'
 import { Card } from '../components/ui/Card'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Spinner } from '../components/ui/Spinner'
 
 export function Dashboard() {
-  const [rows, setRows] = useState<Row[]>([])
+  const [rows, setRows] = useState<UserAccount[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     void (async () => {
       try {
-        const dataRows = await getData()
+        const dataRows = await userApi.list()
         setRows(dataRows)
       } catch (err: any) {
         setError(err.message ?? 'Error desconocido')
@@ -24,23 +24,22 @@ export function Dashboard() {
     })()
   }, [])
 
-  const genderCounts = rows.reduce(
+  const roleCounts = rows.reduce(
     (acc, row) => {
-      if (row.gender === 'male') acc.male += 1
-      if (row.gender === 'female') acc.female += 1
+      acc[row.role.name] = (acc[row.role.name] ?? 0) + 1
       return acc
     },
-    { male: 0, female: 0 }
+    {} as Record<string, number>
   )
 
   const genderChartData = {
-    labels: ['Hombres', 'Mujeres'],
+    labels: ['Super Admin', 'Admin', 'Taquillero'],
     datasets: [
       {
         label: 'Cantidad de usuarios',
-        data: [genderCounts.male, genderCounts.female],
-        backgroundColor: ['rgba(37, 99, 235, 0.7)', 'rgba(244, 114, 182, 0.7)'],
-        borderColor:     ['rgba(37, 99, 235, 1)',   'rgba(244, 114, 182, 1)'],
+        data: [roleCounts['SUPER_ADMIN'] ?? 0, roleCounts['ADMIN'] ?? 0, roleCounts['TAQUILLERO'] ?? 0],
+        backgroundColor: ['rgba(37, 99, 235, 0.7)', 'rgba(251, 146, 60, 0.7)', 'rgba(100, 116, 139, 0.7)'],
+        borderColor:     ['rgba(37, 99, 235, 1)',   'rgba(251, 146, 60, 1)',   'rgba(100, 116, 139, 1)'  ],
         borderWidth: 1,
         borderRadius: 4,
       },
@@ -48,11 +47,11 @@ export function Dashboard() {
   }
 
   const pieData = {
-    labels: ['Hombres', 'Mujeres'],
+    labels: ['Super Admin', 'Admin', 'Taquillero'],
     datasets: [
       {
-        data: [genderCounts.male, genderCounts.female],
-        backgroundColor: ['rgba(37, 99, 235, 0.7)', 'rgba(244, 114, 182, 0.7)'],
+        data: [roleCounts['SUPER_ADMIN'] ?? 0, roleCounts['ADMIN'] ?? 0, roleCounts['TAQUILLERO'] ?? 0],
+        backgroundColor: ['rgba(37, 99, 235, 0.7)', 'rgba(251, 146, 60, 0.7)', 'rgba(100, 116, 139, 0.7)'],
         borderColor:     ['rgba(37, 99, 235, 1)',   'rgba(244, 114, 182, 1)'],
         borderWidth: 1,
       },

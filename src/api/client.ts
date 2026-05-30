@@ -2,10 +2,29 @@ import type { ApiError } from '../types/auth'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8001/api/v1'
 
+// Serializa los intentos de refresh concurrentes en una sola llamada
+let refreshPromise: Promise<void> | null = null
+
+function doRefresh(): Promise<void> {
+  if (refreshPromise) return refreshPromise
+  refreshPromise = fetch(`${BASE_URL}/auth/refreshToken`, {
+    method: 'POST',
+    credentials: 'include',
+  })
+    .then((res) => {
+      if (!res.ok) throw new Error('refresh_failed')
+    })
+    .finally(() => {
+      refreshPromise = null
+    })
+  return refreshPromise
+}
+
 async function request<T>(
   method: string,
   path: string,
   body?: unknown,
+  { isRetry = false, noRefresh = false }: { isRetry?: boolean; noRefresh?: boolean } = {},
 ): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, {
     method,
@@ -16,6 +35,16 @@ async function request<T>(
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
+
+  if (response.status === 401 && !isRetry && !noRefresh) {
+    try {
+      await doRefresh()
+      return request<T>(method, path, body, { isRetry: true })
+    } catch {
+      window.location.replace('/login')
+      throw { message: 'Sesión expirada. Inicia sesión nuevamente.', status: 401 } as ApiError
+    }
+  }
 
   if (response.status === 204) return undefined as T
 
@@ -29,7 +58,8 @@ async function request<T>(
 }
 
 export const apiClient = {
-  get: <T>(path: string) => request<T>('GET', path),
+  get: <T>(path: string, opts?: { noRefresh?: boolean }) =>
+    request<T>('GET', path, undefined, { noRefresh: opts?.noRefresh }),
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
   put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body),
