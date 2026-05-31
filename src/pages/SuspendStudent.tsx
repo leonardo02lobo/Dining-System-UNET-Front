@@ -10,18 +10,22 @@ import { Spinner } from '../components/ui/Spinner'
 import type { Student } from '../types/user'
 
 export function SuspendStudent() {
-  const [cedula, setCedula]     = useState('')
-  const [student, setStudent]   = useState<Student | null>(null)
-  const [loading, setLoading]   = useState(false)
-  const [saving, setSaving]     = useState(false)
-  const [error, setError]       = useState<string | null>(null)
-  const [searched, setSearched] = useState(false)
+  const [cedula, setCedula]           = useState('')
+  const [student, setStudent]         = useState<Student | null>(null)
+  const [loading, setLoading]         = useState(false)
+  const [saving, setSaving]           = useState(false)
+  const [error, setError]             = useState<string | null>(null)
+  const [searched, setSearched]       = useState(false)
+  const [observations, setObservations] = useState('')
+  const [obsError, setObsError]       = useState<string | null>(null)
 
   async function handleSearch() {
     if (!cedula.trim()) return
     setLoading(true)
     setError(null)
     setSearched(true)
+    setObservations('')
+    setObsError(null)
 
     try {
       await new Promise((r) => setTimeout(r, 600))
@@ -42,10 +46,16 @@ export function SuspendStudent() {
 
   async function handleToggleSuspend() {
     if (!student) return
+    if (!student.is_suspended && !observations.trim()) {
+      setObsError('Debes indicar el motivo de la suspensión')
+      return
+    }
+    setObsError(null)
     setSaving(true)
     try {
       await new Promise((r) => setTimeout(r, 500))
       setStudent((prev) => prev ? { ...prev, is_suspended: !prev.is_suspended } : prev)
+      setObservations('')
     } catch (err: any) {
       setError(err.message ?? 'Error al guardar')
     } finally {
@@ -142,6 +152,32 @@ export function SuspendStudent() {
                   value={student.user_type}
                   fullWidth
                 />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="select-none text-[13px] font-semibold text-slate-900">
+                  Observaciones
+                  {!student.is_suspended && <span className="ml-1 text-red-500">*</span>}
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder={
+                    student.is_suspended
+                      ? 'Observaciones sobre la reactivación (opcional)...'
+                      : 'Indica el motivo de la suspensión...'
+                  }
+                  value={observations}
+                  onChange={(e) => { setObservations(e.target.value); setObsError(null) }}
+                  className={[
+                    'w-full resize-none rounded-md border bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:ring-4',
+                    obsError
+                      ? 'border-red-600 focus:border-red-600 focus:ring-red-500/15'
+                      : 'border-slate-300 focus:border-blue-500 focus:ring-blue-500/15',
+                  ].join(' ')}
+                />
+                {obsError && (
+                  <span className="text-xs text-red-600" role="alert">{obsError}</span>
+                )}
               </div>
 
               <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">

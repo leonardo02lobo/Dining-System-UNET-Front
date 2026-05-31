@@ -3,7 +3,6 @@ import { AuthProvider } from './context/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { LoginPage } from './pages/LoginPage'
 import { Index } from './pages/Index'
-import { Dashboard } from './pages/Dashboard'
 import { CheckConsumes } from './pages/CheckConsumes'
 import { RegisterDining } from './pages/RegisterDining'
 import { SuspendStudent } from './pages/SuspendStudent'
@@ -24,7 +23,7 @@ export default function App() {
           {/* Rutas protegidas — redirigen a /login si no hay sesión */}
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Index />}>
-              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="dashboard" element={<Navigate to="/comedor/reporte" replace />} />
               <Route path="comedor/consultar" element={<CheckConsumes />} />
               <Route path="comedor/registrar" element={<RegisterDining />} />
               <Route path="comedor/reporte" element={<ReportsPage />} />

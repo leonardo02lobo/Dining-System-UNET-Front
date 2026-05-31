@@ -23,7 +23,6 @@ const navGroups: NavGroup[] = [
       { to: '/comedor/reporte',   label: 'Reporte de Comedor',   roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/suspendStudent',    label: 'Suspender Usuario',    roles: ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'] },
       { to: '/usuarios',          label: 'Lista de Usuario',     roles: ['SUPER_ADMIN', 'ADMIN'] },
-      { to: '/dashboard',         label: 'Dashboard',            roles: ['SUPER_ADMIN', 'ADMIN'] },
     ],
   },
   {

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Download, RefreshCw } from 'lucide-react'
 import { BarChart, PieChart } from '../components/ui/Chart'
 import { Button } from '../components/ui/Button'
@@ -7,6 +7,8 @@ import { Input } from '../components/ui/Input'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Table, type ColumnDef } from '../components/ui/Table'
 import { Spinner } from '../components/ui/Spinner'
+import { userApi } from '../api/user'
+import type { UserAccount } from '../types/user'
 
 interface ConsumeRecord {
   id: number
@@ -17,15 +19,15 @@ interface ConsumeRecord {
 }
 
 const MOCK_DATA: ConsumeRecord[] = [
-  { id: 1, date: '2026-05-20', student_name: 'Ana Pérez',     career: 'Ingeniería Industrial', meal: 'Almuerzo' },
-  { id: 2, date: '2026-05-20', student_name: 'Luis Torres',   career: 'Ingeniería de Sistemas', meal: 'Almuerzo' },
-  { id: 3, date: '2026-05-21', student_name: 'María García',  career: 'Arquitectura',           meal: 'Almuerzo' },
-  { id: 4, date: '2026-05-21', student_name: 'Carlos Ruiz',   career: 'Ingeniería Civil',       meal: 'Almuerzo' },
-  { id: 5, date: '2026-05-22', student_name: 'Sofía Medina',  career: 'Ingeniería Industrial',  meal: 'Almuerzo' },
-  { id: 6, date: '2026-05-22', student_name: 'Pedro Alvarado',career: 'Ingeniería de Sistemas', meal: 'Almuerzo' },
+  { id: 1, date: '2026-05-20', student_name: 'Ana Pérez',      career: 'Ingeniería Industrial',  meal: 'Almuerzo' },
+  { id: 2, date: '2026-05-20', student_name: 'Luis Torres',    career: 'Ingeniería de Sistemas', meal: 'Almuerzo' },
+  { id: 3, date: '2026-05-21', student_name: 'María García',   career: 'Arquitectura',           meal: 'Almuerzo' },
+  { id: 4, date: '2026-05-21', student_name: 'Carlos Ruiz',    career: 'Ingeniería Civil',       meal: 'Almuerzo' },
+  { id: 5, date: '2026-05-22', student_name: 'Sofía Medina',   career: 'Ingeniería Industrial',  meal: 'Almuerzo' },
+  { id: 6, date: '2026-05-22', student_name: 'Pedro Alvarado', career: 'Ingeniería de Sistemas', meal: 'Almuerzo' },
 ]
 
-function today() { return new Date().toISOString().split('T')[0] }
+function today()         { return new Date().toISOString().split('T')[0] }
 function daysAgo(n: number) {
   const d = new Date()
   d.setDate(d.getDate() - n)
@@ -38,10 +40,25 @@ export function ReportsPage() {
   const [loading, setLoading]   = useState(false)
   const [records, setRecords]   = useState<ConsumeRecord[]>(MOCK_DATA)
 
+  const [users, setUsers]           = useState<UserAccount[]>([])
+  const [usersLoading, setUsersLoading] = useState(true)
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const data = await userApi.list()
+        setUsers(data)
+      } catch {
+        // no bloquea el resto de la página si falla
+      } finally {
+        setUsersLoading(false)
+      }
+    })()
+  }, [])
+
   async function handleGenerate() {
     setLoading(true)
     try {
-      // TODO: llamada real a la API con dateFrom y dateTo
       await new Promise((r) => setTimeout(r, 700))
       setRecords(MOCK_DATA)
     } finally {
@@ -49,11 +66,9 @@ export function ReportsPage() {
     }
   }
 
-  function handleDownload() {
-    window.print()
-  }
+  function handleDownload() { window.print() }
 
-  // Datos por carrera para el gráfico de barras
+  // --- Gráficas de consumo ---
   const careerCounts = records.reduce<Record<string, number>>((acc, r) => {
     acc[r.career] = (acc[r.career] ?? 0) + 1
     return acc
@@ -88,8 +103,39 @@ export function ReportsPage() {
     ],
   }
 
+  // --- Gráficas de usuarios ---
+  const roleCounts = users.reduce<Record<string, number>>((acc, u) => {
+    acc[u.role.name] = (acc[u.role.name] ?? 0) + 1
+    return acc
+  }, {})
+
+  const userBarData = {
+    labels: ['Super Admin', 'Admin', 'Taquillero'],
+    datasets: [
+      {
+        label: 'Cantidad de usuarios',
+        data: [roleCounts['SUPER_ADMIN'] ?? 0, roleCounts['ADMIN'] ?? 0, roleCounts['TAQUILLERO'] ?? 0],
+        backgroundColor: ['rgba(37, 99, 235, 0.7)', 'rgba(251, 146, 60, 0.7)', 'rgba(100, 116, 139, 0.7)'],
+        borderColor:     ['rgba(37, 99, 235, 1)',   'rgba(251, 146, 60, 1)',   'rgba(100, 116, 139, 1)'  ],
+        borderWidth: 1,
+        borderRadius: 4,
+      },
+    ],
+  }
+
+  const userPieData = {
+    labels: ['Super Admin', 'Admin', 'Taquillero'],
+    datasets: [
+      {
+        data: [roleCounts['SUPER_ADMIN'] ?? 0, roleCounts['ADMIN'] ?? 0, roleCounts['TAQUILLERO'] ?? 0],
+        backgroundColor: ['rgba(37, 99, 235, 0.7)', 'rgba(251, 146, 60, 0.7)', 'rgba(100, 116, 139, 0.7)'],
+        borderWidth: 1,
+      },
+    ],
+  }
+
   const columns: ColumnDef<ConsumeRecord>[] = [
-    { key: 'date',         header: 'Fecha',   sortable: true },
+    { key: 'date',         header: 'Fecha',      sortable: true },
     { key: 'student_name', header: 'Estudiante', sortable: true },
     { key: 'career',       header: 'Carrera',    sortable: true },
     { key: 'meal',         header: 'Comida' },
@@ -98,7 +144,7 @@ export function ReportsPage() {
   return (
     <div>
       <PageHeader
-        title="Reportes de Comedor"
+        title="Reportes del Comedor"
         subtitle="Visualiza y exporta estadísticas de consumo"
         actions={
           <>
@@ -141,13 +187,13 @@ export function ReportsPage() {
         </div>
       </Card>
 
-      {/* Gráficas */}
       {loading ? (
         <div className="flex justify-center py-16">
           <Spinner size="lg" />
         </div>
       ) : (
         <>
+          {/* Gráficas de consumo */}
           <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
             <Card variant="outlined" padding="md">
               <Card.Header title="Consumo por categoría" subtitle="Distribución de tipos de comida" />
@@ -157,7 +203,7 @@ export function ReportsPage() {
             </Card>
 
             <Card variant="outlined" padding="md">
-              <Card.Header title="Consumo por usuario" subtitle="Consumos agrupados por carrera" />
+              <Card.Header title="Consumo por carrera" subtitle="Consumos agrupados por carrera" />
               <Card.Body>
                 <BarChart data={barData} />
               </Card.Body>
@@ -173,6 +219,32 @@ export function ReportsPage() {
           />
         </>
       )}
+
+      {/* Gráficas de usuarios del sistema */}
+      <div className="mt-8">
+        <h2 className="mb-4 text-base font-semibold text-slate-700">Estadísticas de Usuarios</h2>
+        {usersLoading ? (
+          <div className="flex justify-center py-10">
+            <Spinner size="lg" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <Card variant="outlined" padding="md">
+              <Card.Header title="Distribución por rol" subtitle="Gráfico circular" />
+              <Card.Body>
+                <PieChart data={userPieData} />
+              </Card.Body>
+            </Card>
+
+            <Card variant="outlined" padding="md">
+              <Card.Header title="Usuarios por rol" subtitle="Gráfico de barras" />
+              <Card.Body>
+                <BarChart data={userBarData} />
+              </Card.Body>
+            </Card>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -50,6 +50,8 @@ export function LoginPage() {
       const error = err as ApiError
       if (error.status === 401) {
         setApiError('Usuario o contraseña incorrectos')
+      } else if (error.status === 403) {
+        setApiError('Cuenta inactiva. Contacte al administrador.')
       } else if (error.status === 0 || !error.status) {
         setApiError('No se pudo conectar con el servidor. Verifique su conexión.')
       } else {
@@ -92,10 +94,10 @@ export function LoginPage() {
 
               <Input
                 id="username"
-                label="Cédula / Usuario"
-                type="text"
-                placeholder="Ej: V-12345678"
-                autoComplete="username"
+                label="Correo Electrónico"
+                type="email"
+                placeholder="correo@dominio.com"
+                autoComplete="email"
                 autoFocus
                 fullWidth
                 leftIcon={<User size={16} />}
