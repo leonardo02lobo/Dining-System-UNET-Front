@@ -1,49 +1,47 @@
 import { useState } from 'react'
-import { Download, RefreshCw } from 'lucide-react'
-import { BarChart, PieChart } from '../components/ui/Chart'
-import { Button } from '../components/ui/Button'
-import { Card } from '../components/ui/Card'
-import { Input } from '../components/ui/Input'
-import { PageHeader } from '../components/ui/PageHeader'
-import { Table, type ColumnDef } from '../components/ui/Table'
+import { ConsumptionReportTable } from '../components/reports/ConsumptionReportTable'
+import { ReportChartsPanel } from '../components/reports/ReportChartsPanel'
+import { ReportDateRangeFilters } from '../components/reports/ReportDateRangeFilters'
 import { Spinner } from '../components/ui/Spinner'
+import {
+  MOCK_CATEGORY_CONSUMPTION,
+  MOCK_CONSUMPTION_ROWS,
+  MOCK_SUPPLY_CONSUMPTION,
+  formatDisplayDate,
+} from '../data/mockConsumptionReport'
+import type { ConsumptionReportRow } from '../types/consumptionReport'
 
-interface ConsumeRecord {
-  id: number
-  date: string
-  student_name: string
-  career: string
-  meal: string
+function todayIso() {
+  return new Date().toISOString().split('T')[0]
 }
 
-const MOCK_DATA: ConsumeRecord[] = [
-  { id: 1, date: '2026-05-20', student_name: 'Ana Pérez',     career: 'Ingeniería Industrial', meal: 'Almuerzo' },
-  { id: 2, date: '2026-05-20', student_name: 'Luis Torres',   career: 'Ingeniería de Sistemas', meal: 'Almuerzo' },
-  { id: 3, date: '2026-05-21', student_name: 'María García',  career: 'Arquitectura',           meal: 'Almuerzo' },
-  { id: 4, date: '2026-05-21', student_name: 'Carlos Ruiz',   career: 'Ingeniería Civil',       meal: 'Almuerzo' },
-  { id: 5, date: '2026-05-22', student_name: 'Sofía Medina',  career: 'Ingeniería Industrial',  meal: 'Almuerzo' },
-  { id: 6, date: '2026-05-22', student_name: 'Pedro Alvarado',career: 'Ingeniería de Sistemas', meal: 'Almuerzo' },
-]
-
-function today() { return new Date().toISOString().split('T')[0] }
-function daysAgo(n: number) {
+function daysAgoIso(days: number) {
   const d = new Date()
-  d.setDate(d.getDate() - n)
+  d.setDate(d.getDate() - days)
   return d.toISOString().split('T')[0]
 }
 
+function buildPeriodLabel(from: string, to: string) {
+  return `${formatDisplayDate(from)} - ${formatDisplayDate(to)}`
+}
+
 export function ReportsPage() {
-  const [dateFrom, setDateFrom] = useState(daysAgo(30))
-  const [dateTo, setDateTo]     = useState(today())
-  const [loading, setLoading]   = useState(false)
-  const [records, setRecords]   = useState<ConsumeRecord[]>(MOCK_DATA)
+  const [dateFrom, setDateFrom] = useState(daysAgoIso(81))
+  const [dateTo, setDateTo] = useState(todayIso())
+  const [loading, setLoading] = useState(false)
+  const [rows, setRows] = useState<ConsumptionReportRow[]>(MOCK_CONSUMPTION_ROWS)
 
   async function handleGenerate() {
     setLoading(true)
     try {
-      // TODO: llamada real a la API con dateFrom y dateTo
-      await new Promise((r) => setTimeout(r, 700))
-      setRecords(MOCK_DATA)
+      await new Promise((r) => setTimeout(r, 600))
+      const period = buildPeriodLabel(dateFrom, dateTo)
+      setRows(
+        MOCK_CONSUMPTION_ROWS.map((row) => ({
+          ...row,
+          period,
+        }))
+      )
     } finally {
       setLoading(false)
     }
@@ -53,126 +51,36 @@ export function ReportsPage() {
     window.print()
   }
 
-  // Datos por carrera para el gráfico de barras
-  const careerCounts = records.reduce<Record<string, number>>((acc, r) => {
-    acc[r.career] = (acc[r.career] ?? 0) + 1
-    return acc
-  }, {})
-
-  const barData = {
-    labels: Object.keys(careerCounts),
-    datasets: [
-      {
-        label: 'Consumos',
-        data: Object.values(careerCounts),
-        backgroundColor: 'rgba(37, 99, 235, 0.7)',
-        borderColor:     'rgba(37, 99, 235, 1)',
-        borderWidth: 1,
-        borderRadius: 4,
-      },
-    ],
-  }
-
-  const pieData = {
-    labels: ['Almuerzo', 'Desayuno', 'Merienda'],
-    datasets: [
-      {
-        data: [records.length, 0, 0],
-        backgroundColor: [
-          'rgba(37, 99, 235, 0.7)',
-          'rgba(16, 185, 129, 0.7)',
-          'rgba(245, 158, 11, 0.7)',
-        ],
-        borderWidth: 1,
-      },
-    ],
-  }
-
-  const columns: ColumnDef<ConsumeRecord>[] = [
-    { key: 'date',         header: 'Fecha',   sortable: true },
-    { key: 'student_name', header: 'Estudiante', sortable: true },
-    { key: 'career',       header: 'Carrera',    sortable: true },
-    { key: 'meal',         header: 'Comida' },
-  ]
-
   return (
-    <div>
-      <PageHeader
-        title="Reportes de Comedor"
-        subtitle="Visualiza y exporta estadísticas de consumo"
-        actions={
-          <>
-            <Button
-              variant="primary"
-              size="sm"
-              leftIcon={<RefreshCw size={14} />}
-              loading={loading}
-              onClick={handleGenerate}
-            >
-              Generar Reporte
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              leftIcon={<Download size={14} />}
-              onClick={handleDownload}
-            >
-              Descargar Reporte
-            </Button>
-          </>
-        }
+    <div className="flex flex-col gap-6">
+      <h1 className="text-3xl font-bold text-black sm:text-4xl">Reportes de consumo</h1>
+
+      <ReportDateRangeFilters
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        onDateFromChange={setDateFrom}
+        onDateToChange={setDateTo}
+        onGenerate={handleGenerate}
+        onDownload={handleDownload}
+        loading={loading}
       />
 
-      {/* Filtros de fecha */}
-      <Card variant="outlined" padding="md" className="mb-6">
-        <div className="flex flex-wrap items-end gap-4">
-          <Input
-            label="Desde"
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-          />
-          <Input
-            label="Hasta"
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-          />
+      <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
+        <div className="min-w-0 flex-1">
+          {loading ? (
+            <div className="flex justify-center py-16">
+              <Spinner size="lg" />
+            </div>
+          ) : (
+            <ConsumptionReportTable rows={rows} />
+          )}
         </div>
-      </Card>
 
-      {/* Gráficas */}
-      {loading ? (
-        <div className="flex justify-center py-16">
-          <Spinner size="lg" />
-        </div>
-      ) : (
-        <>
-          <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <Card variant="outlined" padding="md">
-              <Card.Header title="Consumo por categoría" subtitle="Distribución de tipos de comida" />
-              <Card.Body>
-                <PieChart data={pieData} />
-              </Card.Body>
-            </Card>
-
-            <Card variant="outlined" padding="md">
-              <Card.Header title="Consumo por usuario" subtitle="Consumos agrupados por carrera" />
-              <Card.Body>
-                <BarChart data={barData} />
-              </Card.Body>
-            </Card>
-          </div>
-
-          {/* Tabla de registros */}
-          <Table<ConsumeRecord>
-            columns={columns}
-            rows={records}
-            keyField="id"
-            emptyMessage="No hay registros en el rango de fechas seleccionado."
-          />
-        </>
-      )}
+        <ReportChartsPanel
+          categoryData={MOCK_CATEGORY_CONSUMPTION}
+          supplyData={MOCK_SUPPLY_CONSUMPTION}
+        />
+      </div>
     </div>
   )
 }
