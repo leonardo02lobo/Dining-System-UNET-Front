@@ -11,29 +11,30 @@ import { LoginAuditPage } from './pages/LoginAuditPage'
 import { InventoryPage } from './pages/InventoryPage'
 import { CreateLunchPage } from './pages/CreateLunchPage'
 import { ReportsPage } from './pages/ReportsPage'
+import { ManualRegistrationPage } from './pages/ManualRegistrationPage'
+import { PermissionsPage } from './pages/PermissionsPage'
 
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          {/* Standalone — sin header/sidebar */}
           <Route path="/login" element={<LoginPage />} />
 
-          {/* Rutas protegidas — redirigen a /login si no hay sesión */}
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Index />}>
               <Route path="dashboard" element={<Navigate to="/comedor/reporte" replace />} />
               <Route path="comedor/consultar" element={<CheckConsumes />} />
               <Route path="comedor/registrar" element={<RegisterDining />} />
               <Route path="comedor/reporte" element={<ReportsPage />} />
+              <Route path="comedor/registro-manual" element={<ManualRegistrationPage />} />
+              <Route path="admin/permisos" element={<PermissionsPage />} />
               <Route path="inventario" element={<InventoryPage />} />
               <Route path="inventario/crear" element={<CreateLunchPage />} />
               <Route path="usuarios" element={<ListUser />} />
               <Route path="auditoria" element={<LoginAuditPage />} />
               <Route path="suspendStudent" element={<SuspendStudent />} />
 
-              {/* Redirects backward-compat */}
               <Route path="checkConsumes" element={<Navigate to="/comedor/consultar" replace />} />
               <Route path="registerDining" element={<Navigate to="/comedor/registrar" replace />} />
               <Route path="listUser" element={<Navigate to="/usuarios" replace />} />

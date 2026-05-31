@@ -20,8 +20,9 @@ const navGroups: NavGroup[] = [
     items: [
       { to: '/comedor/consultar', label: 'Consultar Consumo',    roles: ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'] },
       { to: '/comedor/registrar', label: 'Registro al Comedor',  roles: ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'] },
-      { to: '/comedor/reporte',   label: 'Reporte de Comedor',   roles: ['SUPER_ADMIN', 'ADMIN'] },
-      { to: '/suspendStudent',    label: 'Suspender Usuario',    roles: ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'] },
+      { to: '/comedor/reporte',         label: 'Reporte de Comedor',  roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/comedor/registro-manual', label: 'Registro Manual',     roles: ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'] },
+      { to: '/suspendStudent',          label: 'Suspender Usuario',   roles: ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'] },
       { to: '/usuarios',          label: 'Lista de Usuario',     roles: ['SUPER_ADMIN', 'ADMIN'] },
     ],
   },
@@ -35,13 +36,14 @@ const navGroups: NavGroup[] = [
   {
     label: 'Administración',
     items: [
-      { to: '/auditoria', label: 'Auditoría de Acceso', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/auditoria',    label: 'Auditoría de Acceso',  roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/admin/permisos', label: 'Gestión de Permisos', roles: ['SUPER_ADMIN'] },
     ],
   },
 ]
 
 export function NavBar() {
-  const { user, logout } = useAuth()
+  const { user, logout, permissions } = useAuth()
 
   const role = user?.role.name
 
@@ -63,9 +65,13 @@ export function NavBar() {
       {/* ── Grupos ─────────────────────────────────── */}
       <div className="flex flex-1 flex-col overflow-y-auto">
         {navGroups.map((group) => {
-          const visible = group.items.filter(
-            (item) => role && item.roles.includes(role)
-          )
+          const visible = group.items.filter((item) => {
+            if (permissions.length > 0) {
+              const perm = permissions.find((p) => p.route === item.to)
+              if (perm !== undefined) return perm.enabled
+            }
+            return role ? item.roles.includes(role) : false
+          })
           if (visible.length === 0) return null
 
           return (
