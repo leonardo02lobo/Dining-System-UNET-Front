@@ -10,12 +10,8 @@ import { Spinner } from '../components/ui/Spinner'
 import { userApi } from '../api/user'
 import type { UserAccount } from '../types/user'
 
-interface ConsumeRecord {
-  id: number
-  date: string
-  student_name: string
-  career: string
-  meal: string
+function todayIso() {
+  return new Date().toISOString().split('T')[0]
 }
 
 const MOCK_DATA: ConsumeRecord[] = [
@@ -30,15 +26,19 @@ const MOCK_DATA: ConsumeRecord[] = [
 function today()         { return new Date().toISOString().split('T')[0] }
 function daysAgo(n: number) {
   const d = new Date()
-  d.setDate(d.getDate() - n)
+  d.setDate(d.getDate() - days)
   return d.toISOString().split('T')[0]
 }
 
+function buildPeriodLabel(from: string, to: string) {
+  return `${formatDisplayDate(from)} - ${formatDisplayDate(to)}`
+}
+
 export function ReportsPage() {
-  const [dateFrom, setDateFrom] = useState(daysAgo(30))
-  const [dateTo, setDateTo]     = useState(today())
-  const [loading, setLoading]   = useState(false)
-  const [records, setRecords]   = useState<ConsumeRecord[]>(MOCK_DATA)
+  const [dateFrom, setDateFrom] = useState(daysAgoIso(81))
+  const [dateTo, setDateTo] = useState(todayIso())
+  const [loading, setLoading] = useState(false)
+  const [rows, setRows] = useState<ConsumptionReportRow[]>(MOCK_CONSUMPTION_ROWS)
 
   const [users, setUsers]           = useState<UserAccount[]>([])
   const [usersLoading, setUsersLoading] = useState(true)
@@ -169,23 +169,15 @@ export function ReportsPage() {
         }
       />
 
-      {/* Filtros de fecha */}
-      <Card variant="outlined" padding="md" className="mb-6">
-        <div className="flex flex-wrap items-end gap-4">
-          <Input
-            label="Desde"
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-          />
-          <Input
-            label="Hasta"
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-          />
-        </div>
-      </Card>
+      <ReportDateRangeFilters
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        onDateFromChange={setDateFrom}
+        onDateToChange={setDateTo}
+        onGenerate={handleGenerate}
+        onDownload={handleDownload}
+        loading={loading}
+      />
 
       {loading ? (
         <div className="flex justify-center py-16">

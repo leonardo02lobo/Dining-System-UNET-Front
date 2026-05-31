@@ -5,7 +5,18 @@ export interface Ingredient {
   category: string
   unit: string
   quantity: number
+  min_stock: number
+  last_updated: string
   expiration_date: string | null
+}
+
+/** Alerta de stock bajo */
+export interface StockAlert {
+  id: number
+  item_name: string
+  current_stock: number
+  min_stock: number
+  unit: string
 }
 
 /** Ingrediente asignado a un almuerzo */

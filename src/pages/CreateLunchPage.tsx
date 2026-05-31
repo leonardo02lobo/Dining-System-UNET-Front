@@ -1,199 +1,204 @@
-import { useState } from 'react'
-import { Download, Plus, Save, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { LunchDetailsForm } from '../components/lunch/LunchDetailsForm'
+import { LunchFooterActions } from '../components/lunch/LunchFooterActions'
+import { LunchIngredientsTable } from '../components/lunch/LunchIngredientsTable'
+import { LunchRecalculationPanel } from '../components/lunch/LunchRecalculationPanel'
+import { PreloadedLunchBar } from '../components/lunch/PreloadedLunchBar'
 import { Button } from '../components/ui/Button'
-import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
-import { PageHeader } from '../components/ui/PageHeader'
 import { Select } from '../components/ui/Select'
-import { Table, type ColumnDef } from '../components/ui/Table'
-import { type LunchIngredient } from '../types/inventory'
+import {
+  MOCK_INITIAL_INGREDIENTS,
+  MOCK_PANTRY,
+  MOCK_PRELOADED_LUNCHES,
+  buildIngredientFromTemplate,
+  getRecalculationPreview,
+  recalculateIngredients,
+} from '../data/mockLunch'
+import type { LunchFormIngredient } from '../types/lunch'
 
-const MOCK_INGREDIENTS = [
-  { id: 1, name: 'Papa',     category: 'Verdura',  unit: 'kg', available: 40 },
-  { id: 2, name: 'Tomate',   category: 'Verdura',  unit: 'kg', available: 20 },
-  { id: 3, name: 'Pollo',    category: 'Proteína', unit: 'kg', available: 50 },
-  { id: 4, name: 'Arroz',    category: 'Cereal',   unit: 'kg', available: 100 },
-  { id: 5, name: 'Caraotas', category: 'Cereal',   unit: 'kg', available: 30 },
-  { id: 6, name: 'Cebolla',  category: 'Verdura',  unit: 'kg', available: 15 },
-]
-
-function today() {
+function todayIso() {
   return new Date().toISOString().split('T')[0]
 }
 
 export function CreateLunchPage() {
-  const [date, setDate]           = useState(today())
-  const [ingredients, setIngredients] = useState<LunchIngredient[]>([])
+  const [lunchName, setLunchName] = useState('Arroz con pollo')
+  const [date, setDate] = useState(todayIso())
+  const [plateCount, setPlateCount] = useState(500)
+  const [previousPlates, setPreviousPlates] = useState(500)
+  const [ingredients, setIngredients] = useState<LunchFormIngredient[]>(MOCK_INITIAL_INGREDIENTS)
+  const [preloadedId, setPreloadedId] = useState<number | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
-  const [saving, setSaving]       = useState(false)
-  const [confirming, setConfirming] = useState(false)
+  const [editTarget, setEditTarget] = useState<LunchFormIngredient | null>(null)
+  const [saving, setSaving] = useState(false)
 
-  // Form state del modal
-  const [selectedId, setSelectedId] = useState('')
-  const [usedQty, setUsedQty]       = useState('')
+  const [selectedPantryId, setSelectedPantryId] = useState('')
+  const [editQty, setEditQty] = useState('')
 
-  const ingredientOptions = MOCK_INGREDIENTS.map((i) => ({
-    value: String(i.id),
-    label: `${i.name} (${i.available} ${i.unit} disponibles)`,
+  const plateDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const pantryOptions = MOCK_PANTRY.map((p) => ({
+    value: String(p.id),
+    label: `${p.name} (${p.available} ${p.unit} disponibles)`,
   }))
 
-  function handleAddIngredient() {
-    const found = MOCK_INGREDIENTS.find((i) => i.id === Number(selectedId))
-    if (!found || !usedQty) return
+  const previews = useMemo(
+    () => getRecalculationPreview(ingredients, previousPlates, plateCount),
+    [ingredients, previousPlates, plateCount]
+  )
 
-    setIngredients((prev) => {
-      const exists = prev.find((i) => i.ingredient_id === found.id)
-      if (exists) {
-        return prev.map((i) =>
-          i.ingredient_id === found.id
-            ? { ...i, used_quantity: Number(usedQty) }
+  useEffect(() => {
+    if (plateDebounceRef.current) clearTimeout(plateDebounceRef.current)
+    plateDebounceRef.current = setTimeout(() => {
+      setIngredients((prev) => recalculateIngredients(prev, plateCount))
+      setPreviousPlates(plateCount)
+    }, 400)
+    return () => {
+      if (plateDebounceRef.current) clearTimeout(plateDebounceRef.current)
+    }
+  }, [plateCount])
+
+  function handleLoadPreloaded() {
+    const template = MOCK_PRELOADED_LUNCHES.find((l) => l.id === preloadedId)
+    if (!template) return
+
+    setLunchName(template.name.replace(' (plantilla)', ''))
+    setPlateCount(template.plate_count)
+    setPreviousPlates(template.plate_count)
+
+    const loaded = template.ingredients.map((item) => {
+      const pantry = MOCK_PANTRY.find((p) => p.id === item.ingredient_id)
+      return buildIngredientFromTemplate(
+        item,
+        template.plate_count,
+        pantry?.available ?? 0
+      )
+    })
+    setIngredients(loaded)
+  }
+
+  function openAddModal() {
+    setEditTarget(null)
+    setSelectedPantryId('')
+    setEditQty('')
+    setModalOpen(true)
+  }
+
+  function openEditModal(item: LunchFormIngredient) {
+    setEditTarget(item)
+    setSelectedPantryId(String(item.ingredient_id))
+    setEditQty(String(item.calculated_quantity))
+    setModalOpen(true)
+  }
+
+  function handleSaveIngredient() {
+    const pantry = MOCK_PANTRY.find((p) => p.id === Number(selectedPantryId))
+    if (!pantry || !editQty) return
+
+    const qty = Number(editQty)
+    const quantityPerPlate = qty / plateCount
+
+    if (editTarget) {
+      setIngredients((prev) =>
+        prev.map((i) =>
+          i.ingredient_id === editTarget.ingredient_id
+            ? {
+                ...i,
+                calculated_quantity: qty,
+                quantity_per_plate: quantityPerPlate,
+              }
             : i
         )
-      }
-      return [
+      )
+    } else {
+      const exists = ingredients.some((i) => i.ingredient_id === pantry.id)
+      if (exists) return
+
+      setIngredients((prev) => [
         ...prev,
         {
-          ingredient_id:   found.id,
-          ingredient_name: found.name,
-          category:        found.category,
-          unit:            found.unit,
-          available_quantity: found.available,
-          used_quantity:   Number(usedQty),
+          ingredient_id: pantry.id,
+          ingredient_name: pantry.name,
+          category: pantry.category,
+          unit: pantry.unit,
+          calculated_quantity: qty,
+          available_quantity: pantry.available,
+          quantity_per_plate: quantityPerPlate,
         },
-      ]
-    })
-    setSelectedId('')
-    setUsedQty('')
+      ])
+    }
     setModalOpen(false)
   }
 
-  function handleRemove(id: number) {
-    setIngredients((prev) => prev.filter((i) => i.ingredient_id !== id))
+  function handleDelete(item: LunchFormIngredient) {
+    if (!confirm(`¿Quitar "${item.ingredient_name}" del almuerzo?`)) return
+    setIngredients((prev) => prev.filter((i) => i.ingredient_id !== item.ingredient_id))
   }
 
   async function handleSave() {
     setSaving(true)
     try {
-      // TODO: llamada real a la API
       await new Promise((r) => setTimeout(r, 600))
-      alert('Almuerzo guardado (simulación)')
+      alert('Almuerzo guardado (simulación, sin backend).')
+      setPreviousPlates(plateCount)
     } finally {
       setSaving(false)
     }
   }
 
-  async function handleConfirm() {
-    setConfirming(true)
-    try {
-      // TODO: llamada real a la API
-      await new Promise((r) => setTimeout(r, 600))
-      alert('Uso confirmado (simulación)')
-    } finally {
-      setConfirming(false)
-    }
-  }
-
-  function handleDownloadPDF() {
+  function handleDownload() {
     window.print()
   }
 
-  const columns: ColumnDef<LunchIngredient>[] = [
-    { key: 'ingredient_name', header: 'Ingrediente', sortable: true },
-    { key: 'category',        header: 'Categoría' },
-    { key: 'unit',            header: 'Unidad' },
-    {
-      key: 'available_quantity',
-      header: 'Neto Disponible',
-      render: (_, row) => `${row.available_quantity} ${row.unit}`,
-    },
-    {
-      key: 'used_quantity',
-      header: 'Cantidad a usar',
-      render: (_, row) => `${row.used_quantity} ${row.unit}`,
-    },
-  ]
-
   return (
-    <div>
-      <PageHeader
-        title="Crear Almuerzo"
-        subtitle="Registra el menú del día y los ingredientes necesarios"
+    <div className="flex flex-col gap-6">
+      <h1 className="text-3xl font-bold text-black sm:text-4xl">Crear Almuerzo</h1>
+
+      <PreloadedLunchBar
+        options={MOCK_PRELOADED_LUNCHES}
+        selectedId={preloadedId}
+        onSelect={setPreloadedId}
+        onLoad={handleLoadPreloaded}
       />
 
-      {/* Fecha */}
-      <Card variant="outlined" padding="md" className="mb-6 max-w-xs">
-        <Input
-          label="Fecha del Almuerzo"
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          fullWidth
+      <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
+        <div className="min-w-0 flex-1 space-y-6">
+          <LunchDetailsForm
+            lunchName={lunchName}
+            date={date}
+            plateCount={plateCount}
+            onLunchNameChange={setLunchName}
+            onDateChange={setDate}
+            onPlateCountChange={setPlateCount}
+          />
+
+          <LunchIngredientsTable
+            items={ingredients}
+            plateCount={plateCount}
+            onEdit={openEditModal}
+            onDelete={handleDelete}
+          />
+
+          <LunchFooterActions
+            onSave={handleSave}
+            onDownload={handleDownload}
+            saving={saving}
+          />
+        </div>
+
+        <LunchRecalculationPanel
+          previousPlates={previousPlates}
+          currentPlates={plateCount}
+          previews={previews}
+          onAddIngredient={openAddModal}
         />
-      </Card>
-
-      {/* Tabla de ingredientes */}
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-slate-700">Ingredientes del almuerzo</h2>
-        <Button
-          variant="secondary"
-          size="sm"
-          leftIcon={<Plus size={14} />}
-          onClick={() => setModalOpen(true)}
-        >
-          Agregar Ingrediente
-        </Button>
       </div>
 
-      <Table<LunchIngredient>
-        columns={columns}
-        rows={ingredients}
-        keyField="ingredient_id"
-        emptyMessage="Aún no hay ingredientes. Agrega los que necesites."
-        actions={(row) => (
-          <button
-            type="button"
-            title="Eliminar"
-            onClick={() => handleRemove(row.ingredient_id)}
-            className="rounded p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
-          >
-            <Trash2 size={14} />
-          </button>
-        )}
-      />
-
-      {/* Acciones del pie */}
-      <div className="mt-6 flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 pt-4">
-        <Button
-          variant="secondary"
-          leftIcon={<Save size={15} />}
-          loading={saving}
-          onClick={handleSave}
-        >
-          Guardar
-        </Button>
-        <Button
-          variant="ghost"
-          leftIcon={<Download size={15} />}
-          onClick={handleDownloadPDF}
-        >
-          Descargar PDF
-        </Button>
-        <Button
-          variant="primary"
-          loading={confirming}
-          onClick={handleConfirm}
-          disabled={ingredients.length === 0}
-        >
-          Confirmar uso
-        </Button>
-      </div>
-
-      {/* Modal agregar ingrediente */}
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title="Agregar Ingrediente al Almuerzo"
+        title={editTarget ? 'Editar ingrediente' : 'Agregar ingrediente'}
         size="sm"
         footer={
           <>
@@ -203,10 +208,10 @@ export function CreateLunchPage() {
             <Button
               variant="primary"
               size="sm"
-              onClick={handleAddIngredient}
-              disabled={!selectedId || !usedQty}
+              onClick={handleSaveIngredient}
+              disabled={!selectedPantryId || !editQty || (!editTarget && ingredients.some((i) => i.ingredient_id === Number(selectedPantryId)))}
             >
-              Agregar
+              {editTarget ? 'Actualizar' : 'Agregar'}
             </Button>
           </>
         }
@@ -214,19 +219,20 @@ export function CreateLunchPage() {
         <div className="flex flex-col gap-4">
           <Select
             label="Ingrediente"
-            options={ingredientOptions}
-            value={selectedId}
-            onChange={(e) => setSelectedId(e.target.value)}
+            options={pantryOptions}
+            value={selectedPantryId}
+            onChange={(e) => setSelectedPantryId(e.target.value)}
             placeholder="Selecciona un ingrediente..."
             fullWidth
+            disabled={!!editTarget}
           />
           <Input
-            label="Cantidad a usar"
+            label={`Cantidad calculada (${plateCount} platos)`}
             type="number"
             min="0"
-            placeholder="0"
-            value={usedQty}
-            onChange={(e) => setUsedQty(e.target.value)}
+            step="0.01"
+            value={editQty}
+            onChange={(e) => setEditQty(e.target.value)}
             fullWidth
           />
         </div>
