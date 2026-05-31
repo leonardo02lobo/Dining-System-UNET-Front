@@ -1,10 +1,18 @@
 import { useState } from "react";
+import { useAuth } from "../../context/AuthContext";
+
+const ROLE_LABEL: Record<string, string> = {
+  SUPER_ADMIN: 'Super Administrador',
+  ADMIN:       'Administrador',
+  TAQUILLERO:  'Taquillero',
+}
 
 interface Props {
   isLogin?: boolean;
 }
 export function Header({isLogin}: Props) {
-  const [date, setDate] = useState(new Date())
+  const [date] = useState(new Date())
+  const { user } = useAuth()
   const styles = isLogin
     ? "flex-shrink-0 border-b bg-gradient-to-b from-[#03216A] via-[#7D8EB7] to-[#EBEFF4] p-4"
     : "flex-shrink-0 border-b bg-gradient-to-b from-[#03216A] to-[#7D8EB7] p-4"
@@ -40,14 +48,14 @@ export function Header({isLogin}: Props) {
       </div>
       {
         isLogin && (
-          <div className="flex flex-row gap-1 font-bold justify-end p-3 text-xl">
-            <span>Hola Leonardo</span>
+          <div className="flex flex-row gap-1 font-bold justify-end p-3 text-xl sm:text-sm">
+            <span>Hola {user?.name ?? '...'}</span>
             <img
               src="assets/cara_normal.png"
               alt="Cara normal"
               className="h-6 w-6 object-contain"
             />
-            <span>, Bienvenid@ a la sección para Administrador - </span>
+            <span>, Bienvenid@ a la sección para {user ? ROLE_LABEL[user.role.name] ?? user.role.name : ''} - </span>
             <span>{date.toLocaleDateString()} {date.toLocaleTimeString()}</span>
           </div>
         )

@@ -1,6 +1,8 @@
 import { AlertCircle, Lock, User } from 'lucide-react'
 import React, { useState } from 'react'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { authApi } from '../api/auth'
+import { useAuth } from '../context/AuthContext'
 import type { ApiError, LoginCredentials } from '../types/auth'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
@@ -8,6 +10,9 @@ import { Input } from '../components/ui/Input'
 import { Header } from '../components/layout/Header'
 
 export function LoginPage() {
+  const { user, loading: authLoading, refetch } = useAuth()
+  const navigate = useNavigate()
+
   const [credentials, setCredentials] = useState<LoginCredentials>({
     username: '',
     password: '',
@@ -15,6 +20,9 @@ export function LoginPage() {
   const [errors, setErrors] = useState<Partial<LoginCredentials>>({})
   const [apiError, setApiError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  // Redirigir si ya tiene sesión activa
+  if (!authLoading && user) return <Navigate to="/dashboard" replace />
 
   function validate(): boolean {
     const next: Partial<LoginCredentials> = {}
@@ -36,11 +44,14 @@ export function LoginPage() {
     setLoading(true)
     try {
       await authApi.login(credentials)
-      window.location.href = '/'
+      await refetch()
+      navigate('/dashboard')
     } catch (err) {
       const error = err as ApiError
       if (error.status === 401) {
         setApiError('Usuario o contraseña incorrectos')
+      } else if (error.status === 403) {
+        setApiError('Cuenta inactiva. Contacte al administrador.')
       } else if (error.status === 0 || !error.status) {
         setApiError('No se pudo conectar con el servidor. Verifique su conexión.')
       } else {
@@ -83,10 +94,10 @@ export function LoginPage() {
 
               <Input
                 id="username"
-                label="Cédula / Usuario"
-                type="text"
-                placeholder="Ej: V-12345678"
-                autoComplete="username"
+                label="Correo Electrónico"
+                type="email"
+                placeholder="correo@dominio.com"
+                autoComplete="email"
                 autoFocus
                 fullWidth
                 leftIcon={<User size={16} />}

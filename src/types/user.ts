@@ -1,9 +1,34 @@
-export interface Row {
+export type RoleName = 'SUPER_ADMIN' | 'ADMIN' | 'TAQUILLERO'
+
+export interface Role {
+  id: number
+  name: RoleName
+}
+
+export interface UserAccount {
+  id: number
   name: string
-  career: string
   email: string
-  gender: string
-  picture: string
+  role_id: number
+  role: Role
+  is_active: boolean
+  created_at: string
+  updated_at: string | null
+}
+
+export interface UserCreatePayload {
+  name: string
+  email: string
+  password: string
+  role_id: number
+}
+
+export interface UserUpdatePayload {
+  name?: string
+  email?: string
+  password?: string
+  is_active?: boolean
+  role_id?: number
 }
 
 /** Estudiante del sistema de comedor */

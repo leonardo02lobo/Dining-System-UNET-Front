@@ -9,7 +9,7 @@ export function Footer() {
         </span>
         <span className="text-xs text-slate-300" aria-hidden>·</span>
         <span className="text-xs text-slate-400">
-          Secretaría — Sistema de Comedor Universitario
+          Decanato de desarrollo Estudiantil — Sistema de Comedor Universitario
         </span>
       </div>
     </footer>

@@ -1,8 +1,8 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
+import { ProtectedRoute } from './components/ProtectedRoute'
 import { LoginPage } from './pages/LoginPage'
 import { Index } from './pages/Index'
-import { Dashboard } from './pages/Dashboard'
 import { CheckConsumes } from './pages/CheckConsumes'
 import { RegisterDining } from './pages/RegisterDining'
 import { SuspendStudent } from './pages/SuspendStudent'
@@ -20,24 +20,25 @@ export default function App() {
           {/* Standalone — sin header/sidebar */}
           <Route path="/login" element={<LoginPage />} />
 
-          {/* Layout principal con Header, GreetingBar, NavBar y Footer */}
-          <Route path="/" element={<Index />}>
-            <Route index element={<Dashboard />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="comedor/consultar" element={<CheckConsumes />} />
-            <Route path="comedor/registrar" element={<RegisterDining />} />
-            <Route path="comedor/reporte" element={<ReportsPage />} />
-            <Route path="inventario" element={<InventoryPage />} />
-            <Route path="inventario/crear" element={<CreateLunchPage />} />
-            <Route path="usuarios" element={<ListUser />} />
-            <Route path="auditoria" element={<LoginAuditPage />} />
-            <Route path="suspendStudent" element={<SuspendStudent />} />
+          {/* Rutas protegidas — redirigen a /login si no hay sesión */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<Index />}>
+              <Route path="dashboard" element={<Navigate to="/comedor/reporte" replace />} />
+              <Route path="comedor/consultar" element={<CheckConsumes />} />
+              <Route path="comedor/registrar" element={<RegisterDining />} />
+              <Route path="comedor/reporte" element={<ReportsPage />} />
+              <Route path="inventario" element={<InventoryPage />} />
+              <Route path="inventario/crear" element={<CreateLunchPage />} />
+              <Route path="usuarios" element={<ListUser />} />
+              <Route path="auditoria" element={<LoginAuditPage />} />
+              <Route path="suspendStudent" element={<SuspendStudent />} />
 
-            {/* Redirects backward-compat */}
-            <Route path="checkConsumes" element={<Navigate to="/comedor/consultar" replace />} />
-            <Route path="registerDining" element={<Navigate to="/comedor/registrar" replace />} />
-            <Route path="listUser" element={<Navigate to="/usuarios" replace />} />
-            <Route path="loginAudit" element={<Navigate to="/auditoria" replace />} />
+              {/* Redirects backward-compat */}
+              <Route path="checkConsumes" element={<Navigate to="/comedor/consultar" replace />} />
+              <Route path="registerDining" element={<Navigate to="/comedor/registrar" replace />} />
+              <Route path="listUser" element={<Navigate to="/usuarios" replace />} />
+              <Route path="loginAudit" element={<Navigate to="/auditoria" replace />} />
+            </Route>
           </Route>
         </Routes>
       </AuthProvider>

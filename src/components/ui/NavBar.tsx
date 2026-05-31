@@ -1,6 +1,5 @@
 import { Lock, RotateCcw } from 'lucide-react'
-import { NavLink, useNavigate } from 'react-router-dom'
-import { authApi } from '../../api/auth'
+import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import type { RoleName } from '../../types/auth'
 
@@ -24,7 +23,6 @@ const navGroups: NavGroup[] = [
       { to: '/comedor/reporte',   label: 'Reporte de Comedor',   roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/suspendStudent',    label: 'Suspender Usuario',    roles: ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'] },
       { to: '/usuarios',          label: 'Lista de Usuario',     roles: ['SUPER_ADMIN', 'ADMIN'] },
-      { to: '/dashboard',         label: 'Dashboard',            roles: ['SUPER_ADMIN', 'ADMIN'] },
     ],
   },
   {
@@ -43,17 +41,7 @@ const navGroups: NavGroup[] = [
 ]
 
 export function NavBar() {
-  const { user } = useAuth()
-  const navigate = useNavigate()
-
-  async function handleLogout() {
-    try {
-      await authApi.logout()
-    } catch {
-      // ignorar errores al cerrar sesión
-    }
-    navigate('/login')
-  }
+  const { user, logout } = useAuth()
 
   const role = user?.role.name
 
@@ -116,7 +104,7 @@ export function NavBar() {
       {/* ── Cierra Sesion ──────────────────────────── */}
       <button
         type="button"
-        onClick={handleLogout}
+        onClick={logout}
         className="flex items-center gap-2 px-4 py-3 text-base font-bold text-slate-800 hover:bg-red-50 hover:text-red-600 transition-colors"
       >
         <Lock size={20} className="text-red-500 flex-shrink-0" />

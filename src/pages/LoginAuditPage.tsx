@@ -5,6 +5,7 @@ import { Table, type ColumnDef } from '../components/ui/Table'
 import { Badge, type BadgeVariant } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { PageHeader } from '../components/ui/PageHeader'
+import { Select } from '../components/ui/Select'
 
 const PAGE_SIZE = 50
 
@@ -15,32 +16,70 @@ function formatDate(iso: string): string {
   })
 }
 
-const ROLE_MAP: Record<string, { label: string; variant: BadgeVariant }> = {
-  SUPER_ADMIN: { label: 'Super Admin',  variant: 'danger'  },
-  ADMIN:       { label: 'Admin',        variant: 'info'    },
-  TAQUILLERO:  { label: 'Taquillero',   variant: 'neutral' },
+function parseBrowser(ua: string | null): string {
+  if (!ua) return '—'
+  if (/Edg\//.test(ua))              return 'Edge'
+  if (/Firefox\//.test(ua))          return 'Firefox'
+  if (/Chrome\//.test(ua))           return 'Chrome'
+  if (/Safari\//.test(ua))           return 'Safari'
+  if (/curl|python-requests|axios/.test(ua)) return 'API Client'
+  return ua.slice(0, 30) + '…'
 }
 
+const ROLE_MAP: Record<string, { label: string; variant: BadgeVariant }> = {
+  SUPER_ADMIN: { label: 'Super Admin', variant: 'danger'  },
+  ADMIN:       { label: 'Admin',       variant: 'info'    },
+  TAQUILLERO:  { label: 'Taquillero',  variant: 'neutral' },
+}
+
+const roleOptions = [
+  { value: 'all',        label: 'Todos los roles' },
+  { value: 'SUPER_ADMIN', label: 'Super Admin'    },
+  { value: 'ADMIN',      label: 'Admin'           },
+  { value: 'TAQUILLERO', label: 'Taquillero'      },
+]
+
+const inputClass =
+  'rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+
 export function LoginAuditPage() {
-  const [rows, setRows]     = useState<LoginAuditEntry[]>([])
-  const [total, setTotal]   = useState(0)
-  const [page, setPage]     = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [error, setError]   = useState<string | null>(null)
+  const [rows,       setRows]       = useState<LoginAuditEntry[]>([])
+  const [total,      setTotal]      = useState(0)
+  const [page,       setPage]       = useState(0)
+  const [loading,    setLoading]    = useState(true)
+  const [error,      setError]      = useState<string | null>(null)
+  const [fromDate,   setFromDate]   = useState('')
+  const [toDate,     setToDate]     = useState('')
+  const [roleFilter, setRoleFilter] = useState('all')
+
+  // Resetear página al cambiar filtros
+  useEffect(() => { setPage(0) }, [fromDate, toDate, roleFilter])
 
   useEffect(() => {
     setLoading(true)
     auditApi
-      .getLogs(page * PAGE_SIZE, PAGE_SIZE)
+      .getLogs(page * PAGE_SIZE, PAGE_SIZE, {
+        from_date: fromDate || undefined,
+        to_date:   toDate   || undefined,
+        role:      roleFilter !== 'all' ? roleFilter : undefined,
+      })
       .then((data) => {
         setRows(data.items)
         setTotal(data.total)
+        setError(null)
       })
       .catch((err: any) => setError(err.message ?? 'Error al cargar los registros'))
       .finally(() => setLoading(false))
-  }, [page])
+  }, [page, fromDate, toDate, roleFilter])
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const hasFilters = fromDate || toDate || roleFilter !== 'all'
+
+  const clearFilters = () => {
+    setFromDate('')
+    setToDate('')
+    setRoleFilter('all')
+  }
 
   const columns: ColumnDef<LoginAuditEntry>[] = [
     {
@@ -71,13 +110,13 @@ export function LoginAuditPage() {
     },
     {
       key: 'user_agent',
-      header: 'Dispositivo / Navegador',
+      header: 'Navegador',
       render: (_, row) => (
         <span
-          className="block max-w-xs truncate text-xs text-slate-400"
+          className="text-xs text-slate-500"
           title={row.user_agent ?? ''}
         >
-          {row.user_agent ?? '—'}
+          {parseBrowser(row.user_agent)}
         </span>
       ),
     },
@@ -98,6 +137,39 @@ export function LoginAuditPage() {
         subtitle={`${total} registro${total !== 1 ? 's' : ''} en total`}
       />
 
+      {/* Barra de filtros */}
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-slate-600">Desde</label>
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className={inputClass}
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-slate-600">Hasta</label>
+          <input
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            className={inputClass}
+          />
+        </div>
+        <Select
+          options={roleOptions}
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value)}
+          className="w-44"
+        />
+        {hasFilters && (
+          <Button variant="ghost" size="sm" onClick={clearFilters}>
+            Limpiar filtros
+          </Button>
+        )}
+      </div>
+
       {error && (
         <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
           Error: {error}
@@ -109,33 +181,31 @@ export function LoginAuditPage() {
         rows={rows}
         keyField="id"
         loading={loading}
-        emptyMessage="No hay registros de inicio de sesión."
+        emptyMessage="No hay registros de inicio de sesión para los filtros seleccionados."
       />
 
-      {/* Paginación */}
-      {totalPages > 1 && (
-        <div className="mt-4 flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-            disabled={page === 0}
-          >
-            ← Anterior
-          </Button>
-          <span className="text-sm text-slate-500">
-            Página {page + 1} de {totalPages}
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-            disabled={page >= totalPages - 1}
-          >
-            Siguiente →
-          </Button>
-        </div>
-      )}
+      {/* Paginación — siempre visible */}
+      <div className="mt-4 flex items-center gap-3">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setPage((p) => Math.max(0, p - 1))}
+          disabled={page === 0 || loading}
+        >
+          ← Anterior
+        </Button>
+        <span className="text-sm text-slate-500">
+          Página {page + 1} de {totalPages}
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+          disabled={page >= totalPages - 1 || loading}
+        >
+          Siguiente →
+        </Button>
+      </div>
     </div>
   )
 }
