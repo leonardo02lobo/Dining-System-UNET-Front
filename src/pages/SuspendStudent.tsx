@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { Search } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Search, ScanLine } from 'lucide-react'
+import { SuspendConfirmModal } from '../components/SuspendConfirmModal'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
@@ -10,32 +11,60 @@ import { Spinner } from '../components/ui/Spinner'
 import type { Student } from '../types/user'
 
 export function SuspendStudent() {
-  const [cedula, setCedula]           = useState('')
-  const [student, setStudent]         = useState<Student | null>(null)
-  const [loading, setLoading]         = useState(false)
-  const [saving, setSaving]           = useState(false)
-  const [error, setError]             = useState<string | null>(null)
-  const [searched, setSearched]       = useState(false)
+  const [cedula, setCedula]             = useState('')
+  const [student, setStudent]           = useState<Student | null>(null)
+  const [loading, setLoading]           = useState(false)
+  const [saving, setSaving]             = useState(false)
+  const [error, setError]               = useState<string | null>(null)
+  const [searched, setSearched]         = useState(false)
   const [observations, setObservations] = useState('')
-  const [obsError, setObsError]       = useState<string | null>(null)
+  const [obsError, setObsError]         = useState<string | null>(null)
+  const [confirmOpen, setConfirmOpen]   = useState(false)
 
-  async function handleSearch() {
-    if (!cedula.trim()) return
+  const lastKeyAtRef = useRef(0)
+  const bufferRef    = useRef('')
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.altKey || e.metaKey) return
+      const tag = (e.target as HTMLElement).tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+
+      const now = Date.now()
+      if (now - lastKeyAtRef.current > 60) bufferRef.current = ''
+
+      if (e.key === 'Enter') {
+        const scanned = bufferRef.current.trim()
+        if (scanned.length >= 6) {
+          setCedula(scanned)
+          void triggerSearch(scanned)
+        }
+        bufferRef.current    = ''
+        lastKeyAtRef.current = now
+        return
+      }
+      if (e.key.length === 1) {
+        bufferRef.current    += e.key
+        lastKeyAtRef.current  = now
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
+  async function triggerSearch(value: string) {
+    if (!value.trim()) return
     setLoading(true)
     setError(null)
     setSearched(true)
     setObservations('')
     setObsError(null)
-
     try {
       await new Promise((r) => setTimeout(r, 600))
       setStudent({
-        "name": "Leonardo",
-        "cedula": "31489733",
-        "is_suspended": false,
-        "career": "Ing Informatica",
-        "user_type": "SUPER ADMIN",
-        "avatar_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQZ_gxAoOejX4BRTVTVejghk8MTbqJNivs1IQ&s",
+        name: 'Leonardo', cedula: value, is_suspended: false,
+        career: 'Ing Informatica', user_type: 'SUPER ADMIN',
+        avatar_url: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQZ_gxAoOejX4BRTVTVejghk8MTbqJNivs1IQ&s',
       })
     } catch (err: any) {
       setError(err.message ?? 'Error al consultar')
@@ -43,6 +72,8 @@ export function SuspendStudent() {
       setLoading(false)
     }
   }
+
+  function handleSearch() { void triggerSearch(cedula) }
 
   async function handleToggleSuspend() {
     if (!student) return
@@ -79,7 +110,7 @@ export function SuspendStudent() {
           <Input
             id="cedula-suspend"
             label="Cédula o Carnet"
-            placeholder="Ej: V-12345678"
+            placeholder="Escanea el carnet o escribe la cédula"
             value={cedula}
             onChange={(e) => setCedula(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -95,6 +126,10 @@ export function SuspendStudent() {
             Consultar
           </Button>
         </div>
+        <p className="mt-3 flex items-center gap-1.5 text-xs text-slate-400">
+          <ScanLine size={13} />
+          El lector de código de barras enviará el código automáticamente al pasar el carnet.
+        </p>
       </Card>
 
       {loading && (
@@ -186,7 +221,7 @@ export function SuspendStudent() {
                     Reactivar acceso
                   </Button>
                 ) : (
-                  <Button variant="danger" onClick={handleToggleSuspend} loading={saving}>
+                  <Button variant="danger" onClick={() => setConfirmOpen(true)} loading={saving}>
                     Suspender acceso
                   </Button>
                 )}
@@ -194,6 +229,17 @@ export function SuspendStudent() {
             </div>
           </div>
         </Card>
+      )}
+
+      {student && (
+        <SuspendConfirmModal
+          open={confirmOpen}
+          onClose={() => setConfirmOpen(false)}
+          onConfirm={async () => { setConfirmOpen(false); await handleToggleSuspend() }}
+          student={student}
+          observations={observations}
+          loading={saving}
+        />
       )}
     </div>
   )

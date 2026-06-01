@@ -10,8 +10,12 @@ import { Spinner } from '../components/ui/Spinner'
 import { userApi } from '../api/user'
 import type { UserAccount } from '../types/user'
 
-function todayIso() {
-  return new Date().toISOString().split('T')[0]
+interface ConsumeRecord {
+  id: number
+  date: string
+  student_name: string
+  career: string
+  meal: string
 }
 
 const MOCK_DATA: ConsumeRecord[] = [
@@ -23,24 +27,23 @@ const MOCK_DATA: ConsumeRecord[] = [
   { id: 6, date: '2026-05-22', student_name: 'Pedro Alvarado', career: 'Ingeniería de Sistemas', meal: 'Almuerzo' },
 ]
 
-function today()         { return new Date().toISOString().split('T')[0] }
+function todayIso() {
+  return new Date().toISOString().split('T')[0]
+}
+
 function daysAgo(n: number) {
   const d = new Date()
-  d.setDate(d.getDate() - days)
+  d.setDate(d.getDate() - n)
   return d.toISOString().split('T')[0]
 }
 
-function buildPeriodLabel(from: string, to: string) {
-  return `${formatDisplayDate(from)} - ${formatDisplayDate(to)}`
-}
-
 export function ReportsPage() {
-  const [dateFrom, setDateFrom] = useState(daysAgoIso(81))
-  const [dateTo, setDateTo] = useState(todayIso())
-  const [loading, setLoading] = useState(false)
-  const [rows, setRows] = useState<ConsumptionReportRow[]>(MOCK_CONSUMPTION_ROWS)
+  const [dateFrom, setDateFrom] = useState(daysAgo(30))
+  const [dateTo,   setDateTo]   = useState(todayIso())
+  const [loading,  setLoading]  = useState(false)
+  const [records,  setRecords]  = useState<ConsumeRecord[]>(MOCK_DATA)
 
-  const [users, setUsers]           = useState<UserAccount[]>([])
+  const [users,        setUsers]        = useState<UserAccount[]>([])
   const [usersLoading, setUsersLoading] = useState(true)
 
   useEffect(() => {
@@ -49,7 +52,6 @@ export function ReportsPage() {
         const data = await userApi.list()
         setUsers(data)
       } catch {
-        // no bloquea el resto de la página si falla
       } finally {
         setUsersLoading(false)
       }
@@ -68,7 +70,6 @@ export function ReportsPage() {
 
   function handleDownload() { window.print() }
 
-  // --- Gráficas de consumo ---
   const careerCounts = records.reduce<Record<string, number>>((acc, r) => {
     acc[r.career] = (acc[r.career] ?? 0) + 1
     return acc
@@ -169,15 +170,23 @@ export function ReportsPage() {
         }
       />
 
-      <ReportDateRangeFilters
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        onDateFromChange={setDateFrom}
-        onDateToChange={setDateTo}
-        onGenerate={handleGenerate}
-        onDownload={handleDownload}
-        loading={loading}
-      />
+      {/* Filtros de fecha */}
+      <Card variant="outlined" padding="md" className="mb-6">
+        <div className="flex flex-wrap items-end gap-4">
+          <Input
+            label="Desde"
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+          />
+          <Input
+            label="Hasta"
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+          />
+        </div>
+      </Card>
 
       {loading ? (
         <div className="flex justify-center py-16">
