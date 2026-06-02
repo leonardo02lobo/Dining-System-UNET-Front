@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Search, Save, RotateCcw } from 'lucide-react'
 import { studentApi } from '../api/student'
+import { normalizeCedula } from '../utils/cedula'
 import type { Student } from '../types/user'
 import { useAuth } from '../context/AuthContext'
 import { Button } from '../components/ui/Button'
@@ -35,14 +36,16 @@ export function ManualRegistrationPage() {
   const [success,  setSuccess]  = useState<string | null>(null)
 
   async function handleSearch() {
-    if (!cedula.trim()) return
+    const clean = normalizeCedula(cedula)
+    if (!clean) return
+    setCedula(clean)
     setLoading(true)
     setError(null)
     setSuccess(null)
     setSearched(true)
     setStudent(null)
     try {
-      const data = await studentApi.lookup(cedula.trim())
+      const data = await studentApi.lookup(clean)
       setStudent(data)
     } catch (err: any) {
       setError(err.message ?? 'Error al consultar el estudiante')

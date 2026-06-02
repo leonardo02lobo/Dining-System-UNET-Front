@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Search, ScanLine } from 'lucide-react'
+import { normalizeCedula } from '../utils/cedula'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
@@ -48,14 +49,16 @@ export function CheckConsumes() {
   }, [])
 
   async function triggerSearch(value: string) {
-    if (!value.trim()) return
+    const clean = normalizeCedula(value)
+    if (!clean) return
+    setCedula(clean)
     setLoading(true)
     setError(null)
     setSearched(true)
     try {
       await new Promise((r) => setTimeout(r, 600))
       setStudent({
-        name: 'Leonardo', cedula: value, is_suspended: false,
+        name: 'Leonardo', cedula: clean, is_suspended: false,
         career: 'Ing Informatica', user_type: 'SUPER ADMIN',
         avatar_url: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQZ_gxAoOejX4BRTVTVejghk8MTbqJNivs1IQ&s',
       })

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Search, ScanLine } from 'lucide-react'
 import { studentApi } from '../api/student'
+import { normalizeCedula } from '../utils/cedula'
 import type { Student } from '../types/user'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
@@ -62,14 +63,16 @@ export function RegisterDining() {
 
   // ── Búsqueda (manual o por scanner) ─────────────────────────────
   async function triggerSearch(value: string) {
-    if (!value.trim()) return
+    const clean = normalizeCedula(value)
+    if (!clean) return
+    setCedula(clean)
     setLoading(true)
     setError(null)
     setSuccess(null)
     setSearched(true)
     setStudent(null)
     try {
-      const data = await studentApi.lookup(value.trim())
+      const data = await studentApi.lookup(clean)
       setStudent(data)
     } catch (err: any) {
       setError(err.message ?? 'Error al consultar el estudiante')
