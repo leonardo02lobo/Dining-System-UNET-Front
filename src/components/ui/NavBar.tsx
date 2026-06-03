@@ -1,12 +1,11 @@
 import { Lock, RotateCcw } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import type { RoleName } from '../../types/auth'
+import { canAccess } from '../../config/routeAccess'
 
 interface NavItem {
   to: string
   label: string
-  roles: RoleName[]
 }
 
 interface NavGroup {
@@ -18,26 +17,26 @@ const navGroups: NavGroup[] = [
   {
     label: 'Comedor',
     items: [
-      { to: '/comedor/consultar', label: 'Consultar Consumo',    roles: ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'] },
-      { to: '/comedor/registrar', label: 'Registro al Comedor',  roles: ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'] },
-      { to: '/comedor/reporte',         label: 'Reporte de Comedor',  roles: ['SUPER_ADMIN', 'ADMIN'] },
-      { to: '/comedor/registro-manual', label: 'Registro Manual',     roles: ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'] },
-      { to: '/suspendStudent',          label: 'Suspender Usuario',   roles: ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'] },
-      { to: '/usuarios',          label: 'Lista de Usuario',     roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/comedor/consultar',        label: 'Consultar Consumo'   },
+      { to: '/comedor/registrar',        label: 'Registro al Comedor' },
+      { to: '/comedor/reporte',          label: 'Reporte de Comedor'  },
+      { to: '/comedor/registro-manual',  label: 'Registro Manual'     },
+      { to: '/suspendStudent',           label: 'Suspender Usuario'   },
+      { to: '/usuarios',                 label: 'Lista de Usuario'    },
     ],
   },
   {
     label: 'Inventario',
     items: [
-      { to: '/inventario',       label: 'Registrar Inventario', roles: ['SUPER_ADMIN', 'ADMIN'] },
-      { to: '/inventario/crear', label: 'Crear Almuerzo',       roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/inventario',       label: 'Registrar Inventario' },
+      { to: '/inventario/crear', label: 'Crear Almuerzo'       },
     ],
   },
   {
     label: 'Administración',
     items: [
-      { to: '/auditoria',    label: 'Auditoría de Acceso',  roles: ['SUPER_ADMIN', 'ADMIN'] },
-      { to: '/admin/permisos', label: 'Gestión de Permisos', roles: ['SUPER_ADMIN'] },
+      { to: '/auditoria',      label: 'Auditoría de Acceso'  },
+      { to: '/admin/permisos', label: 'Gestión de Permisos'  },
     ],
   },
 ]
@@ -65,13 +64,9 @@ export function NavBar() {
       {/* ── Grupos ─────────────────────────────────── */}
       <div className="flex flex-1 flex-col overflow-y-auto">
         {navGroups.map((group) => {
-          const visible = group.items.filter((item) => {
-            if (permissions.length > 0) {
-              const perm = permissions.find((p) => p.route === item.to)
-              if (perm !== undefined) return perm.enabled
-            }
-            return role ? item.roles.includes(role) : false
-          })
+          const visible = group.items.filter((item) =>
+            role ? canAccess(item.to, role, permissions) : false
+          )
           if (visible.length === 0) return null
 
           return (

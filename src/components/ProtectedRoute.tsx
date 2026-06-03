@@ -1,8 +1,10 @@
-import { Navigate, Outlet } from 'react-router-dom'
+import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { canAccess, DEFAULT_ROUTE } from '../config/routeAccess'
 
 export function ProtectedRoute() {
-  const { user, loading } = useAuth()
+  const { user, loading, permissions } = useAuth()
+  const location = useLocation()
 
   if (loading) {
     return (
@@ -13,6 +15,10 @@ export function ProtectedRoute() {
   }
 
   if (!user) return <Navigate to="/login" replace />
+
+  if (!canAccess(location.pathname, user.role.name, permissions)) {
+    return <Navigate to={DEFAULT_ROUTE[user.role.name]} replace />
+  }
 
   return <Outlet />
 }
