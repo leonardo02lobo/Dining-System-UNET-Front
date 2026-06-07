@@ -2,19 +2,21 @@ import { ArrowRight, Plus, RefreshCw } from 'lucide-react'
 import type { RecalculationPreview } from '../../types/lunch'
 
 interface LunchRecalculationPanelProps {
-  previousPlates: number
-  currentPlates: number
+  basePlates: number
+  desiredPlates: number
   previews: RecalculationPreview[]
   onAddIngredient: () => void
+  onDesiredPlatesChange: (value: number) => void
 }
 
 export function LunchRecalculationPanel({
-  previousPlates,
-  currentPlates,
+  basePlates,
+  desiredPlates,
   previews,
   onAddIngredient,
+  onDesiredPlatesChange,
 }: LunchRecalculationPanelProps) {
-  const showPreview = previousPlates !== currentPlates && previews.length > 0
+  const showPreview = previews.length > 0
 
   return (
     <aside className="w-full flex-shrink-0 xl:w-[239px]">
@@ -33,17 +35,42 @@ export function LunchRecalculationPanel({
           <div>
             <h2 className="text-[15px] font-bold text-black">Recalculado automático</h2>
             <p className="mt-1 text-[10px] leading-snug text-black">
-              Ejemplo de actualización al cambiar la cantidad de platos
+              Regla de 3 sobre los ingredientes seleccionados
             </p>
           </div>
         </div>
 
+        <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-end gap-2 border-t border-slate-200 pt-3">
+          <div>
+            <span className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
+              Inicial
+            </span>
+            <span className="flex h-9 items-center justify-center rounded-md border border-slate-300 bg-slate-50 text-sm font-semibold text-slate-900">
+              {basePlates}
+            </span>
+          </div>
+          <ArrowRight size={18} className="mb-2 text-slate-500" />
+          <div>
+            <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500" htmlFor="desired-plate-count">
+              Deseada
+            </label>
+            <input
+              id="desired-plate-count"
+              type="number"
+              min={1}
+              value={desiredPlates}
+              onChange={(event) => onDesiredPlatesChange(Math.max(1, Number(event.target.value) || 1))}
+              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-center text-sm font-semibold text-[#03216a] outline-none focus:border-[#03216a] focus:ring-2 focus:ring-[#03216a]/15"
+            />
+          </div>
+        </div>
+
         {showPreview ? (
-          <div className="mt-4 space-y-3 border-t border-slate-200 pt-3">
+          <div className="mt-4 space-y-3">
             <div className="flex items-center justify-between text-sm font-medium text-black">
-              <span>{previousPlates} platos</span>
+              <span>{basePlates} platos</span>
               <ArrowRight size={20} className="text-slate-600" />
-              <span className="text-[#03216a]">{currentPlates} platos</span>
+              <span className="text-[#03216a]">{desiredPlates} platos</span>
             </div>
 
             {previews.map((row) => (
@@ -70,7 +97,7 @@ export function LunchRecalculationPanel({
           </div>
         ) : (
           <p className="mt-4 text-xs text-slate-500">
-            Cambia la cantidad de platos para ver el recálculo de ingredientes.
+            Agrega ingredientes para ver el recálculo.
           </p>
         )}
       </div>

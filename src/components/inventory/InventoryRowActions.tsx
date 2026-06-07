@@ -20,7 +20,10 @@ export function InventoryRowActions({
   onDelete,
 }: InventoryRowActionsProps) {
   return (
-    <div className="flex items-center justify-center gap-2.5">
+    <div
+      className="flex items-center justify-center gap-2.5"
+      onClick={(e) => e.stopPropagation()}
+    >
       <button
         type="button"
         title="Aumentar stock"

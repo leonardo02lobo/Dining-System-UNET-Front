@@ -1,6 +1,14 @@
 import type { ApiError } from '../types/auth'
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8001/api/v1'
+const DEFAULT_API_BASE_URL = '/api/v1'
+
+function normalizeApiBaseUrl(value?: string): string {
+  const baseUrl = (value || DEFAULT_API_BASE_URL).trim().replace(/\/+$/, '')
+
+  return baseUrl.endsWith('/api/v1') ? baseUrl : `${baseUrl}/api/v1`
+}
+
+const BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL)
 
 // Serializa los intentos de refresh concurrentes en una sola llamada
 let refreshPromise: Promise<void> | null = null

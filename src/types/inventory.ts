@@ -19,6 +19,43 @@ export interface StockAlert {
   unit: string
 }
 
+/** Categoría de alimentos del inventario */
+export interface InventoryCategory {
+  id: number
+  name: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface InventoryCategoryCreatePayload {
+  name: string
+}
+
+export interface InventoryItem {
+  id: number
+  name: string
+  categoryId: number
+  category: InventoryCategory
+  currentStock: number
+  unit: string
+  minimumStock: number
+  lastUpdatedAt: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface InventoryItemCreatePayload {
+  name: string
+  categoryId: number
+  currentStock: number
+  unit: string
+  minimumStock: number
+}
+
+export interface InventoryItemUpdatePayload extends InventoryItemCreatePayload {
+  stockChangeReason: string
+}
+
 /** Ingrediente asignado a un almuerzo */
 export interface LunchIngredient {
   ingredient_id: number
