@@ -14,6 +14,7 @@ export default defineConfig(async () => ({
   clearScreen: false,
   // 2. tauri expects a fixed port, fail if that port is not available
   server: {
+    // Force Tauri standard dev port 1420
     port: 1420,
     strictPort: true,
     host: host || false,
@@ -27,6 +28,13 @@ export default defineConfig(async () => ({
     watch: {
       // 3. tell Vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],
+    },
+    proxy: {
+      "/api": {
+        target: "http://localhost:8001",
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
 }));

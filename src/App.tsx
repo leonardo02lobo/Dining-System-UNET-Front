@@ -1,51 +1,54 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
-import "./App.css";
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { Toaster } from 'sonner'
+import { AuthProvider } from './context/AuthContext'
+import { ProtectedRoute } from './components/ProtectedRoute'
+import { LoginPage } from './pages/LoginPage'
+import { Index } from './pages/Index'
+import { CheckConsumes } from './pages/CheckConsumes'
+import { RegisterDining } from './pages/RegisterDining'
+import { SuspendStudent } from './pages/SuspendStudent'
+import { ListUser } from './pages/ListUser'
+import { LoginAuditPage } from './pages/LoginAuditPage'
+import { InventoryPage } from './pages/InventoryPage'
+import { CreateLunchPage } from './pages/CreateLunchPage'
+import { ReportsPage } from './pages/ReportsPage'
+import { ManualRegistrationPage } from './pages/ManualRegistrationPage'
+import { PermissionsPage } from './pages/PermissionsPage'
+import { LunchSessionPage } from './pages/LunchSessionPage'
+import { BeneficiaryPage } from './pages/BeneficiaryPage'
 
-function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
-
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
-
+export default function App() {
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
+    <BrowserRouter>
+      <Toaster position="top-right" richColors closeButton />
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
 
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<Index />}>
+              <Route path="dashboard" element={<Navigate to="/" replace />} />
+              <Route path="comedor/consultar" element={<CheckConsumes />} />
+              <Route path="comedor/registrar" element={<RegisterDining />} />
+              <Route path="comedor/reporte" element={<ReportsPage />} />
+              <Route path="comedor/registro-manual" element={<ManualRegistrationPage />} />
+              <Route path="admin/permisos" element={<PermissionsPage />} />
+              <Route path="inventario" element={<InventoryPage />} />
+              <Route path="inventario/crear" element={<CreateLunchPage />} />
+              <Route path="usuarios" element={<ListUser />} />
+              <Route path="auditoria" element={<LoginAuditPage />} />
+              <Route path="suspendStudent" element={<SuspendStudent />} />
+              <Route path="comedor/sesion" element={<LunchSessionPage />} />
+              <Route path="beneficiarios" element={<BeneficiaryPage />} />
 
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
-  );
+              <Route path="checkConsumes" element={<Navigate to="/comedor/consultar" replace />} />
+              <Route path="registerDining" element={<Navigate to="/comedor/registrar" replace />} />
+              <Route path="listUser" element={<Navigate to="/usuarios" replace />} />
+              <Route path="loginAudit" element={<Navigate to="/auditoria" replace />} />
+            </Route>
+          </Route>
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
+  )
 }
-
-export default App;
