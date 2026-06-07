@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { FileDown, UserPlus } from 'lucide-react'
 import { Pencil, Trash2 } from 'lucide-react'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import { userApi, roleApi } from '../api/user'
 import type { UserAccount, Role } from '../types/user'
 import { useAuth } from '../context/AuthContext'
@@ -70,6 +72,22 @@ export function ListUser() {
 
   const openCreate = () => { setEditingRow(null); setFormOpen(true) }
   const openEdit   = (row: UserAccount) => { setEditingRow(row); setFormOpen(true) }
+
+  function exportPdf() {
+    const doc = new jsPDF()
+    doc.text('Directorio de Usuarios', 14, 15)
+    autoTable(doc, {
+      startY: 22,
+      head: [['Nombre', 'Correo', 'Rol', 'Estado']],
+      body: filtered.map((r) => [
+        r.name,
+        r.email,
+        ROLE_LABEL[r.role.name],
+        r.is_active ? 'Activo' : 'Inactivo',
+      ]),
+    })
+    doc.save('usuarios.pdf')
+  }
 
   const confirmDelete = async () => {
     if (!deleteTarget) return
@@ -154,7 +172,7 @@ export function ListUser() {
                 Nuevo Usuario
               </Button>
             )}
-            <Button variant="secondary" leftIcon={<FileDown size={15} />} size="sm">
+            <Button variant="secondary" leftIcon={<FileDown size={15} />} size="sm" onClick={exportPdf}>
               Exportar PDF
             </Button>
           </>

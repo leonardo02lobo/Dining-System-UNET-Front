@@ -1,4 +1,5 @@
-import { Lock, RotateCcw } from 'lucide-react'
+import { ChevronDown, Lock, RotateCcw } from 'lucide-react'
+import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { canAccess } from '../../config/routeAccess'
@@ -21,7 +22,9 @@ const navGroups: NavGroup[] = [
       { to: '/comedor/registrar',        label: 'Registro al Comedor' },
       { to: '/comedor/reporte',          label: 'Reporte de Comedor'  },
       { to: '/comedor/registro-manual',  label: 'Registro Manual'     },
+      { to: '/comedor/sesion',           label: 'Sesión de Almuerzo'  },
       { to: '/suspendStudent',           label: 'Suspender Usuario'   },
+      { to: '/beneficiarios',            label: 'Beneficiarios'       },
       { to: '/usuarios',                 label: 'Lista de Usuario'    },
     ],
   },
@@ -43,13 +46,16 @@ const navGroups: NavGroup[] = [
 
 export function NavBar() {
   const { user, logout, permissions } = useAuth()
+  const [openGroup, setOpenGroup] = useState<string | null>(null)
 
   const role = user?.role.name
 
+  function toggleGroup(label: string) {
+    setOpenGroup((prev) => (prev === label ? null : label))
+  }
+
   return (
     <nav className="flex h-full flex-col bg-white">
-
-      {/* ── Menu Principal ─────────────────────────── */}
       <NavLink
         to="/"
         end
@@ -60,8 +66,6 @@ export function NavBar() {
       </NavLink>
 
       <hr className="border-slate-300" />
-
-      {/* ── Grupos ─────────────────────────────────── */}
       <div className="flex flex-1 flex-col overflow-y-auto">
         {navGroups.map((group) => {
           const visible = group.items.filter((item) =>
@@ -69,32 +73,42 @@ export function NavBar() {
           )
           if (visible.length === 0) return null
 
+          const isOpen = openGroup === group.label
+
           return (
             <div key={group.label}>
-              {/* Cabecera del grupo */}
-              <p className="px-4 pt-4 pb-1 text-sm font-bold text-slate-900">
+              <button
+                type="button"
+                onClick={() => toggleGroup(group.label)}
+                className="flex w-full items-center justify-between px-4 pt-4 pb-1 text-sm font-bold text-slate-900 hover:text-blue-600 transition-colors"
+              >
                 {group.label}
-              </p>
+                <ChevronDown
+                  size={15}
+                  className={`flex-shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
 
-              {/* Items */}
-              <ul>
-                {visible.map((item) => (
-                  <li key={item.to}>
-                    <NavLink
-                      to={item.to}
-                      className={({ isActive }) =>
-                        `block px-6 py-1.5 text-sm transition-colors ${
-                          isActive
-                            ? 'font-semibold text-blue-600 bg-blue-50 border-l-2 border-blue-600'
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                        }`
-                      }
-                    >
-                      {item.label}
-                    </NavLink>
-                  </li>
-                ))}
-              </ul>
+              {isOpen && (
+                <ul>
+                  {visible.map((item) => (
+                    <li key={item.to}>
+                      <NavLink
+                        to={item.to}
+                        className={({ isActive }) =>
+                          `block px-6 py-1.5 text-sm transition-colors ${
+                            isActive
+                              ? 'font-semibold text-blue-600 bg-blue-50 border-l-2 border-blue-600'
+                              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                          }`
+                        }
+                      >
+                        {item.label}
+                      </NavLink>
+                    </li>
+                  ))}
+                </ul>
+              )}
 
               <hr className="mt-3 border-slate-300" />
             </div>
@@ -102,7 +116,6 @@ export function NavBar() {
         })}
       </div>
 
-      {/* ── Cierra Sesion ──────────────────────────── */}
       <button
         type="button"
         onClick={logout}

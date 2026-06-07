@@ -1,0 +1,256 @@
+import { useEffect, useState, useCallback } from 'react'
+import { Pencil, Trash2, UserPlus } from 'lucide-react'
+import { beneficiaryApi } from '../api/beneficiary'
+import type { Beneficiary, BeneficiaryStatus, UserType } from '../types/beneficiary'
+import { useAuth } from '../context/AuthContext'
+import { notify } from '../utils/toast'
+import { Table, type ColumnDef } from '../components/ui/Table'
+import { Badge } from '../components/ui/Badge'
+import { Button } from '../components/ui/Button'
+import { PageHeader } from '../components/ui/PageHeader'
+import { SearchInput } from '../components/ui/SearchInput'
+import { Select } from '../components/ui/Select'
+import { Modal } from '../components/ui/Modal'
+import { BeneficiaryFormModal } from '../components/BeneficiaryFormModal'
+
+const STATUS_LABEL: Record<BeneficiaryStatus, string> = {
+  ACTIVE:    'Activo',
+  SUSPENDED: 'Suspendido',
+  INACTIVE:  'Inactivo',
+}
+
+const STATUS_VARIANT: Record<BeneficiaryStatus, 'success' | 'danger' | 'neutral'> = {
+  ACTIVE:    'success',
+  SUSPENDED: 'danger',
+  INACTIVE:  'neutral',
+}
+
+const USER_TYPE_LABEL: Record<UserType, string> = {
+  STUDENT:        'Estudiante',
+  TEACHER:        'Docente',
+  ADMINISTRATIVE: 'Administrativo',
+  WORKER:         'Obrero',
+}
+
+const USER_TYPE_VARIANT: Record<UserType, 'info' | 'warning' | 'neutral' | 'success'> = {
+  STUDENT:        'info',
+  TEACHER:        'warning',
+  ADMINISTRATIVE: 'neutral',
+  WORKER:         'success',
+}
+
+export function BeneficiaryPage() {
+  const { user: currentUser } = useAuth()
+
+  const [rows,          setRows]         = useState<Beneficiary[]>([])
+  const [total,         setTotal]        = useState(0)
+  const [loading,       setLoading]      = useState(true)
+  const [search,        setSearch]       = useState('')
+  const [selectedStatus, setStatus]      = useState<string>('all')
+  const [selectedType,  setType]         = useState<string>('all')
+  const [formOpen,      setFormOpen]     = useState(false)
+  const [editingRow,    setEditingRow]   = useState<Beneficiary | null>(null)
+  const [deleteTarget,  setDeleteTarget] = useState<Beneficiary | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+
+  const canManage = currentUser?.role.name === 'SUPER_ADMIN' || currentUser?.role.name === 'ADMIN'
+
+  const refetch = useCallback(async () => {
+    setLoading(true)
+    try {
+      const result = await beneficiaryApi.list({
+        search:    search || undefined,
+        status:    selectedStatus !== 'all' ? (selectedStatus as BeneficiaryStatus) : undefined,
+        user_type: selectedType  !== 'all' ? (selectedType as UserType) : undefined,
+        limit: 100,
+      })
+      setRows(result.items)
+      setTotal(result.total)
+    } catch (err) {
+      notify.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }, [search, selectedStatus, selectedType])
+
+  useEffect(() => { void refetch() }, [refetch])
+
+  const openCreate = () => { setEditingRow(null); setFormOpen(true) }
+  const openEdit   = (row: Beneficiary) => { setEditingRow(row); setFormOpen(true) }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    setDeleteLoading(true)
+    try {
+      await beneficiaryApi.remove(deleteTarget.id)
+      setDeleteTarget(null)
+      notify.success('Beneficiario eliminado.')
+      await refetch()
+    } catch (err) {
+      notify.error(err)
+      setDeleteTarget(null)
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
+  const statusOptions = [
+    { value: 'all',       label: 'Todos los estados' },
+    { value: 'ACTIVE',    label: 'Activo'             },
+    { value: 'SUSPENDED', label: 'Suspendido'         },
+    { value: 'INACTIVE',  label: 'Inactivo'           },
+  ]
+
+  const typeOptions = [
+    { value: 'all',            label: 'Todos los tipos' },
+    { value: 'STUDENT',        label: 'Estudiante'      },
+    { value: 'TEACHER',        label: 'Docente'         },
+    { value: 'ADMINISTRATIVE', label: 'Administrativo'  },
+    { value: 'WORKER',         label: 'Obrero'          },
+  ]
+
+  const columns: ColumnDef<Beneficiary>[] = [
+    {
+      key: 'first_name',
+      header: 'Nombre',
+      sortable: true,
+      render: (_, row) => (
+        <span className="font-medium text-slate-800">
+          {row.first_name} {row.last_name}
+        </span>
+      ),
+    },
+    {
+      key: 'document_id',
+      header: 'Cédula',
+      render: (_, row) => <span className="text-slate-500">{row.document_id}</span>,
+    },
+    {
+      key: 'card_code',
+      header: 'Carnet',
+      render: (_, row) => <span className="text-slate-500">{row.card_code}</span>,
+    },
+    {
+      key: 'user_type',
+      header: 'Tipo',
+      sortable: true,
+      render: (_, row) => (
+        <Badge variant={USER_TYPE_VARIANT[row.user_type]}>
+          {USER_TYPE_LABEL[row.user_type]}
+        </Badge>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Estado',
+      sortable: true,
+      render: (_, row) => (
+        <Badge variant={STATUS_VARIANT[row.status]}>
+          {STATUS_LABEL[row.status]}
+        </Badge>
+      ),
+    },
+  ]
+
+  return (
+    <div>
+      <PageHeader
+        title="Beneficiarios"
+        subtitle={`${total} beneficiario${total !== 1 ? 's' : ''} en total`}
+        actions={
+          canManage ? (
+            <Button variant="primary" leftIcon={<UserPlus size={15} />} size="sm" onClick={openCreate}>
+              Nuevo Beneficiario
+            </Button>
+          ) : undefined
+        }
+      />
+
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <SearchInput
+          placeholder="Buscar por nombre o cédula..."
+          fullWidth={false}
+          className="w-64"
+          onSearch={setSearch}
+          debounceMs={300}
+        />
+        <Select
+          options={statusOptions}
+          value={selectedStatus}
+          onChange={(e) => setStatus(e.target.value)}
+          className="w-44"
+        />
+        <Select
+          options={typeOptions}
+          value={selectedType}
+          onChange={(e) => setType(e.target.value)}
+          className="w-44"
+        />
+      </div>
+
+      <Table<Beneficiary>
+        columns={columns}
+        rows={rows}
+        keyField="id"
+        loading={loading}
+        emptyMessage="No hay beneficiarios para los filtros seleccionados."
+        actions={
+          canManage
+            ? (row) => (
+                <>
+                  <button
+                    type="button"
+                    title="Editar"
+                    className="rounded p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
+                    onClick={() => openEdit(row)}
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    title="Eliminar"
+                    className="rounded p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                    onClick={() => setDeleteTarget(row)}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </>
+              )
+            : undefined
+        }
+      />
+
+      <BeneficiaryFormModal
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        onSave={refetch}
+        initial={editingRow}
+      />
+
+      <Modal
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="Eliminar beneficiario"
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(null)} disabled={deleteLoading}>
+              Cancelar
+            </Button>
+            <Button variant="danger" size="sm" onClick={confirmDelete} loading={deleteLoading}>
+              Eliminar
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-600">
+          ¿Estás seguro de que deseas eliminar a{' '}
+          <span className="font-semibold text-slate-900">
+            {deleteTarget?.first_name} {deleteTarget?.last_name}
+          </span>
+          ? Esta acción no se puede deshacer.
+        </p>
+      </Modal>
+    </div>
+  )
+}

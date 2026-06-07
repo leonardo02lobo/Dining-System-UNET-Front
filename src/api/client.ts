@@ -1,4 +1,10 @@
 import type { ApiError } from '../types/auth'
+import type { Sanction } from '../types/sanction'
+
+/** Error 403 con sanción activa adjunta (consumo bloqueado por el backend) */
+export interface SanctionBlockError extends ApiError {
+  sanction: Sanction
+}
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8001/api/v1'
 
@@ -51,7 +57,21 @@ async function request<T>(
   const data = await response.json().catch(() => ({ message: 'Error de conexión con el servidor' }))
 
   if (!response.ok) {
-    throw { message: data.message ?? data.detail ?? 'Error del servidor', status: response.status, details: data.details } as ApiError
+    // El backend puede devolver detail como string o como objeto (ej. 403 con sanción activa)
+    const detail = data.detail
+    const message: string =
+      data.message ??
+      (typeof detail === 'string' ? detail : detail?.message) ??
+      'Error del servidor'
+
+    const err: ApiError = { message, status: response.status, details: data.details }
+
+    // 403 con sanción activa: adjuntar el objeto sanción al error
+    if (response.status === 403 && detail?.sanction) {
+      throw { ...err, sanction: detail.sanction } as SanctionBlockError
+    }
+
+    throw err
   }
 
   return data as T

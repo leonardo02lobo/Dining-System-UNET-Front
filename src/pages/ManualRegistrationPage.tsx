@@ -1,8 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Search, Save, RotateCcw } from 'lucide-react'
 import { studentApi } from '../api/student'
+import { lunchSessionApi } from '../api/lunchSession'
 import { normalizeCedula } from '../utils/cedula'
 import type { Student } from '../types/user'
+import type { LunchSession } from '../types/lunchSession'
+import { notify } from '../utils/toast'
 import { useAuth } from '../context/AuthContext'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
@@ -27,13 +30,19 @@ function nowString() {
 export function ManualRegistrationPage() {
   const { user } = useAuth()
 
+  const [session,  setSession]  = useState<LunchSession | null | undefined>(undefined)
   const [cedula,   setCedula]   = useState('')
   const [student,  setStudent]  = useState<Student | null>(null)
   const [loading,  setLoading]  = useState(false)
   const [saving,   setSaving]   = useState(false)
   const [error,    setError]    = useState<string | null>(null)
   const [searched, setSearched] = useState(false)
-  const [success,  setSuccess]  = useState<string | null>(null)
+
+  useEffect(() => {
+    lunchSessionApi.today()
+      .then((s) => setSession(s))
+      .catch(() => setSession(null))
+  }, [])
 
   async function handleSearch() {
     const clean = normalizeCedula(cedula)
@@ -41,7 +50,6 @@ export function ManualRegistrationPage() {
     setCedula(clean)
     setLoading(true)
     setError(null)
-    setSuccess(null)
     setSearched(true)
     setStudent(null)
     try {
@@ -55,7 +63,7 @@ export function ManualRegistrationPage() {
   }
 
   async function handleSave() {
-    if (!student || !user) return
+    if (!student || !user || !session) return
     setSaving(true)
     setError(null)
     try {
@@ -63,11 +71,17 @@ export function ManualRegistrationPage() {
         cedula:            student.cedula,
         date:              new Date().toISOString(),
         registered_by_id:  user.id,
+        session_id:        session.id,
+        is_manual:         true,
       })
-      setSuccess(`Registro exitoso para ${student.name}`)
+      notify.success(`Registro exitoso para ${student.name}`)
       handleClear()
     } catch (err: any) {
-      setError(err.message ?? 'Error al registrar el consumo')
+      const msg = err?.status === 409
+        ? 'Este beneficiario ya registró consumo en la sesión de hoy.'
+        : 'Error al registrar el consumo'
+      notify.error(msg)
+      setError(msg)
     } finally {
       setSaving(false)
     }
@@ -85,6 +99,7 @@ export function ManualRegistrationPage() {
   }
 
   const isSuspended = student?.is_suspended ?? false
+  const noSession = session === null
 
   return (
     <div>
@@ -93,9 +108,9 @@ export function ManualRegistrationPage() {
         subtitle="Registra manualmente el consumo de comedor de un estudiante"
       />
 
-      {success && (
-        <div className="mb-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-          {success}
+      {noSession && (
+        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          No hay una sesión de almuerzo activa hoy. Un administrador debe abrir la sesión antes de registrar consumos.
         </div>
       )}
 
@@ -176,7 +191,6 @@ export function ManualRegistrationPage() {
         )}
       </Card>
 
-      {/* ── Datos del Registro ───────────────────────── */}
       {!loading && student && (
         <Card variant="outlined" padding="lg" className="mb-6">
           <p className="mb-4 text-sm font-semibold text-blue-600">Datos del Registro</p>
@@ -197,13 +211,12 @@ export function ManualRegistrationPage() {
         </Card>
       )}
 
-      {/* ── Acciones ─────────────────────────────────── */}
       <div className="flex gap-3">
         <Button
           variant="primary"
           leftIcon={<Save size={15} />}
           loading={saving}
-          disabled={!student || isSuspended}
+          disabled={!student || isSuspended || noSession}
           onClick={handleSave}
         >
           Guardar Estudiante

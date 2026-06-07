@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { Search, ScanLine } from 'lucide-react'
 import { studentApi } from '../api/student'
+import { lunchSessionApi } from '../api/lunchSession'
 import { normalizeCedula } from '../utils/cedula'
 import type { Student } from '../types/user'
+import type { LunchSession } from '../types/lunchSession'
+import { notify } from '../utils/toast'
+import { useAuth } from '../context/AuthContext'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
@@ -15,16 +19,23 @@ const MIN_SCAN_LENGTH = 6
 const MAX_GAP_MS      = 60
 
 export function RegisterDining() {
+  const { user } = useAuth()
+  const [session,    setSession]    = useState<LunchSession | null | undefined>(undefined)
   const [cedula,     setCedula]     = useState('')
   const [student,    setStudent]    = useState<Student | null>(null)
   const [loading,    setLoading]    = useState(false)
   const [saving,     setSaving]     = useState(false)
   const [error,      setError]      = useState<string | null>(null)
   const [searched,   setSearched]   = useState(false)
-  const [success,    setSuccess]    = useState<string | null>(null)
 
   const lastKeyAtRef = useRef(0)
   const bufferRef    = useRef('')
+
+  useEffect(() => {
+    lunchSessionApi.today()
+      .then((s) => setSession(s))
+      .catch(() => setSession(null))
+  }, [])
 
   // ── Scanner USB: captura entrada rápida de teclado ──────────────
   useEffect(() => {
@@ -68,7 +79,6 @@ export function RegisterDining() {
     setCedula(clean)
     setLoading(true)
     setError(null)
-    setSuccess(null)
     setSearched(true)
     setStudent(null)
     try {
@@ -89,25 +99,35 @@ export function RegisterDining() {
 
   // ── Registrar consumo ────────────────────────────────────────────
   async function handleRegister() {
-    if (!student) return
+    if (!student || !session || !user) return
     setSaving(true)
     setError(null)
     try {
       await studentApi.registerDining({
         cedula:           student.cedula,
         date:             new Date().toISOString(),
-        registered_by_id: 0,
+        registered_by_id: user.id,
+        session_id:       session.id,
+        is_manual:        false,
       })
-      setSuccess(`Consumo registrado para ${student.name}`)
+      notify.success(`Consumo registrado para ${student.name}`)
       setCedula('')
       setStudent(null)
       setSearched(false)
     } catch (err: any) {
-      setError(err.message ?? 'Error al registrar el consumo')
+      // 403 = sanción activa — el mensaje ya viene limpio del apiClient
+      const msg = err?.status === 409
+        ? 'Este beneficiario ya registró consumo en la sesión de hoy.'
+        : (err?.message ?? 'Error al registrar el consumo')
+      notify.error(msg)
+      setError(msg)
     } finally {
       setSaving(false)
     }
   }
+
+  const noSession = session === null
+  const sessionLoading = session === undefined
 
   return (
     <div>
@@ -116,9 +136,9 @@ export function RegisterDining() {
         subtitle="Escanea el carnet o búsqueda por cédula para registrar el consumo"
       />
 
-      {success && (
-        <div className="mb-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-          {success}
+      {noSession && (
+        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          No hay una sesión de almuerzo activa hoy. Un administrador debe abrir la sesión antes de registrar consumos.
         </div>
       )}
 
@@ -140,11 +160,13 @@ export function RegisterDining() {
             onKeyDown={handleKeyDown}
             leftIcon={<Search size={16} />}
             fullWidth
+            disabled={noSession || sessionLoading}
           />
           <Button
             variant="primary"
             onClick={handleSearch}
             loading={loading}
+            disabled={noSession || sessionLoading}
             className="flex-shrink-0"
           >
             Consultar
@@ -211,7 +233,7 @@ export function RegisterDining() {
                 <Button
                   variant="primary"
                   loading={saving}
-                  disabled={student.is_suspended}
+                  disabled={student.is_suspended || noSession}
                   onClick={handleRegister}
                 >
                   Registrar Consumo

@@ -1,30 +1,30 @@
-import { useEffect, useState } from 'react'
+import { useState, useCallback } from 'react'
 import { Download, RefreshCw } from 'lucide-react'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import { BarChart, PieChart } from '../components/ui/Chart'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { PageHeader } from '../components/ui/PageHeader'
-import { Table, type ColumnDef } from '../components/ui/Table'
 import { Spinner } from '../components/ui/Spinner'
-import { userApi } from '../api/user'
-import type { UserAccount } from '../types/user'
+import { notify } from '../utils/toast'
+import { reportsApi } from '../api/reports'
+import type { ConsumptionReport, SanctionReport } from '../types/report'
 
-interface ConsumeRecord {
-  id: number
-  date: string
-  student_name: string
-  career: string
-  meal: string
+const USER_TYPE_LABEL: Record<string, string> = {
+  STUDENT:        'Estudiante',
+  TEACHER:        'Docente',
+  ADMINISTRATIVE: 'Administrativo',
+  WORKER:         'Obrero',
 }
 
-const MOCK_DATA: ConsumeRecord[] = [
-  { id: 1, date: '2026-05-20', student_name: 'Ana Pérez',      career: 'Ingeniería Industrial',  meal: 'Almuerzo' },
-  { id: 2, date: '2026-05-20', student_name: 'Luis Torres',    career: 'Ingeniería de Sistemas', meal: 'Almuerzo' },
-  { id: 3, date: '2026-05-21', student_name: 'María García',   career: 'Arquitectura',           meal: 'Almuerzo' },
-  { id: 4, date: '2026-05-21', student_name: 'Carlos Ruiz',    career: 'Ingeniería Civil',       meal: 'Almuerzo' },
-  { id: 5, date: '2026-05-22', student_name: 'Sofía Medina',   career: 'Ingeniería Industrial',  meal: 'Almuerzo' },
-  { id: 6, date: '2026-05-22', student_name: 'Pedro Alvarado', career: 'Ingeniería de Sistemas', meal: 'Almuerzo' },
+const COLORS = [
+  'rgba(37, 99, 235, 0.7)',
+  'rgba(16, 185, 129, 0.7)',
+  'rgba(245, 158, 11, 0.7)',
+  'rgba(239, 68, 68, 0.7)',
+  'rgba(139, 92, 246, 0.7)',
 ]
 
 function todayIso() {
@@ -38,109 +38,107 @@ function daysAgo(n: number) {
 }
 
 export function ReportsPage() {
-  const [dateFrom, setDateFrom] = useState(daysAgo(30))
-  const [dateTo,   setDateTo]   = useState(todayIso())
-  const [loading,  setLoading]  = useState(false)
-  const [records,  setRecords]  = useState<ConsumeRecord[]>(MOCK_DATA)
+  const [dateFrom, setDateFrom]             = useState(daysAgo(30))
+  const [dateTo,   setDateTo]               = useState(todayIso())
+  const [loading,  setLoading]              = useState(false)
+  const [report,   setReport]               = useState<ConsumptionReport | null>(null)
+  const [sanctions, setSanctions]           = useState<SanctionReport | null>(null)
 
-  const [users,        setUsers]        = useState<UserAccount[]>([])
-  const [usersLoading, setUsersLoading] = useState(true)
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const data = await userApi.list()
-        setUsers(data)
-      } catch {
-      } finally {
-        setUsersLoading(false)
-      }
-    })()
-  }, [])
-
-  async function handleGenerate() {
+  const handleGenerate = useCallback(async () => {
+    if (!dateFrom || !dateTo) return
     setLoading(true)
     try {
-      await new Promise((r) => setTimeout(r, 700))
-      setRecords(MOCK_DATA)
+      const [c, s] = await Promise.all([
+        reportsApi.consumption({ from_date: dateFrom, to_date: dateTo }),
+        reportsApi.sanctions({ from_date: dateFrom, to_date: dateTo }),
+      ])
+      setReport(c)
+      setSanctions(s)
+    } catch (err) {
+      notify.error(err)
     } finally {
       setLoading(false)
     }
-  }
+  }, [dateFrom, dateTo])
 
-  function handleDownload() { window.print() }
-
-  const careerCounts = records.reduce<Record<string, number>>((acc, r) => {
-    acc[r.career] = (acc[r.career] ?? 0) + 1
-    return acc
-  }, {})
-
-  const barData = {
-    labels: Object.keys(careerCounts),
-    datasets: [
-      {
-        label: 'Consumos',
-        data: Object.values(careerCounts),
-        backgroundColor: 'rgba(37, 99, 235, 0.7)',
-        borderColor:     'rgba(37, 99, 235, 1)',
-        borderWidth: 1,
-        borderRadius: 4,
-      },
-    ],
-  }
-
-  const pieData = {
-    labels: ['Almuerzo', 'Desayuno', 'Merienda'],
-    datasets: [
-      {
-        data: [records.length, 0, 0],
-        backgroundColor: [
-          'rgba(37, 99, 235, 0.7)',
-          'rgba(16, 185, 129, 0.7)',
-          'rgba(245, 158, 11, 0.7)',
+  // ── Chart data ──────────────────────────────────────────────────────
+  const dayBarData = report
+    ? {
+        labels: report.by_day.map((d) => d.date),
+        datasets: [
+          {
+            label: 'Total',
+            data: report.by_day.map((d) => d.total),
+            backgroundColor: COLORS[0],
+            borderColor: COLORS[0].replace('0.7', '1'),
+            borderWidth: 1,
+            borderRadius: 4,
+          },
+          {
+            label: 'Manuales',
+            data: report.by_day.map((d) => d.manual_count),
+            backgroundColor: COLORS[1],
+            borderColor: COLORS[1].replace('0.7', '1'),
+            borderWidth: 1,
+            borderRadius: 4,
+          },
         ],
-        borderWidth: 1,
-      },
-    ],
+      }
+    : null
+
+  const typeBarData = report
+    ? {
+        labels: report.by_user_type.map((x) => USER_TYPE_LABEL[x.user_type] ?? x.user_type),
+        datasets: [
+          {
+            label: 'Consumos',
+            data: report.by_user_type.map((x) => x.total),
+            backgroundColor: report.by_user_type.map((_, i) => COLORS[i % COLORS.length]),
+            borderColor:     report.by_user_type.map((_, i) => COLORS[i % COLORS.length].replace('0.7', '1')),
+            borderWidth: 1,
+            borderRadius: 4,
+          },
+        ],
+      }
+    : null
+
+  const sanctionPieData = sanctions
+    ? {
+        labels: sanctions.by_status.map((s) => s.status),
+        datasets: [
+          {
+            data: sanctions.by_status.map((s) => s.count),
+            backgroundColor: sanctions.by_status.map((_, i) => COLORS[i % COLORS.length]),
+            borderWidth: 1,
+          },
+        ],
+      }
+    : null
+
+  // ── PDF export ──────────────────────────────────────────────────────
+  function handleDownload() {
+    if (!report) { notify.info('Genera el reporte primero.'); return }
+    const doc = new jsPDF()
+    doc.text(`Reporte de Consumos — ${dateFrom} al ${dateTo}`, 14, 15)
+    doc.setFontSize(11)
+    doc.text(`Total consumos: ${report.total_consumptions}`, 14, 23)
+
+    autoTable(doc, {
+      startY: 30,
+      head: [['Fecha', 'Total', 'Manuales']],
+      body: report.by_day.map((d) => [d.date, d.total, d.manual_count]),
+    })
+
+    const afterFirstTable = (doc as any).lastAutoTable?.finalY ?? 60
+    doc.text('Consumos por tipo de usuario', 14, afterFirstTable + 10)
+    autoTable(doc, {
+      startY: afterFirstTable + 14,
+      head: [['Tipo de Usuario', 'Total']],
+      body: report.by_user_type.map((x) => [USER_TYPE_LABEL[x.user_type] ?? x.user_type, x.total]),
+    })
+
+    doc.save(`reporte-consumos-${dateFrom}-${dateTo}.pdf`)
   }
-
-  // --- Gráficas de usuarios ---
-  const roleCounts = users.reduce<Record<string, number>>((acc, u) => {
-    acc[u.role.name] = (acc[u.role.name] ?? 0) + 1
-    return acc
-  }, {})
-
-  const userBarData = {
-    labels: ['Super Admin', 'Admin', 'Taquillero'],
-    datasets: [
-      {
-        label: 'Cantidad de usuarios',
-        data: [roleCounts['SUPER_ADMIN'] ?? 0, roleCounts['ADMIN'] ?? 0, roleCounts['TAQUILLERO'] ?? 0],
-        backgroundColor: ['rgba(37, 99, 235, 0.7)', 'rgba(251, 146, 60, 0.7)', 'rgba(100, 116, 139, 0.7)'],
-        borderColor:     ['rgba(37, 99, 235, 1)',   'rgba(251, 146, 60, 1)',   'rgba(100, 116, 139, 1)'  ],
-        borderWidth: 1,
-        borderRadius: 4,
-      },
-    ],
-  }
-
-  const userPieData = {
-    labels: ['Super Admin', 'Admin', 'Taquillero'],
-    datasets: [
-      {
-        data: [roleCounts['SUPER_ADMIN'] ?? 0, roleCounts['ADMIN'] ?? 0, roleCounts['TAQUILLERO'] ?? 0],
-        backgroundColor: ['rgba(37, 99, 235, 0.7)', 'rgba(251, 146, 60, 0.7)', 'rgba(100, 116, 139, 0.7)'],
-        borderWidth: 1,
-      },
-    ],
-  }
-
-  const columns: ColumnDef<ConsumeRecord>[] = [
-    { key: 'date',         header: 'Fecha',      sortable: true },
-    { key: 'student_name', header: 'Estudiante', sortable: true },
-    { key: 'career',       header: 'Carrera',    sortable: true },
-    { key: 'meal',         header: 'Comida' },
-  ]
 
   return (
     <div>
@@ -163,8 +161,9 @@ export function ReportsPage() {
               size="sm"
               leftIcon={<Download size={14} />}
               onClick={handleDownload}
+              disabled={!report}
             >
-              Descargar Reporte
+              Descargar PDF
             </Button>
           </>
         }
@@ -188,64 +187,126 @@ export function ReportsPage() {
         </div>
       </Card>
 
-      {loading ? (
+      {loading && (
         <div className="flex justify-center py-16">
           <Spinner size="lg" />
         </div>
-      ) : (
-        <>
-          {/* Gráficas de consumo */}
-          <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <Card variant="outlined" padding="md">
-              <Card.Header title="Consumo por categoría" subtitle="Distribución de tipos de comida" />
-              <Card.Body>
-                <PieChart data={pieData} />
-              </Card.Body>
-            </Card>
-
-            <Card variant="outlined" padding="md">
-              <Card.Header title="Consumo por carrera" subtitle="Consumos agrupados por carrera" />
-              <Card.Body>
-                <BarChart data={barData} />
-              </Card.Body>
-            </Card>
-          </div>
-
-          {/* Tabla de registros */}
-          <Table<ConsumeRecord>
-            columns={columns}
-            rows={records}
-            keyField="id"
-            emptyMessage="No hay registros en el rango de fechas seleccionado."
-          />
-        </>
       )}
 
-      {/* Gráficas de usuarios del sistema */}
-      <div className="mt-8">
-        <h2 className="mb-4 text-base font-semibold text-slate-700">Estadísticas de Usuarios</h2>
-        {usersLoading ? (
-          <div className="flex justify-center py-10">
-            <Spinner size="lg" />
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <Card variant="outlined" padding="md">
-              <Card.Header title="Distribución por rol" subtitle="Gráfico circular" />
-              <Card.Body>
-                <PieChart data={userPieData} />
-              </Card.Body>
-            </Card>
+      {!loading && !report && (
+        <div className="rounded-md border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-400">
+          Selecciona un rango de fechas y presiona <strong>Generar Reporte</strong>.
+        </div>
+      )}
 
+      {!loading && report && (
+        <>
+          {/* Tarjeta resumen */}
+          <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
             <Card variant="outlined" padding="md">
-              <Card.Header title="Usuarios por rol" subtitle="Gráfico de barras" />
-              <Card.Body>
-                <BarChart data={userBarData} />
-              </Card.Body>
+              <p className="text-xs text-slate-400 uppercase tracking-wide">Total consumos</p>
+              <p className="mt-1 text-3xl font-bold text-blue-600">{report.total_consumptions}</p>
+            </Card>
+            <Card variant="outlined" padding="md">
+              <p className="text-xs text-slate-400 uppercase tracking-wide">Días con servicio</p>
+              <p className="mt-1 text-3xl font-bold text-slate-800">{report.by_day.length}</p>
+            </Card>
+            <Card variant="outlined" padding="md">
+              <p className="text-xs text-slate-400 uppercase tracking-wide">Sanciones activas</p>
+              <p className="mt-1 text-3xl font-bold text-red-500">
+                {sanctions?.by_status.find((s) => s.status === 'ACTIVE')?.count ?? 0}
+              </p>
             </Card>
           </div>
-        )}
-      </div>
+
+          {/* Gráficas de consumo */}
+          <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {dayBarData && (
+              <Card variant="outlined" padding="md">
+                <Card.Header title="Consumos por día" subtitle="Total y registros manuales" />
+                <Card.Body>
+                  <BarChart data={dayBarData} />
+                </Card.Body>
+              </Card>
+            )}
+
+            {typeBarData && (
+              <Card variant="outlined" padding="md">
+                <Card.Header title="Consumos por tipo de usuario" subtitle="Estudiantes, docentes, etc." />
+                <Card.Body>
+                  <BarChart data={typeBarData} />
+                </Card.Body>
+              </Card>
+            )}
+          </div>
+
+          {/* Tabla de consumos por día */}
+          <Card variant="outlined" padding="md" className="mb-6">
+            <Card.Header title="Detalle por día" />
+            <Card.Body>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
+                    <th className="pb-2 pr-4">Fecha</th>
+                    <th className="pb-2 pr-4">Total</th>
+                    <th className="pb-2">Manuales</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.by_day.map((d) => (
+                    <tr key={d.date} className="border-b border-slate-100 last:border-0">
+                      <td className="py-2 pr-4 text-slate-700">{d.date}</td>
+                      <td className="py-2 pr-4 font-semibold text-blue-600">{d.total}</td>
+                      <td className="py-2 text-slate-500">{d.manual_count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card.Body>
+          </Card>
+
+          {/* Sanciones */}
+          {sanctions && (
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              {sanctionPieData && (
+                <Card variant="outlined" padding="md">
+                  <Card.Header title="Sanciones por estado" subtitle={`Total: ${sanctions.total}`} />
+                  <Card.Body>
+                    <PieChart data={sanctionPieData} />
+                  </Card.Body>
+                </Card>
+              )}
+
+              <Card variant="outlined" padding="md">
+                <Card.Header title="Principales motivos de sanción" />
+                <Card.Body>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
+                        <th className="pb-2 pr-4">Motivo</th>
+                        <th className="pb-2">Cantidad</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sanctions.by_reason.map((r) => (
+                        <tr key={r.reason} className="border-b border-slate-100 last:border-0">
+                          <td className="py-2 pr-4 text-slate-700">{r.reason}</td>
+                          <td className="py-2 font-semibold">{r.count}</td>
+                        </tr>
+                      ))}
+                      {sanctions.by_reason.length === 0 && (
+                        <tr>
+                          <td colSpan={2} className="py-4 text-center text-slate-400">Sin sanciones en el período</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </Card.Body>
+              </Card>
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }

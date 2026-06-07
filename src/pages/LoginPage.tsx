@@ -22,7 +22,7 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false)
 
   // Redirigir si ya tiene sesión activa
-  if (!authLoading && user) return <Navigate to="/dashboard" replace />
+  if (!authLoading && user) return <Navigate to="/" replace />
 
   function validate(): boolean {
     const next: Partial<LoginCredentials> = {}
@@ -45,7 +45,7 @@ export function LoginPage() {
     try {
       await authApi.login(credentials)
       await refetch()
-      navigate('/dashboard')
+      navigate('/')
     } catch (err) {
       const error = err as ApiError
       if (error.status === 401) {
@@ -137,13 +137,9 @@ export function LoginPage() {
               </Button>
 
               <div className="text-center">
-                <a
-                  href="#"
-                  className="text-xs text-slate-400 transition hover:text-slate-600"
-                  onClick={(e) => e.preventDefault()}
-                >
-                  ¿Olvidaste tu contraseña?
-                </a>
+                <span className="text-xs text-slate-300 select-none">
+                  ¿Olvidaste tu contraseña? Contacta al administrador del sistema.
+                </span>
               </div>
             </form>
           </Card>

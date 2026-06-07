@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { Toaster } from 'sonner'
 import { AuthProvider } from './context/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { LoginPage } from './pages/LoginPage'
@@ -13,17 +14,20 @@ import { CreateLunchPage } from './pages/CreateLunchPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { ManualRegistrationPage } from './pages/ManualRegistrationPage'
 import { PermissionsPage } from './pages/PermissionsPage'
+import { LunchSessionPage } from './pages/LunchSessionPage'
+import { BeneficiaryPage } from './pages/BeneficiaryPage'
 
 export default function App() {
   return (
     <BrowserRouter>
+      <Toaster position="top-right" richColors closeButton />
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
 
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Index />}>
-              <Route path="dashboard" element={<Navigate to="/comedor/reporte" replace />} />
+              <Route path="dashboard" element={<Navigate to="/" replace />} />
               <Route path="comedor/consultar" element={<CheckConsumes />} />
               <Route path="comedor/registrar" element={<RegisterDining />} />
               <Route path="comedor/reporte" element={<ReportsPage />} />
@@ -34,6 +38,8 @@ export default function App() {
               <Route path="usuarios" element={<ListUser />} />
               <Route path="auditoria" element={<LoginAuditPage />} />
               <Route path="suspendStudent" element={<SuspendStudent />} />
+              <Route path="comedor/sesion" element={<LunchSessionPage />} />
+              <Route path="beneficiarios" element={<BeneficiaryPage />} />
 
               <Route path="checkConsumes" element={<Navigate to="/comedor/consultar" replace />} />
               <Route path="registerDining" element={<Navigate to="/comedor/registrar" replace />} />
