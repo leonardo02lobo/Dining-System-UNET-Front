@@ -1,22 +1,25 @@
 import { ChevronDown, Filter, Plus } from 'lucide-react'
 import { useRef, useState } from 'react'
-import { INGREDIENT_CATEGORIES } from '../../types/inventory'
 import { SearchInput } from '../ui/SearchInput'
 
 interface InventoryToolbarProps {
   search: string
   onSearchChange: (value: string) => void
+  categories: string[]
   selectedCategory: string | null
   onCategoryChange: (category: string | null) => void
   onAddItem: () => void
+  onManageCategories: () => void
 }
 
 export function InventoryToolbar({
   search,
   onSearchChange,
+  categories,
   selectedCategory,
   onCategoryChange,
   onAddItem,
+  onManageCategories,
 }: InventoryToolbarProps) {
   const [filterOpen, setFilterOpen] = useState(false)
   const filterRef = useRef<HTMLDivElement>(null)
@@ -46,6 +49,15 @@ export function InventoryToolbar({
         >
           <Plus size={22} />
           Cargar Insumo
+        </button>
+
+        <button
+          type="button"
+          onClick={onManageCategories}
+          className="inline-flex h-[45px] items-center justify-center gap-2.5 rounded-[10px] border border-[#03216a] bg-white px-5 text-[15px] font-bold text-[#03216a] transition hover:bg-blue-50"
+        >
+          <Plus size={22} />
+          Categorías
         </button>
 
         <div ref={filterRef} className="relative">
@@ -79,7 +91,7 @@ export function InventoryToolbar({
                     Todas las categorías
                   </button>
                 </li>
-                {INGREDIENT_CATEGORIES.map((cat) => (
+                {categories.map((cat) => (
                   <li key={cat}>
                     <button
                       type="button"

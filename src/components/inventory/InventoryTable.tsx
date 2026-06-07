@@ -7,6 +7,7 @@ interface InventoryTableProps {
   onDecrease: (item: Ingredient) => void
   onEdit: (item: Ingredient) => void
   onDelete: (item: Ingredient) => void
+  onRowClick?: (item: Ingredient) => void
 }
 
 const COLUMNS = [
@@ -29,6 +30,7 @@ export function InventoryTable({
   onDecrease,
   onEdit,
   onDelete,
+  onRowClick,
 }: InventoryTableProps) {
   return (
     <div className="overflow-x-auto">
@@ -62,7 +64,11 @@ export function InventoryTable({
             </tr>
           ) : (
             items.map((item) => (
-              <tr key={item.id} className="bg-white">
+              <tr
+                key={item.id}
+                className={`bg-white ${onRowClick ? 'cursor-pointer transition hover:bg-blue-50' : ''}`}
+                onClick={() => onRowClick?.(item)}
+              >
                 {COLUMNS.map((col) => (
                   <td
                     key={col.key}
