@@ -9,9 +9,9 @@ interface ReportChartsPanelProps {
 
 export function ReportChartsPanel({ categoryData, supplyData }: ReportChartsPanelProps) {
   return (
-    <aside className="w-full flex-shrink-0 space-y-4 xl:w-[267px]">
+    <section className="grid w-full min-w-0 grid-cols-1 gap-6 lg:grid-cols-2">
       <CategoryConsumptionChart data={categoryData} />
       <SupplyConsumptionChart data={supplyData} />
-    </aside>
+    </section>
   )
 }

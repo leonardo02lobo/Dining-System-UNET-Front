@@ -195,21 +195,17 @@ export function ConsumptionReportPage() {
         loadingCategories={loadingCategories}
       />
 
-      <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
-        <div className="min-w-0 flex-1">
-          {items !== null ? (
-            <ConsumptionReportTable rows={rows} />
-          ) : (
-            <div className="rounded-lg border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500">
-              Selecciona un rango de fechas y presiona <strong>Generar Reporte</strong>.
-            </div>
-          )}
+      {items !== null ? (
+        <ConsumptionReportTable rows={rows} />
+      ) : (
+        <div className="rounded-lg border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500">
+          Selecciona un rango de fechas y presiona <strong>Generar Reporte</strong>.
         </div>
+      )}
 
-        {items !== null && rows.length > 0 && (
-          <ReportChartsPanel categoryData={categoryData} supplyData={supplyData} />
-        )}
-      </div>
+      {items !== null && rows.length > 0 && (
+        <ReportChartsPanel categoryData={categoryData} supplyData={supplyData} />
+      )}
     </div>
   )
 }

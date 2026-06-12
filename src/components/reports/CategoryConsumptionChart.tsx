@@ -21,7 +21,7 @@ export function CategoryConsumptionChart({ data }: CategoryConsumptionChartProps
 
   const options: ChartOptions<'pie'> = {
     responsive: true,
-    maintainAspectRatio: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: { display: false },
       title: { display: false },
@@ -29,15 +29,15 @@ export function CategoryConsumptionChart({ data }: CategoryConsumptionChartProps
   }
 
   return (
-    <div className="rounded-[10px] bg-[#d9d9d9] p-4">
+    <div className="flex min-w-0 flex-col rounded-[10px] bg-[#d9d9d9] p-4 sm:p-6">
       <h2 className="text-xl font-normal text-black">Consumo por categoría</h2>
       <p className="mt-1 text-xs text-black">Total Consumido en el periodo</p>
 
-      <div className="mt-3 h-[180px]">
+      <div className="mx-auto mt-4 h-[260px] w-full max-w-[420px] sm:h-[320px] [&>div]:h-full [&>div]:bg-transparent [&>div]:p-0">
         <PieChart data={pieData} options={options} />
       </div>
 
-      <ul className="mt-3 space-y-2">
+      <ul className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
         {data.map((item) => (
           <li key={item.category} className="flex items-center gap-2 text-xs text-black">
             <span
