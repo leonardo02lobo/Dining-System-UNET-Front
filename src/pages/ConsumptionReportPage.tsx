@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ConsumptionReportTable } from '../components/reports/ConsumptionReportTable'
 import { ReportChartsPanel } from '../components/reports/ReportChartsPanel'
 import { ReportDateRangeFilters } from '../components/reports/ReportDateRangeFilters'
 import { reportsApi } from '../api/reports'
+import { inventoryApi } from '../api/inventory'
 import type { ConsumptionReportItem } from '../types/report'
+import type { InventoryCategory } from '../types/inventory'
 import type {
   CategoryConsumption,
   ConsumptionReportRow,
@@ -33,7 +35,8 @@ function toReportRow(item: ConsumptionReportItem, index: number): ConsumptionRep
     category: item.categoryName,
     consumed_amount: item.quantityConsumed,
     unit: item.unit,
-    period: `${formatDisplayDate(item.period.fromDate)} - ${formatDisplayDate(item.period.toDate)}`,
+    date_from: formatDisplayDate(item.period.fromDate),
+    date_to: formatDisplayDate(item.period.toDate),
   }
 }
 
@@ -61,22 +64,52 @@ function toSupplyConsumption(items: ConsumptionReportItem[]): SupplyConsumption[
 export function ConsumptionReportPage() {
   const [dateFrom, setDateFrom] = useState(toIsoDate(80))
   const [dateTo, setDateTo] = useState(toIsoDate(0))
+  const [categoryId, setCategoryId] = useState('')
+  const [categories, setCategories] = useState<InventoryCategory[]>([])
   const [items, setItems] = useState<ConsumptionReportItem[] | null>(null)
   const [loading, setLoading] = useState(false)
+  const [loadingCategories, setLoadingCategories] = useState(false)
+  const [downloadingPdf, setDownloadingPdf] = useState(false)
+  const [downloadingCsv, setDownloadingCsv] = useState(false)
 
-  async function handleGenerate() {
+  useEffect(() => {
+    async function loadCategories() {
+      setLoadingCategories(true)
+      try {
+        setCategories(await inventoryApi.listCategories())
+      } catch (err) {
+        notify.error(err)
+      } finally {
+        setLoadingCategories(false)
+      }
+    }
+
+    void loadCategories()
+  }, [])
+
+  function hasValidDateRange() {
     if (!dateFrom || !dateTo) {
       notify.info('Selecciona la fecha inicial y final.')
-      return
+      return false
     }
     if (dateFrom > dateTo) {
       notify.info('La fecha inicial no puede ser mayor que la final.')
-      return
+      return false
     }
+
+    return true
+  }
+
+  async function handleGenerate() {
+    if (!hasValidDateRange()) return
 
     setLoading(true)
     try {
-      const data = await reportsApi.consumptionReports({ fromDate: dateFrom, toDate: dateTo })
+      const data = await reportsApi.consumptionReports({
+        fromDate: dateFrom,
+        toDate: dateTo,
+        categoryId: categoryId ? Number(categoryId) : undefined,
+      })
       setItems(data)
       notify.success(`Reporte generado con ${data.length} insumo(s).`)
     } catch (err) {
@@ -86,12 +119,55 @@ export function ConsumptionReportPage() {
     }
   }
 
-  function handleDownload() {
-    if (!items || items.length === 0) {
-      notify.info('Genera el reporte primero.')
-      return
+  function downloadBlob(file: Blob, filename: string) {
+    const url = URL.createObjectURL(file)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  async function handleDownloadPdf() {
+    if (!hasValidDateRange()) return
+
+    setDownloadingPdf(true)
+    try {
+      const pdf = await reportsApi.exportConsumptionReportPdf({
+        fromDate: dateFrom,
+        toDate: dateTo,
+        categoryId: categoryId ? Number(categoryId) : undefined,
+      })
+      const categorySuffix = categoryId ? `-categoria-${categoryId}` : ''
+      downloadBlob(pdf, `reporte-consumo-${dateFrom}-${dateTo}${categorySuffix}.pdf`)
+      notify.success('Reporte PDF descargado correctamente.')
+    } catch (err) {
+      notify.error(err)
+    } finally {
+      setDownloadingPdf(false)
     }
-    notify.success('Descarga simulada — conexión al backend pendiente.')
+  }
+
+  async function handleDownloadCsv() {
+    if (!hasValidDateRange()) return
+
+    setDownloadingCsv(true)
+    try {
+      const csv = await reportsApi.exportConsumptionReportCsv({
+        fromDate: dateFrom,
+        toDate: dateTo,
+        categoryId: categoryId ? Number(categoryId) : undefined,
+      })
+      const categorySuffix = categoryId ? `-categoria-${categoryId}` : ''
+      downloadBlob(csv, `reporte-consumo-${dateFrom}-${dateTo}${categorySuffix}.csv`)
+      notify.success('Reporte CSV descargado correctamente.')
+    } catch (err) {
+      notify.error(err)
+    } finally {
+      setDownloadingCsv(false)
+    }
   }
 
   const rows = useMemo(() => (items ?? []).map(toReportRow), [items])
@@ -105,11 +181,18 @@ export function ConsumptionReportPage() {
       <ReportDateRangeFilters
         dateFrom={dateFrom}
         dateTo={dateTo}
+        categoryId={categoryId}
+        categories={categories}
         onDateFromChange={setDateFrom}
         onDateToChange={setDateTo}
+        onCategoryChange={setCategoryId}
         onGenerate={handleGenerate}
-        onDownload={handleDownload}
+        onDownloadPdf={handleDownloadPdf}
+        onDownloadCsv={handleDownloadCsv}
         loading={loading}
+        downloadingPdf={downloadingPdf}
+        downloadingCsv={downloadingCsv}
+        loadingCategories={loadingCategories}
       />
 
       <div className="flex flex-col gap-6 xl:flex-row xl:items-start">

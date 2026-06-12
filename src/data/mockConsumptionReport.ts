@@ -5,12 +5,12 @@ import type {
 } from '../types/consumptionReport'
 
 export const MOCK_CONSUMPTION_ROWS: ConsumptionReportRow[] = [
-  { id: 1, supply_name: 'Papa',    category: 'Verdura', consumed_amount: 40, unit: 'kg', period: '23/05 - 12/08' },
-  { id: 2, supply_name: 'Pasta',   category: 'Víveres', consumed_amount: 20, unit: 'kg', period: '23/05 - 12/08' },
-  { id: 3, supply_name: 'Tomate',  category: 'Verdura', consumed_amount: 8,  unit: 'kg', period: '23/05 - 12/08' },
-  { id: 4, supply_name: 'Cebolla', category: 'Verdura', consumed_amount: 9,  unit: 'kg', period: '23/05 - 12/08' },
-  { id: 5, supply_name: 'Aceite',  category: 'Víveres', consumed_amount: 20, unit: 'L',  period: '23/05 - 12/08' },
-  { id: 6, supply_name: 'Leche',   category: 'Víveres', consumed_amount: 18, unit: 'L',  period: '23/05 - 12/08' },
+  { id: 1, supply_name: 'Papa', category: 'Verdura', consumed_amount: 40, unit: 'kg', date_from: '23/05', date_to: '12/08' },
+  { id: 2, supply_name: 'Pasta', category: 'Víveres', consumed_amount: 20, unit: 'kg', date_from: '23/05', date_to: '12/08' },
+  { id: 3, supply_name: 'Tomate', category: 'Verdura', consumed_amount: 8, unit: 'kg', date_from: '23/05', date_to: '12/08' },
+  { id: 4, supply_name: 'Cebolla', category: 'Verdura', consumed_amount: 9, unit: 'kg', date_from: '23/05', date_to: '12/08' },
+  { id: 5, supply_name: 'Aceite', category: 'Víveres', consumed_amount: 20, unit: 'L', date_from: '23/05', date_to: '12/08' },
+  { id: 6, supply_name: 'Leche', category: 'Víveres', consumed_amount: 18, unit: 'L', date_from: '23/05', date_to: '12/08' },
 ]
 
 export const MOCK_CATEGORY_CONSUMPTION: CategoryConsumption[] = [

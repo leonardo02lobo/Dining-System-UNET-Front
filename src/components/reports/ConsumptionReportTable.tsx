@@ -20,10 +20,10 @@ export function ConsumptionReportTable({ rows }: ConsumptionReportTableProps) {
               Cantidad Consumida
             </th>
             <th className="border border-black px-2 py-3 text-center font-medium text-black">
-              Unidad
+              Desde
             </th>
             <th className="rounded-tr-[10px] border border-black px-2 py-3 text-center font-medium text-black">
-              Periodo
+              Hasta
             </th>
           </tr>
         </thead>
@@ -45,13 +45,14 @@ export function ConsumptionReportTable({ rows }: ConsumptionReportTableProps) {
                 </td>
                 <td className="border border-black px-2 py-2.5 text-center text-black">
                   {row.consumed_amount}
+                  {' '}
                   {row.unit}
                 </td>
                 <td className="border border-black px-2 py-2.5 text-center text-black">
-                  {row.unit}
+                  {row.date_from}
                 </td>
                 <td className="border border-black px-2 py-2.5 text-center text-black">
-                  {row.period}
+                  {row.date_to}
                 </td>
               </tr>
             ))

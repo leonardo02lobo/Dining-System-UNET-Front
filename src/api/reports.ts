@@ -9,12 +9,35 @@ import type {
 export interface ConsumptionReportRange {
   fromDate: string
   toDate: string
+  categoryId?: number
+}
+
+function toConsumptionReportParams({ fromDate, toDate, categoryId }: ConsumptionReportRange) {
+  const params = new URLSearchParams({ from: fromDate, to: toDate })
+  if (categoryId !== undefined) params.set('categoryId', String(categoryId))
+  return params
 }
 
 export const reportsApi = {
-  consumptionReports: ({ fromDate, toDate }: ConsumptionReportRange) => {
-    const params = new URLSearchParams({ from: fromDate, to: toDate })
+  consumptionReports: (range: ConsumptionReportRange) => {
+    const params = toConsumptionReportParams(range)
     return apiClient.get<ConsumptionReportItem[]>(`/consumption-reports/?${params.toString()}`)
+  },
+
+  exportConsumptionReportPdf: (range: ConsumptionReportRange) => {
+    const params = toConsumptionReportParams(range)
+    return apiClient.getBlob(
+      `/consumption-reports/export/pdf?${params.toString()}`,
+      'application/pdf',
+    )
+  },
+
+  exportConsumptionReportCsv: (range: ConsumptionReportRange) => {
+    const params = toConsumptionReportParams(range)
+    return apiClient.getBlob(
+      `/consumption-reports/export/csv?${params.toString()}`,
+      'text/csv',
+    )
   },
 
   consumption: (filters: ReportFilters) =>

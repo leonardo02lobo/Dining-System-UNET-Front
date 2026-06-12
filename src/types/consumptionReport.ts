@@ -5,7 +5,8 @@ export interface ConsumptionReportRow {
   category: string
   consumed_amount: number
   unit: string
-  period: string
+  date_from: string
+  date_to: string
 }
 
 /** Consumo agrupado por categoría */
