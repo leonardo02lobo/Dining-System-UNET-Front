@@ -7,6 +7,7 @@ interface LunchRecalculationPanelProps {
   previews: RecalculationPreview[]
   onAddIngredient: () => void
   onDesiredPlatesChange: (value: number) => void
+  onApplyRecalculation: () => void
 }
 
 export function LunchRecalculationPanel({
@@ -15,6 +16,7 @@ export function LunchRecalculationPanel({
   previews,
   onAddIngredient,
   onDesiredPlatesChange,
+  onApplyRecalculation,
 }: LunchRecalculationPanelProps) {
   const showPreview = previews.length > 0
 
@@ -94,6 +96,15 @@ export function LunchRecalculationPanel({
                 </div>
               </div>
             ))}
+
+            <button
+              type="button"
+              onClick={onApplyRecalculation}
+              className="flex h-10 w-full items-center justify-center gap-2 rounded-[10px] bg-[#03216a] text-sm font-bold text-white transition hover:bg-[#021a52]"
+            >
+              <Plus size={18} />
+              Agregar
+            </button>
           </div>
         ) : (
           <p className="mt-4 text-xs text-slate-500">

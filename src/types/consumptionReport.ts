@@ -1,4 +1,4 @@
-/** Fila del reporte de consumo por insumo */
+/** Fila del reporte de consumo de insumos */
 export interface ConsumptionReportRow {
   id: number
   supply_name: string
@@ -8,15 +8,16 @@ export interface ConsumptionReportRow {
   period: string
 }
 
-/** Resumen de consumo por categoría */
+/** Consumo agrupado por categoría */
 export interface CategoryConsumption {
   category: string
   total: number
   color: string
 }
 
-/** Consumo por insumo para gráfico de barras */
+/** Consumo por insumo individual */
 export interface SupplyConsumption {
   supply_name: string
   total: number
+  unit: string
 }
