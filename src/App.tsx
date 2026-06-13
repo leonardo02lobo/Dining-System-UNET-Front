@@ -19,6 +19,8 @@ import { LunchSessionPage } from './pages/LunchSessionPage'
 import { BeneficiaryPage } from './pages/BeneficiaryPage'
 import { GeneralInventoryPage } from './pages/GeneralInventoryPage'
 import { ConsumptionReportPage } from './pages/ConsumptionReportPage'
+import { VerifyBeneficiaryPage } from './pages/VerifyBeneficiaryPage'
+import { SedesPage } from './pages/SedesPage'
 
 export default function App() {
   return (
@@ -46,6 +48,8 @@ export default function App() {
               <Route path="suspendStudent" element={<SuspendStudent />} />
               <Route path="comedor/sesion" element={<LunchSessionPage />} />
               <Route path="beneficiarios" element={<BeneficiaryPage />} />
+              <Route path="verificar-beneficiario" element={<VerifyBeneficiaryPage />} />
+              <Route path="sedes" element={<SedesPage />} />
 
               <Route path="checkConsumes" element={<Navigate to="/comedor/consultar" replace />} />
               <Route path="registerDining" element={<Navigate to="/comedor/registrar" replace />} />

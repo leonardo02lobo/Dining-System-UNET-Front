@@ -4,6 +4,7 @@ import type {
   BeneficiaryCreate,
   BeneficiaryUpdate,
   BeneficiaryFilters,
+  BeneficiaryVerifyResult,
   PaginatedBeneficiaries,
 } from '../types/beneficiary'
 
@@ -27,4 +28,6 @@ export const beneficiaryApi = {
   remove: (id: number)                               => apiClient.delete<void>(`/beneficiaries/${id}`),
   /** Lookup por cédula o carnet — devuelve el mismo shape que Beneficiary */
   lookup: (q: string)                                => apiClient.get<Beneficiary>(`/beneficiaries/lookup?q=${encodeURIComponent(q)}`),
+  /** Verificar si una persona está en la lista de beneficiarios (accesible por rol BENEFICIARIO) */
+  verify: (document_id: string)                      => apiClient.get<BeneficiaryVerifyResult>(`/beneficiaries/verify/${encodeURIComponent(document_id)}`),
 }

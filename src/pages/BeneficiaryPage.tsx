@@ -150,6 +150,12 @@ export function BeneficiaryPage() {
         </Badge>
       ),
     },
+    {
+      key: 'is_priority',
+      header: 'VIP',
+      render: (_, row) =>
+        row.is_priority ? <Badge variant="warning">VIP</Badge> : null,
+    },
   ]
 
   return (

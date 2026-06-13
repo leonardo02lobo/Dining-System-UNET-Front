@@ -5,6 +5,7 @@ import autoTable from 'jspdf-autotable'
 import { BarChart, PieChart } from '../components/ui/Chart'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
+import { DateInput } from '../components/ui/DateInput'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Spinner } from '../components/ui/Spinner'
 import { notify } from '../utils/toast'
@@ -179,6 +180,26 @@ export function ReportsPage() {
           </>
         }
       />
+
+      {/* Filtros de fecha */}
+      <Card variant="outlined" padding="md" className="mb-6">
+        <div className="flex flex-wrap gap-6">
+          <DateInput
+            label="Desde"
+            value={dateFrom}
+            onChange={setDateFrom}
+            maxDate={dateTo || undefined}
+            className="w-48"
+          />
+          <DateInput
+            label="Hasta"
+            value={dateTo}
+            onChange={setDateTo}
+            minDate={dateFrom || undefined}
+            className="w-48"
+          />
+        </div>
+      </Card>
 
       {loading && (
         <div className="flex justify-center py-16">

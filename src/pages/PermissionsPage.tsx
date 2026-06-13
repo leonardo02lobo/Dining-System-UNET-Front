@@ -13,15 +13,17 @@ import { Spinner } from '../components/ui/Spinner'
 import { Card } from '../components/ui/Card'
 
 const ROLE_LABEL: Record<RoleName, string> = {
-  SUPER_ADMIN: 'Super Admin',
-  ADMIN:       'Admin',
-  TAQUILLERO:  'Taquillero',
+  SUPER_ADMIN:  'Super Admin',
+  ADMIN:        'Admin',
+  TAQUILLERO:   'Taquillero',
+  BENEFICIARIO: 'Beneficiario',
 }
 
 const ROLE_VARIANT: Record<RoleName, 'info' | 'warning' | 'neutral'> = {
-  SUPER_ADMIN: 'info',
-  ADMIN:       'warning',
-  TAQUILLERO:  'neutral',
+  SUPER_ADMIN:  'info',
+  ADMIN:        'warning',
+  TAQUILLERO:   'neutral',
+  BENEFICIARIO: 'neutral',
 }
 
 export function PermissionsPage() {

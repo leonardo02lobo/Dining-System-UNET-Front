@@ -34,6 +34,7 @@ const EMPTY = {
   document_id: '',
   card_code:   '',
   career:      '',
+  is_priority: false,
   user_type:   'STUDENT' as UserType,
   status:      'ACTIVE' as BeneficiaryStatus,
 }
@@ -54,6 +55,7 @@ export function BeneficiaryFormModal({ open, onClose, onSave, initial }: Props) 
             document_id: initial.document_id,
             card_code:   initial.card_code ?? '',
             career:      initial.career ?? '',
+            is_priority: initial.is_priority ?? false,
             user_type:   initial.user_type,
             status:      initial.status,
           }
@@ -92,6 +94,7 @@ export function BeneficiaryFormModal({ open, onClose, onSave, initial }: Props) 
           last_name:   form.last_name,
           card_code:   form.card_code || undefined,
           career:      form.career || undefined,
+          is_priority: form.is_priority,
           user_type:   form.user_type,
           status:      form.status,
         }
@@ -103,6 +106,7 @@ export function BeneficiaryFormModal({ open, onClose, onSave, initial }: Props) 
           document_id: form.document_id,
           card_code:   form.card_code,
           career:      form.career || undefined,
+          is_priority: form.is_priority,
           user_type:   form.user_type,
         }
         await beneficiaryApi.create(payload)
@@ -198,6 +202,19 @@ export function BeneficiaryFormModal({ open, onClose, onSave, initial }: Props) 
             />
           )}
         </div>
+
+        <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded accent-yellow-500"
+            checked={form.is_priority}
+            onChange={(e) => setForm((prev) => ({ ...prev, is_priority: e.target.checked }))}
+          />
+          <div className="flex flex-col">
+            <span className="text-sm font-medium text-slate-800">Beneficiario VIP</span>
+            <span className="text-xs text-slate-400">Tiene prioridad de acceso al comedor</span>
+          </div>
+        </label>
       </div>
     </Modal>
   )
