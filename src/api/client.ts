@@ -85,6 +85,41 @@ async function request<T>(
   return data as T
 }
 
+async function requestBlob(
+  path: string,
+  accept: string,
+  { isRetry = false }: { isRetry?: boolean } = {},
+): Promise<Blob> {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method: 'GET',
+    credentials: 'include',
+    headers: { Accept: accept },
+  })
+
+  if (response.status === 401 && !isRetry) {
+    try {
+      await doRefresh()
+      return requestBlob(path, accept, { isRetry: true })
+    } catch {
+      window.location.replace('/login')
+      throw { message: 'Sesión expirada. Inicia sesión nuevamente.', status: 401 } as ApiError
+    }
+  }
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({ message: 'Error de conexión con el servidor' }))
+    const detail = data.detail
+    const message: string =
+      data.message ??
+      (typeof detail === 'string' ? detail : detail?.message) ??
+      'Error del servidor'
+
+    throw { message, status: response.status, details: data.details } as ApiError
+  }
+
+  return response.blob()
+}
+
 export const apiClient = {
   get: <T>(path: string, opts?: { noRefresh?: boolean }) =>
     request<T>('GET', path, undefined, { noRefresh: opts?.noRefresh }),
@@ -92,6 +127,7 @@ export const apiClient = {
   put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body),
   delete: <T>(path: string) => request<T>('DELETE', path),
+  getBlob: (path: string, accept = 'application/octet-stream') => requestBlob(path, accept),
   postForm: async <T>(path: string, form?: Record<string, string>): Promise<T> => {
     const response = await fetch(`${BASE_URL}${path}`, {
       method: 'POST',

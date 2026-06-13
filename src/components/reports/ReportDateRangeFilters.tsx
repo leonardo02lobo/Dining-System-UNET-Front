@@ -1,13 +1,21 @@
-import { Calendar, Download, BarChart3 } from 'lucide-react'
+import { Calendar, Download, BarChart3, FileSpreadsheet } from 'lucide-react'
+import type { InventoryCategory } from '../../types/inventory'
 
 interface ReportDateRangeFiltersProps {
   dateFrom: string
   dateTo: string
+  categoryId: string
+  categories: InventoryCategory[]
   onDateFromChange: (value: string) => void
   onDateToChange: (value: string) => void
+  onCategoryChange: (value: string) => void
   onGenerate: () => void
-  onDownload: () => void
+  onDownloadPdf: () => void
+  onDownloadCsv: () => void
   loading?: boolean
+  downloadingPdf?: boolean
+  downloadingCsv?: boolean
+  loadingCategories?: boolean
 }
 
 const fieldLabel = 'mb-1 block text-[15px] text-black/60'
@@ -20,11 +28,18 @@ const primaryBtn =
 export function ReportDateRangeFilters({
   dateFrom,
   dateTo,
+  categoryId,
+  categories,
   onDateFromChange,
   onDateToChange,
+  onCategoryChange,
   onGenerate,
-  onDownload,
+  onDownloadPdf,
+  onDownloadCsv,
   loading = false,
+  downloadingPdf = false,
+  downloadingCsv = false,
+  loadingCategories = false,
 }: ReportDateRangeFiltersProps) {
   return (
     <div className="space-y-4">
@@ -59,6 +74,27 @@ export function ReportDateRangeFilters({
             />
           </div>
         </div>
+        <div>
+          <label className={fieldLabel} htmlFor="report-category">
+            Categoría
+          </label>
+          <select
+            id="report-category"
+            value={categoryId}
+            onChange={(e) => onCategoryChange(e.target.value)}
+            disabled={loadingCategories}
+            className={`${dateInputClass} max-w-[220px]`}
+          >
+            <option value="">
+              {loadingCategories ? 'Cargando categorías...' : 'Todas las categorías'}
+            </option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-4">
@@ -66,9 +102,13 @@ export function ReportDateRangeFilters({
           <BarChart3 size={22} />
           {loading ? 'Generando...' : 'Generar Reporte'}
         </button>
-        <button type="button" onClick={onDownload} className={primaryBtn}>
+        <button type="button" onClick={onDownloadPdf} disabled={downloadingPdf} className={primaryBtn}>
           <Download size={22} />
-          Descargar Reporte
+          {downloadingPdf ? 'Descargando PDF...' : 'Descargar PDF'}
+        </button>
+        <button type="button" onClick={onDownloadCsv} disabled={downloadingCsv} className={primaryBtn}>
+          <FileSpreadsheet size={22} />
+          {downloadingCsv ? 'Descargando CSV...' : 'Descargar CSV'}
         </button>
       </div>
     </div>

@@ -19,7 +19,9 @@ export function PreloadedLunchBar({
   const ref = useRef<HTMLDivElement>(null)
 
   const selected = options.find((o) => o.id === selectedId)
-  const label = selected?.name ?? 'Seleccionar almuerzo guardado'
+  const formatOptionLabel = (option: PreloadedLunch) =>
+    `${option.name} (${option.plate_count} platos)`
+  const label = selected ? formatOptionLabel(selected) : 'Seleccionar almuerzo guardado'
 
   return (
     <div className="rounded-[10px] bg-[rgba(217,217,217,0.8)] p-4">
@@ -54,7 +56,7 @@ export function PreloadedLunchBar({
                         selectedId === opt.id ? 'font-semibold text-[#03216a] bg-blue-50' : 'text-slate-700'
                       }`}
                     >
-                      {opt.name}
+                      {formatOptionLabel(opt)}
                     </button>
                   </li>
                 ))}
