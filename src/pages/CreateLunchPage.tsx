@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import { LunchDetailsForm } from '../components/lunch/LunchDetailsForm'
 import { LunchFooterActions } from '../components/lunch/LunchFooterActions'
 import { LunchIngredientsTable } from '../components/lunch/LunchIngredientsTable'
@@ -8,6 +10,7 @@ import { PreloadedLunchBar } from '../components/lunch/PreloadedLunchBar'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
+import { Table, type ColumnDef } from '../components/ui/Table'
 import { inventoryApi } from '../api/inventory'
 import { lunchApi } from '../api/lunch'
 import {
@@ -28,6 +31,26 @@ function todayIso() {
   return new Date().toISOString().split('T')[0]
 }
 
+function formatPdfDate(value: string) {
+  const parsedDate = new Date(`${value}T00:00:00`)
+  if (Number.isNaN(parsedDate.getTime())) return value || 'Sin fecha'
+  return parsedDate.toLocaleDateString('es-VE')
+}
+
+async function loadPdfImage(src: string, maxWidth: number, maxHeight: number) {
+  const image = new Image()
+  image.src = src
+  await image.decode()
+
+  const scale = Math.min(maxWidth / image.naturalWidth, maxHeight / image.naturalHeight, 1)
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(image.naturalWidth * scale))
+  canvas.height = Math.max(1, Math.round(image.naturalHeight * scale))
+  canvas.getContext('2d')?.drawImage(image, 0, 0, canvas.width, canvas.height)
+
+  return canvas.toDataURL('image/png')
+}
+
 interface PantryItem {
   id: number
   name: string
@@ -42,6 +65,16 @@ interface LunchIngredientDetail {
   quantity: number | null
   unit: string
 }
+
+const lunchDetailColumns: ColumnDef<LunchIngredientDetail>[] = [
+  { key: 'name', header: 'Ingrediente', sortable: true },
+  {
+    key: 'quantity',
+    header: 'Cantidad utilizada',
+    sortable: true,
+    render: (_, ingredient) => `${ingredient.quantity ?? 'Sin cantidad'} ${ingredient.unit}`,
+  },
+]
 
 function mapInventoryItemToPantry(item: InventoryItem): PantryItem {
   return {
@@ -173,6 +206,7 @@ export function CreateLunchPage() {
   const [selectedPantryId, setSelectedPantryId] = useState('')
   const [editQty, setEditQty] = useState('')
   const [ingredientDropdownOpen, setIngredientDropdownOpen] = useState(false)
+  const downloadDisabled = !lunchName.trim() || !date || plateCount < 1 || ingredients.length === 0
 
   const plateDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -512,8 +546,145 @@ export function CreateLunchPage() {
     }
   }
 
-  function handleDownload() {
-    window.print()
+  async function handleDownload() {
+    const trimmedName = lunchName.trim()
+
+    if (!trimmedName) {
+      setSaveError('Ingresa el nombre del almuerzo antes de descargar la lista.')
+      return
+    }
+
+    if (ingredients.length === 0) {
+      setSaveError('Agrega al menos un ingrediente antes de descargar la lista.')
+      return
+    }
+
+    setSaveError('')
+
+    try {
+      const [unetLogo, deanLogo] = await Promise.all([
+        loadPdfImage('/assets/logo-unet.png', 500, 500),
+        loadPdfImage('/assets/LOGO DECANATO.png', 1000, 500),
+      ])
+
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+      const pageWidth = doc.internal.pageSize.getWidth()
+      const pageHeight = doc.internal.pageSize.getHeight()
+      const generatedAt = new Date().toLocaleString('es-VE', {
+        dateStyle: 'long',
+        timeStyle: 'short',
+      })
+
+      function drawHeader() {
+        doc.addImage(unetLogo, 'PNG', 14, 8, 22, 22)
+        doc.addImage(deanLogo, 'PNG', pageWidth - 58, 10, 44, 20)
+        doc.setTextColor(3, 33, 106)
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(12)
+        doc.text('UNIVERSIDAD NACIONAL EXPERIMENTAL DEL TÁCHIRA', pageWidth / 2, 13, { align: 'center' })
+        doc.setFontSize(10)
+        doc.text('VICERRECTORADO ACADÉMICO', pageWidth / 2, 18, { align: 'center' })
+        doc.text('DECANATO DE DESARROLLO ESTUDIANTIL', pageWidth / 2, 23, { align: 'center' })
+        doc.setDrawColor(3, 33, 106)
+        doc.setLineWidth(0.6)
+        doc.line(14, 34, pageWidth - 14, 34)
+      }
+
+      function drawFooter(pageNumber: number) {
+        doc.setDrawColor(203, 213, 225)
+        doc.setLineWidth(0.3)
+        doc.line(14, pageHeight - 13, pageWidth - 14, pageHeight - 13)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(8)
+        doc.setTextColor(100, 116, 139)
+        doc.text('Sistema de Comedor Universitario - Lista de preparación de almuerzo', 14, pageHeight - 8)
+        doc.text(`Página ${pageNumber}`, pageWidth - 14, pageHeight - 8, { align: 'right' })
+      }
+
+      drawHeader()
+      doc.setTextColor(15, 23, 42)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(17)
+      doc.text('LISTA DE INGREDIENTES DEL ALMUERZO', pageWidth / 2, 44, { align: 'center' })
+
+      doc.setFillColor(248, 250, 252)
+      doc.setDrawColor(203, 213, 225)
+      doc.roundedRect(14, 50, pageWidth - 28, 25, 2, 2, 'FD')
+      doc.setFontSize(9)
+      doc.setTextColor(71, 85, 105)
+      doc.setFont('helvetica', 'bold')
+      doc.text('ALMUERZO', 20, 58)
+      doc.text('FECHA DE PREPARACIÓN', 105, 58)
+      doc.text('CANTIDAD DE PLATOS', 176, 58)
+      doc.text('FECHA DE EMISIÓN', 230, 58)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(15, 23, 42)
+      doc.text(trimmedName, 20, 66, { maxWidth: 76 })
+      doc.text(formatPdfDate(date), 105, 66)
+      doc.text(plateCount.toLocaleString('es-VE'), 176, 66)
+      doc.text(generatedAt, 230, 66, { maxWidth: 50 })
+
+      autoTable(doc, {
+        startY: 82,
+        margin: { top: 42, right: 14, bottom: 20, left: 14 },
+        head: [[
+          'N.º',
+          'Ingrediente',
+          'Categoría',
+          `Cantidad calculada (${plateCount} platos)`,
+          'Cantidad por plato',
+          'Stock disponible',
+        ]],
+        body: ingredients.map((item, index) => [
+          index + 1,
+          item.ingredient_name,
+          item.category,
+          formatQuantity(item.calculated_quantity, item.unit),
+          formatQuantity(item.quantity_per_plate, item.unit),
+          formatQuantity(item.available_quantity, item.unit),
+        ]),
+        theme: 'grid',
+        styles: {
+          font: 'helvetica',
+          fontSize: 9,
+          cellPadding: 3,
+          lineColor: [203, 213, 225],
+          lineWidth: 0.2,
+          textColor: [30, 41, 59],
+          valign: 'middle',
+        },
+        headStyles: {
+          fillColor: [3, 33, 106],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          halign: 'center',
+        },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        columnStyles: {
+          0: { cellWidth: 14, halign: 'center' },
+          1: { cellWidth: 58 },
+          2: { cellWidth: 45 },
+          3: { cellWidth: 48, halign: 'right' },
+          4: { cellWidth: 45, halign: 'right' },
+          5: { cellWidth: 45, halign: 'right' },
+        },
+        didDrawPage: ({ pageNumber }) => {
+          if (pageNumber > 1) drawHeader()
+          drawFooter(pageNumber)
+        },
+      })
+
+      const filename = trimmedName
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .toLowerCase()
+
+      doc.save(`lista-almuerzo-${filename || date}-${date}.pdf`)
+    } catch {
+      setSaveError('No se pudo generar el archivo PDF. Intenta nuevamente.')
+    }
   }
 
   return (
@@ -548,8 +719,8 @@ export function CreateLunchPage() {
         </Button>
       </div>
 
-      <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
-        <div className="min-w-0 flex-1 space-y-6">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:items-start">
+        <div className="min-w-0 space-y-6">
           <LunchDetailsForm
             lunchName={lunchName}
             date={date}
@@ -576,6 +747,7 @@ export function CreateLunchPage() {
             onSave={handleSave}
             onDownload={handleDownload}
             saving={saving}
+            downloadDisabled={downloadDisabled || saving}
             saveAsTemplate={saveAsTemplate}
             onSaveAsTemplateChange={setSaveAsTemplate}
           />
@@ -804,26 +976,11 @@ export function CreateLunchPage() {
                   El detalle del almuerzo no trae ingredientes con nombre y cantidad en la respuesta.
                 </div>
               ) : (
-                <div className="overflow-hidden rounded-lg border border-slate-200">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-100 text-slate-700">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-semibold">Ingrediente</th>
-                        <th className="px-3 py-2 text-right font-semibold">Cantidad utilizada</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200">
-                      {lunchIngredientDetails.map((ingredient) => (
-                        <tr key={ingredient.id}>
-                          <td className="px-3 py-2 text-slate-900">{ingredient.name}</td>
-                          <td className="px-3 py-2 text-right text-slate-900">
-                            {ingredient.quantity ?? 'Sin cantidad'} {ingredient.unit}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <Table<LunchIngredientDetail>
+                  columns={lunchDetailColumns}
+                  rows={lunchIngredientDetails}
+                  keyField="id"
+                />
               )}
             </div>
           </div>

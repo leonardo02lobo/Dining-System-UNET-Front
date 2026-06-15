@@ -18,6 +18,7 @@ interface Props {
   sessionMarks?: SessionMark[]
   /** Label shown above the calendar (optional). */
   label?: string
+  size?: 'md' | 'lg'
 }
 
 const WEEKDAYS = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa']
@@ -46,6 +47,7 @@ export function DatePickerCalendar({
   readOnly = false,
   sessionMarks = [],
   label,
+  size = 'md',
 }: Props) {
   const today = new Date()
   const todayIso = toIso(today.getFullYear(), today.getMonth(), today.getDate())
@@ -86,24 +88,26 @@ export function DatePickerCalendar({
   // Pad to complete the last row
   while (cells.length % 7 !== 0) cells.push(null)
 
+  const isLarge = size === 'lg'
+
   return (
-    <div className="min-w-[290px] select-none rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className={`${isLarge ? 'min-w-[390px] p-5' : 'min-w-[290px] p-4'} select-none rounded-xl border border-slate-200 bg-white shadow-sm`}>
       {label && (
         <p className="mb-2 text-sm font-medium text-slate-700">{label}</p>
       )}
 
       {/* Month navigation */}
-      <div className="mb-3 flex items-center justify-between">
+      <div className={`${isLarge ? 'mb-4' : 'mb-3'} flex items-center justify-between`}>
         <button
           type="button"
           onClick={prevMonth}
           className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
           aria-label="Mes anterior"
         >
-          <ChevronLeft size={18} />
+          <ChevronLeft size={isLarge ? 22 : 18} />
         </button>
 
-        <span className="text-sm font-semibold text-slate-800">
+        <span className={`${isLarge ? 'text-base' : 'text-sm'} font-semibold text-slate-800`}>
           {MONTHS[viewMonth]} {viewYear}
         </span>
 
@@ -113,14 +117,14 @@ export function DatePickerCalendar({
           className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
           aria-label="Mes siguiente"
         >
-          <ChevronRight size={18} />
+          <ChevronRight size={isLarge ? 22 : 18} />
         </button>
       </div>
 
       {/* Weekday headers */}
       <div className="mb-1 grid grid-cols-7 text-center">
         {WEEKDAYS.map((wd) => (
-          <div key={wd} className="py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+          <div key={wd} className={`${isLarge ? 'py-2 text-xs' : 'py-1 text-[11px]'} font-semibold uppercase tracking-wide text-slate-400`}>
             {wd}
           </div>
         ))}
@@ -147,7 +151,7 @@ export function DatePickerCalendar({
                 disabled={isDisabled || readOnly}
                 onClick={() => handleDayClick(day)}
                 className={[
-                  'flex h-9 w-9 flex-col items-center justify-center rounded-full text-sm font-medium transition-colors',
+                  `flex flex-col items-center justify-center rounded-full font-medium transition-colors ${isLarge ? 'h-11 w-11 text-base' : 'h-9 w-9 text-sm'}`,
                   isSelected
                     ? 'bg-blue-600 text-white shadow-sm'
                     : isToday
