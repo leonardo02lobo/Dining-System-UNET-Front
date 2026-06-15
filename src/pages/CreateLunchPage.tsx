@@ -364,6 +364,28 @@ export function CreateLunchPage() {
     setIngredients((prev) => prev.filter((i) => i.ingredient_id !== item.ingredient_id))
   }
 
+  function handleApplyRecalculation() {
+    if (ingredients.length === 0) return
+
+    const localInsufficientItems = ingredients.filter((item) => item.quantity_per_plate * desiredPlateCount > item.available_quantity)
+    if (localInsufficientItems.length > 0) {
+      setSaveError(
+        `No hay suficiente stock para agregar el recálculo. ${
+          localInsufficientItems
+            .map((item) =>
+              `${item.ingredient_name}: requiere ${formatQuantity(item.quantity_per_plate * desiredPlateCount, item.unit)}, disponible ${formatQuantity(item.available_quantity, item.unit)}`
+            )
+            .join('; ')
+        }.`,
+      )
+      return
+    }
+
+    setIngredients((prev) => recalculateIngredients(prev, desiredPlateCount))
+    setPlateCount(desiredPlateCount)
+    setSaveError('')
+  }
+
   async function loadCreatedLunches() {
     setCreatedLunchesLoading(true)
     setCreatedLunchesError('')
@@ -565,6 +587,7 @@ export function CreateLunchPage() {
           previews={previews}
           onAddIngredient={openAddModal}
           onDesiredPlatesChange={setDesiredPlateCount}
+          onApplyRecalculation={handleApplyRecalculation}
         />
       </div>
 

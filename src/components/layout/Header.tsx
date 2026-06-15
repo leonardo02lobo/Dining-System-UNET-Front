@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { Smile } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
 const ROLE_LABEL: Record<string, string> = {
-  SUPER_ADMIN: 'Super Administrador',
-  ADMIN:       'Administrador',
-  TAQUILLERO:  'Taquillero',
+  SUPER_ADMIN:  'Super Administrador',
+  ADMIN:        'Administrador',
+  TAQUILLERO:   'Taquillero',
+  BENEFICIARIO: 'Beneficiario',
 }
 
 interface Props {
@@ -50,11 +52,7 @@ export function Header({isLogin}: Props) {
         isLogin && (
           <div className="flex flex-row gap-1 font-bold justify-end p-3 text-xl sm:text-sm">
             <span>Hola {user?.name ?? '...'}</span>
-            <img
-              src="assets/cara_normal.png"
-              alt="Cara normal"
-              className="h-6 w-6 object-contain"
-            />
+            <Smile size={24} className="text-slate-600" />
             <span>, Bienvenid@ a la sección para {user ? ROLE_LABEL[user.role.name] ?? user.role.name : ''} - </span>
             <span>{date.toLocaleDateString()} {date.toLocaleTimeString()}</span>
           </div>

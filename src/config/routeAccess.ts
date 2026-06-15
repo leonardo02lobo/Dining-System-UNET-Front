@@ -11,15 +11,21 @@ export const ROUTE_ACCESS: Record<string, RoleName[]> = {
   '/beneficiarios':            ['SUPER_ADMIN', 'ADMIN'],
   '/usuarios':                 ['SUPER_ADMIN', 'ADMIN'],
   '/inventario':               ['SUPER_ADMIN', 'ADMIN'],
+  '/inventario/general':       ['SUPER_ADMIN', 'ADMIN'],
+  '/inventario/reportes-consumo': ['SUPER_ADMIN', 'ADMIN'],
   '/inventario/crear':         ['SUPER_ADMIN', 'ADMIN'],
+  '/inventario/pruebas-almuerzo': ['SUPER_ADMIN', 'ADMIN'],
   '/auditoria':                ['SUPER_ADMIN', 'ADMIN'],
   '/admin/permisos':           ['SUPER_ADMIN'],
+  '/verificar-beneficiario':   ['BENEFICIARIO', 'SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'],
+  '/sedes':                    ['SUPER_ADMIN', 'ADMIN'],
 }
 
 export const DEFAULT_ROUTE: Record<RoleName, string> = {
-  SUPER_ADMIN: '/',
-  ADMIN:       '/',
-  TAQUILLERO:  '/',
+  SUPER_ADMIN:  '/',
+  ADMIN:        '/',
+  TAQUILLERO:   '/',
+  BENEFICIARIO: '/verificar-beneficiario',
 }
 
 export function canAccess(

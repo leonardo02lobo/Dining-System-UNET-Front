@@ -11,11 +11,16 @@ import { ListUser } from './pages/ListUser'
 import { LoginAuditPage } from './pages/LoginAuditPage'
 import { InventoryPage } from './pages/InventoryPage'
 import { CreateLunchPage } from './pages/CreateLunchPage'
+import { LunchTestPage } from './pages/LunchTestPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { ManualRegistrationPage } from './pages/ManualRegistrationPage'
 import { PermissionsPage } from './pages/PermissionsPage'
 import { LunchSessionPage } from './pages/LunchSessionPage'
 import { BeneficiaryPage } from './pages/BeneficiaryPage'
+import { GeneralInventoryPage } from './pages/GeneralInventoryPage'
+import { ConsumptionReportPage } from './pages/ConsumptionReportPage'
+import { VerifyBeneficiaryPage } from './pages/VerifyBeneficiaryPage'
+import { SedesPage } from './pages/SedesPage'
 
 export default function App() {
   return (
@@ -34,12 +39,17 @@ export default function App() {
               <Route path="comedor/registro-manual" element={<ManualRegistrationPage />} />
               <Route path="admin/permisos" element={<PermissionsPage />} />
               <Route path="inventario" element={<InventoryPage />} />
+              <Route path="inventario/general" element={<GeneralInventoryPage />} />
+              <Route path="inventario/reportes-consumo" element={<ConsumptionReportPage />} />
               <Route path="inventario/crear" element={<CreateLunchPage />} />
+              <Route path="inventario/pruebas-almuerzo" element={<LunchTestPage />} />
               <Route path="usuarios" element={<ListUser />} />
               <Route path="auditoria" element={<LoginAuditPage />} />
               <Route path="suspendStudent" element={<SuspendStudent />} />
               <Route path="comedor/sesion" element={<LunchSessionPage />} />
               <Route path="beneficiarios" element={<BeneficiaryPage />} />
+              <Route path="verificar-beneficiario" element={<VerifyBeneficiaryPage />} />
+              <Route path="sedes" element={<SedesPage />} />
 
               <Route path="checkConsumes" element={<Navigate to="/comedor/consultar" replace />} />
               <Route path="registerDining" element={<Navigate to="/comedor/registrar" replace />} />

@@ -3,6 +3,20 @@ export interface ReportFilters {
   to_date: string
 }
 
+export interface ConsumptionReportPeriod {
+  fromDate: string
+  toDate: string
+}
+
+export interface ConsumptionReportItem {
+  itemId: number
+  itemName: string
+  categoryName: string
+  quantityConsumed: number
+  unit: string
+  period: ConsumptionReportPeriod
+}
+
 export interface DayCount {
   date: string
   total: number

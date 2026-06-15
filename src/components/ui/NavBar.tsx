@@ -18,21 +18,25 @@ const navGroups: NavGroup[] = [
   {
     label: 'Comedor',
     items: [
+      { to: '/comedor/sesion',           label: 'Sesión de Almuerzo'  },
       { to: '/comedor/consultar',        label: 'Consultar Consumo'   },
       { to: '/comedor/registrar',        label: 'Registro al Comedor' },
       { to: '/comedor/reporte',          label: 'Reporte de Comedor'  },
       { to: '/comedor/registro-manual',  label: 'Registro Manual'     },
-      { to: '/comedor/sesion',           label: 'Sesión de Almuerzo'  },
       { to: '/suspendStudent',           label: 'Suspender Usuario'   },
-      { to: '/beneficiarios',            label: 'Beneficiarios'       },
-      { to: '/usuarios',                 label: 'Lista de Usuario'    },
+      { to: '/verificar-beneficiario',   label: 'Verificar Beneficiario' },
+      { to: '/beneficiarios',            label: 'Beneficiarios'          },
+      { to: '/usuarios',                 label: 'Lista de Usuario'       },
     ],
   },
   {
     label: 'Inventario',
     items: [
-      { to: '/inventario',       label: 'Registrar Inventario' },
-      { to: '/inventario/crear', label: 'Crear Almuerzo'       },
+      { to: '/inventario',              label: 'Registrar Inventario'  },
+      { to: '/inventario/general',      label: 'Inventario General'    },
+      { to: '/inventario/reportes-consumo', label: 'Reportes de Consumo' },
+      { to: '/inventario/crear',        label: 'Crear Almuerzo'        },
+      { to: '/inventario/pruebas-almuerzo', label: 'Pruebas de Almuerzo' },
     ],
   },
   {
@@ -40,6 +44,7 @@ const navGroups: NavGroup[] = [
     items: [
       { to: '/auditoria',      label: 'Auditoría de Acceso'  },
       { to: '/admin/permisos', label: 'Gestión de Permisos'  },
+      { to: '/sedes',          label: 'Sedes'                 },
     ],
   },
 ]

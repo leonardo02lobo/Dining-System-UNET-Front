@@ -8,6 +8,7 @@ export interface LunchSession {
   closed_at: string | null
   opened_by_id: number | null
   closed_by_id: number | null
+  sede_id: number | null
   created_at: string
   updated_at: string | null
 }

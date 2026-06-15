@@ -12,6 +12,7 @@ export interface Beneficiary {
   gender?: string | null
   user_type: UserType
   career?: string | null
+  is_priority: boolean
   status: BeneficiaryStatus
   created_at: string
   updated_at: string | null
@@ -26,6 +27,7 @@ export interface BeneficiaryCreate {
   gender?: string
   user_type: UserType
   career?: string
+  is_priority?: boolean
   status?: BeneficiaryStatus
 }
 
@@ -37,7 +39,16 @@ export interface BeneficiaryUpdate {
   gender?: string
   user_type?: UserType
   career?: string
+  is_priority?: boolean
   status?: BeneficiaryStatus
+}
+
+export interface BeneficiaryVerifyResult {
+  document_id: string
+  first_name: string
+  last_name: string
+  status: BeneficiaryStatus
+  is_priority: boolean
 }
 
 export interface BeneficiaryFilters {
