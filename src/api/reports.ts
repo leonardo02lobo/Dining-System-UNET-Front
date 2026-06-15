@@ -13,7 +13,9 @@ export interface ConsumptionReportRange {
 }
 
 function toConsumptionReportParams({ fromDate, toDate, categoryId }: ConsumptionReportRange) {
-  const params = new URLSearchParams({ from: fromDate, to: toDate })
+  const params = new URLSearchParams()
+  if (fromDate) params.set('from', fromDate)
+  if (toDate) params.set('to', toDate)
   if (categoryId !== undefined) params.set('categoryId', String(categoryId))
   return params
 }

@@ -26,6 +26,7 @@ import type {
   LunchTemplateResponse,
   PreloadedLunch,
 } from '../types/lunch'
+import { logoUnetDataUri, logoDecanatoDataUri } from '../utils/pdfLogos'
 
 function todayIso() {
   return new Date().toISOString().split('T')[0]
@@ -563,8 +564,8 @@ export function CreateLunchPage() {
 
     try {
       const [unetLogo, deanLogo] = await Promise.all([
-        loadPdfImage('/assets/logo-unet.png', 500, 500),
-        loadPdfImage('/assets/LOGO DECANATO.png', 1000, 500),
+        loadPdfImage(logoUnetDataUri, 500, 500),
+        loadPdfImage(logoDecanatoDataUri, 1000, 500),
       ])
 
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })

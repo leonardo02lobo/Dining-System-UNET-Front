@@ -14,6 +14,7 @@ import type {
   SupplyConsumption,
 } from '../types/consumptionReport'
 import { notify } from '../utils/toast'
+import { logoUnetDataUri, logoDecanatoDataUri } from '../utils/pdfLogos'
 
 const CATEGORY_COLORS = ['#03216a', '#34c759', '#f59e0b', '#ef4444', '#8b5cf6', '#0ea5e9']
 
@@ -166,8 +167,8 @@ export function ConsumptionReportPage() {
       }
 
       const [unetLogo, deanLogo] = await Promise.all([
-        loadImageData('/assets/logo-unet.png', 500, 500),
-        loadImageData('/assets/LOGO DECANATO.png', 1000, 500),
+        loadImageData(logoUnetDataUri, 500, 500),
+        loadImageData(logoDecanatoDataUri, 1000, 500),
       ])
 
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })

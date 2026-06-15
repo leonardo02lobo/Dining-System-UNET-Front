@@ -53,14 +53,16 @@ function getReportedPeriod(items: ConsumptionReportItem[]) {
 export function ReportsPage() {
   const [loading, setLoading] = useState(false)
   const [items, setItems] = useState<ConsumptionReportItem[] | null>(null)
+  const [dateFrom, setDateFrom] = useState(toIsoDate(80))
+  const [dateTo, setDateTo] = useState(toIsoDate(0))
 
   const loadReport = useCallback(async () => {
     setLoading(true)
 
     try {
       const data = await reportsApi.consumptionReports({
-        fromDate: toIsoDate(80),
-        toDate: toIsoDate(0),
+        fromDate: dateFrom,
+        toDate: dateTo,
       })
       setItems(data)
     } catch (err) {
@@ -68,7 +70,7 @@ export function ReportsPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [dateFrom, dateTo])
 
   useEffect(() => {
     void loadReport()

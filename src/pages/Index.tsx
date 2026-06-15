@@ -2,6 +2,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { Header } from '../components/layout/Header'
 import { Footer } from '../components/layout/Footer'
 import { NavBar } from '../components/ui/NavBar'
+import { LogoDecanato } from '../components/icons/LogoDecanato'
 
 export function Index() {
   const { pathname } = useLocation()
@@ -21,11 +22,7 @@ export function Index() {
               className="pointer-events-none absolute inset-0 flex items-center justify-center p-10"
               aria-hidden="true"
             >
-              <img
-                src="/assets/LOGO DECANATO.png"
-                alt=""
-                className="max-h-[70%] max-w-[75%] object-contain opacity-10"
-              />
+              <LogoDecanato className="max-h-[70%] max-w-[75%] object-contain opacity-10" />
             </div>
           )}
 
