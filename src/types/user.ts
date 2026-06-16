@@ -33,12 +33,15 @@ export interface UserUpdatePayload {
 
 /** Estudiante del sistema de comedor */
 export interface Student {
-  cedula: string
-  name: string
-  career: string
-  user_type: string
-  is_suspended: boolean
-  avatar_url?: string
+  cedula:          string
+  name:            string
+  email?:          string
+  career:          string
+  user_type:       string
+  is_suspended:    boolean
+  avatar_url?:     string
+  is_beneficiary:  boolean
+  beneficiary_id?: number
 }
 
 /** Usuario del sistema (administrador, taquillero, etc.) */

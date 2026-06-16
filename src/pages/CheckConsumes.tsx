@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Search, ScanLine, CheckCircle2, XCircle } from 'lucide-react'
 import { normalizeCedula } from '../utils/cedula'
 import { beneficiaryApi } from '../api/beneficiary'
+import { externalStudentApi, mapExternalToStudent } from '../api/externalStudent'
 import { consumptionApi } from '../api/consumption'
 import { lunchSessionApi } from '../api/lunchSession'
 import { Button } from '../components/ui/Button'
@@ -11,21 +12,14 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { Avatar } from '../components/ui/Avatar'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
-import type { Beneficiary } from '../types/beneficiary'
+import type { Student } from '../types/user'
 import type { LunchSession } from '../types/lunchSession'
 import type { ConsumptionCheckResult } from '../types/consumption'
 
-const USER_TYPE_LABEL: Record<string, string> = {
-  STUDENT: 'Estudiante',
-  TEACHER: 'Docente',
-  ADMINISTRATIVE: 'Administrativo',
-  WORKER: 'Obrero',
-}
-
 export function CheckConsumes() {
   const [session, setSession] = useState<LunchSession | null | undefined>(undefined)
-  const [cedula, setCedula] = useState('')
-  const [beneficiary, setBeneficiary] = useState<Beneficiary | null>(null)
+  const [cedula,      setCedula]      = useState('')
+  const [student,     setStudent]     = useState<Student | null>(null)
   const [checkResult, setCheckResult] = useState<ConsumptionCheckResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -75,15 +69,20 @@ export function CheckConsumes() {
     setLoading(true)
     setError(null)
     setSearched(true)
-    setBeneficiary(null)
+    setStudent(null)
     setCheckResult(null)
     try {
-      const b = await beneficiaryApi.lookup(clean)
-      setBeneficiary(b)
-      const check = await consumptionApi.check(b.id)
-      setCheckResult(check)
+      const ext = await externalStudentApi.lookup(clean)
+      setStudent(mapExternalToStudent(ext))
+      try {
+        const b = await beneficiaryApi.lookup(clean)
+        const check = await consumptionApi.check(b.id)
+        setCheckResult(check)
+      } catch {
+        // Student not in internal system — consumption check unavailable
+      }
     } catch (err: any) {
-      setError('Error al consultar el beneficiario')
+      setError(err.message ?? 'Error al consultar el estudiante')
     } finally {
       setLoading(false)
     }
@@ -149,38 +148,34 @@ export function CheckConsumes() {
         </div>
       )}
 
-      {!loading && searched && !beneficiary && !error && (
+      {!loading && searched && !student && !error && (
         <div className="rounded-md border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-400">
           No se encontró ningún beneficiario con la cédula <strong>{cedula}</strong>.
         </div>
       )}
 
-      {!loading && beneficiary && (
+      {!loading && student && (
         <Card variant="outlined" padding="lg">
           <div className="flex flex-col items-start gap-6 sm:flex-row">
-            <Avatar name={`${beneficiary.first_name} ${beneficiary.last_name}`} />
+            <Avatar name={student.name} src={student.avatar_url} />
 
             <div className="flex flex-1 flex-col gap-4 text-sm">
               <div className="flex flex-row items-center gap-14">
                 <p className="w-48 text-xs uppercase tracking-wide text-slate-400">Documento</p>
-                <Input value={beneficiary.document_id} readOnly fullWidth />
+                <Input value={student.cedula} readOnly fullWidth />
               </div>
               <div className="flex flex-row items-center gap-14">
                 <p className="w-48 text-xs uppercase tracking-wide text-slate-400">Nombre</p>
-                <Input value={`${beneficiary.first_name} ${beneficiary.last_name}`} readOnly fullWidth />
+                <Input value={student.name} readOnly fullWidth />
               </div>
               <div className="flex flex-row items-center gap-14">
-                <p className="w-48 text-xs uppercase tracking-wide text-slate-400">Carrera</p>
-                <Input value={beneficiary.career ?? '—'} readOnly fullWidth />
-              </div>
-              <div className="flex flex-row items-center gap-14">
-                <p className="w-48 text-xs uppercase tracking-wide text-slate-400">Tipo de Usuario</p>
-                <Input value={USER_TYPE_LABEL[beneficiary.user_type] ?? beneficiary.user_type} readOnly fullWidth />
+                <p className="w-48 text-xs uppercase tracking-wide text-slate-400">Email</p>
+                <Input value={student.email ?? '—'} readOnly fullWidth />
               </div>
               <div className="flex flex-row items-center gap-14">
                 <p className="w-48 text-xs uppercase tracking-wide text-slate-400">Estado</p>
-                <Badge variant={beneficiary.status === 'ACTIVE' ? 'success' : 'danger'}>
-                  {beneficiary.status === 'ACTIVE' ? 'Activo' : beneficiary.status === 'SUSPENDED' ? 'Suspendido' : 'Inactivo'}
+                <Badge variant={student.is_suspended ? 'danger' : 'success'}>
+                  {student.is_suspended ? 'Suspendido' : 'Activo'}
                 </Badge>
               </div>
               {checkResult !== null && (
