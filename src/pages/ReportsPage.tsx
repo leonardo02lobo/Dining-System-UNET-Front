@@ -53,6 +53,8 @@ function getReportedPeriod(items: ConsumptionReportItem[]) {
 export function ReportsPage() {
   const [loading, setLoading] = useState(false)
   const [items, setItems] = useState<ConsumptionReportItem[] | null>(null)
+  const [dateFrom, setDateFrom] = useState(toIsoDate(30))
+  const [dateTo, setDateTo] = useState(toIsoDate(0))
 
   const loadReport = useCallback(async () => {
     setLoading(true)
