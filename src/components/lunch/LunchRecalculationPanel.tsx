@@ -21,7 +21,7 @@ export function LunchRecalculationPanel({
   const showPreview = previews.length > 0
 
   return (
-    <aside className="w-full flex-shrink-0 xl:w-[239px]">
+    <aside className="w-full">
       <button
         type="button"
         onClick={onAddIngredient}

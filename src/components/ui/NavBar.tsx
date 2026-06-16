@@ -3,6 +3,8 @@ import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { canAccess } from '../../config/routeAccess'
+import { Button } from './Button'
+import { Modal } from './Modal'
 
 interface NavItem {
   to: string
@@ -52,11 +54,18 @@ const navGroups: NavGroup[] = [
 export function NavBar() {
   const { user, logout, permissions } = useAuth()
   const [openGroup, setOpenGroup] = useState<string | null>(null)
+  const [logoutModalOpen, setLogoutModalOpen] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
 
   const role = user?.role.name
 
   function toggleGroup(label: string) {
     setOpenGroup((prev) => (prev === label ? null : label))
+  }
+
+  async function handleLogout() {
+    setLoggingOut(true)
+    await logout()
   }
 
   return (
@@ -123,12 +132,45 @@ export function NavBar() {
 
       <button
         type="button"
-        onClick={logout}
+        onClick={() => setLogoutModalOpen(true)}
         className="flex items-center gap-2 px-4 py-3 text-base font-bold text-slate-800 hover:bg-red-50 hover:text-red-600 transition-colors"
       >
         <Lock size={20} className="text-red-500 flex-shrink-0" />
-        Cierra Sesion
+        Cerrar Sesión
       </button>
+
+      <Modal
+        open={logoutModalOpen}
+        onClose={() => {
+          if (!loggingOut) setLogoutModalOpen(false)
+        }}
+        title="Cerrar sesión"
+        size="sm"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={loggingOut}
+              onClick={() => setLogoutModalOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              loading={loggingOut}
+              onClick={handleLogout}
+            >
+              Salir
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm leading-6 text-slate-600">
+          ¿Está seguro de que desea salir de la sesión?
+        </p>
+      </Modal>
     </nav>
   )
 }

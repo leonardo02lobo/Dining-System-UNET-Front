@@ -11,6 +11,7 @@ interface Props {
   minDate?: string
   maxDate?: string
   sessionMarks?: SessionMark[]
+  calendarSize?: 'md' | 'lg'
   className?: string
   error?: string
 }
@@ -29,6 +30,7 @@ export function DateInput({
   minDate,
   maxDate,
   sessionMarks,
+  calendarSize = 'md',
   className = '',
   error,
 }: Props) {
@@ -40,7 +42,9 @@ export function DateInput({
   function openCalendar() {
     if (!buttonRef.current) return
     const rect = buttonRef.current.getBoundingClientRect()
-    setPos({ top: rect.bottom + 6, left: rect.left })
+    const calendarWidth = calendarSize === 'lg' ? 390 : 290
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - calendarWidth - 8))
+    setPos({ top: rect.bottom + 6, left })
     setOpen(true)
   }
 
@@ -143,6 +147,7 @@ export function DateInput({
             minDate={minDate}
             maxDate={maxDate}
             sessionMarks={sessionMarks}
+            size={calendarSize}
           />
         </div>,
         document.body

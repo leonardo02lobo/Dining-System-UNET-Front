@@ -1,5 +1,6 @@
-import { Calendar, Download, BarChart3, FileSpreadsheet } from 'lucide-react'
+import { Download, BarChart3, FileSpreadsheet, FileText } from 'lucide-react'
 import type { InventoryCategory } from '../../types/inventory'
+import { DateInput } from '../ui/DateInput'
 
 interface ReportDateRangeFiltersProps {
   dateFrom: string
@@ -16,14 +17,18 @@ interface ReportDateRangeFiltersProps {
   downloadingPdf?: boolean
   downloadingCsv?: boolean
   loadingCategories?: boolean
+  downloadsDisabled?: boolean
 }
 
 const fieldLabel = 'mb-1 block text-[15px] text-black/60'
 const dateInputClass =
-  'flex h-[38px] w-full max-w-[158px] items-center gap-2 rounded-[5px] border border-black bg-white/90 px-3 text-[15px] text-black outline-none focus:ring-2 focus:ring-[#03216a]/20'
+  'flex h-[38px] w-full max-w-[180px] items-center gap-2 rounded-[5px] border border-black bg-white/90 px-3 text-[15px] text-black outline-none focus:ring-2 focus:ring-[#03216a]/20'
 
 const primaryBtn =
   'inline-flex h-[45px] min-w-[200px] items-center justify-center gap-2.5 rounded-[10px] bg-[#03216a] px-5 text-[15px] font-bold text-white transition hover:bg-[#021a52] disabled:opacity-60'
+
+const exportBtn =
+  'group flex min-h-[72px] min-w-[240px] flex-1 items-center gap-3 rounded-lg border bg-white px-4 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-60'
 
 export function ReportDateRangeFilters({
   dateFrom,
@@ -40,39 +45,30 @@ export function ReportDateRangeFilters({
   downloadingPdf = false,
   downloadingCsv = false,
   loadingCategories = false,
+  downloadsDisabled = false,
 }: ReportDateRangeFiltersProps) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-6">
         <div>
-          <label className={fieldLabel} htmlFor="report-date-from">
-            Fecha inicial
-          </label>
-          <div className={dateInputClass}>
-            <Calendar size={20} className="flex-shrink-0 text-slate-600" />
-            <input
-              id="report-date-from"
-              type="date"
-              value={dateFrom}
-              onChange={(e) => onDateFromChange(e.target.value)}
-              className="min-w-0 flex-1 border-0 bg-transparent outline-none"
-            />
-          </div>
+          <DateInput
+            label="Fecha inicial"
+            value={dateFrom}
+            onChange={onDateFromChange}
+            maxDate={dateTo || undefined}
+            calendarSize="lg"
+            className="w-[180px]"
+          />
         </div>
         <div>
-          <label className={fieldLabel} htmlFor="report-date-to">
-            Fecha final
-          </label>
-          <div className={dateInputClass}>
-            <Calendar size={20} className="flex-shrink-0 text-slate-600" />
-            <input
-              id="report-date-to"
-              type="date"
-              value={dateTo}
-              onChange={(e) => onDateToChange(e.target.value)}
-              className="min-w-0 flex-1 border-0 bg-transparent outline-none"
-            />
-          </div>
+          <DateInput
+            label="Fecha final"
+            value={dateTo}
+            onChange={onDateToChange}
+            minDate={dateFrom || undefined}
+            calendarSize="lg"
+            className="w-[180px]"
+          />
         </div>
         <div>
           <label className={fieldLabel} htmlFor="report-category">
@@ -97,20 +93,70 @@ export function ReportDateRangeFilters({
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-4">
+      <div>
         <button type="button" onClick={onGenerate} disabled={loading} className={primaryBtn}>
           <BarChart3 size={22} />
           {loading ? 'Generando...' : 'Generar Reporte'}
         </button>
-        <button type="button" onClick={onDownloadPdf} disabled={downloadingPdf} className={primaryBtn}>
-          <Download size={22} />
-          {downloadingPdf ? 'Descargando PDF...' : 'Descargar PDF'}
-        </button>
-        <button type="button" onClick={onDownloadCsv} disabled={downloadingCsv} className={primaryBtn}>
-          <FileSpreadsheet size={22} />
-          {downloadingCsv ? 'Descargando CSV...' : 'Descargar CSV'}
-        </button>
       </div>
+
+      <section className="rounded-xl border border-slate-200 bg-slate-50/80 p-5" aria-labelledby="report-exports-title">
+        <div className="mb-4 flex items-start gap-3 border-b border-slate-200 pb-4">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[#03216a] text-white">
+            <Download size={20} />
+          </div>
+          <div>
+            <h2 id="report-exports-title" className="text-base font-bold text-slate-900">
+              Exportación de documentos
+            </h2>
+            <p className="mt-0.5 text-sm text-slate-500">
+              Descargue el reporte correspondiente al período y categoría seleccionados.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={onDownloadPdf}
+            disabled={downloadsDisabled || downloadingPdf}
+            className={`${exportBtn} border-red-200 hover:border-red-300 hover:bg-red-50/60`}
+          >
+            <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-red-100 text-red-700 transition group-hover:bg-red-200">
+              <FileText size={22} />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-bold text-slate-900">
+                {downloadingPdf ? 'Preparando documento...' : 'Informe en PDF'}
+              </span>
+              <span className="mt-0.5 block text-xs text-slate-500">
+                Documento formal listo para impresión
+              </span>
+            </span>
+            <Download size={18} className="ml-auto flex-shrink-0 text-slate-400" />
+          </button>
+
+          <button
+            type="button"
+            onClick={onDownloadCsv}
+            disabled={downloadsDisabled || downloadingCsv}
+            className={`${exportBtn} border-emerald-200 hover:border-emerald-300 hover:bg-emerald-50/60`}
+          >
+            <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 transition group-hover:bg-emerald-200">
+              <FileSpreadsheet size={22} />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-bold text-slate-900">
+                {downloadingCsv ? 'Preparando datos...' : 'Datos en CSV'}
+              </span>
+              <span className="mt-0.5 block text-xs text-slate-500">
+                Información tabular para análisis académico
+              </span>
+            </span>
+            <Download size={18} className="ml-auto flex-shrink-0 text-slate-400" />
+          </button>
+        </div>
+      </section>
     </div>
   )
 }
