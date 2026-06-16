@@ -109,6 +109,7 @@ export function RegisterDining() {
         registered_by_id: user.id,
         session_id:       session.id,
         is_manual:        false,
+        beneficiary_id:   student.beneficiary_id,
       })
       notify.success(`Consumo registrado para ${student.name}`)
       setCedula('')
@@ -215,13 +216,19 @@ export function RegisterDining() {
                 <Input value={student.name}      readOnly fullWidth />
               </div>
               <div className="flex flex-row items-center gap-14">
-                <p className="w-48 text-xs uppercase tracking-wide text-slate-400">Carrera</p>
-                <Input value={student.career}    readOnly fullWidth />
+                <p className="w-48 text-xs uppercase tracking-wide text-slate-400">Email</p>
+                <Input value={student.email ?? '—'} readOnly fullWidth />
               </div>
-              <div className="flex flex-row items-center gap-14">
-                <p className="w-48 text-xs uppercase tracking-wide text-slate-400">Tipo de Usuario</p>
-                <Input value={student.user_type} readOnly fullWidth />
-              </div>
+
+              {student.is_beneficiary ? (
+                <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
+                  Usuario beneficiario
+                </div>
+              ) : (
+                <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700">
+                  Este usuario no es beneficiario
+                </div>
+              )}
 
               {student.is_suspended && (
                 <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
@@ -233,7 +240,7 @@ export function RegisterDining() {
                 <Button
                   variant="primary"
                   loading={saving}
-                  disabled={student.is_suspended || noSession}
+                  disabled={student.is_suspended || noSession || !student.is_beneficiary}
                   onClick={handleRegister}
                 >
                   Registrar Consumo

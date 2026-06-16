@@ -73,6 +73,7 @@ export function ManualRegistrationPage() {
         registered_by_id:  user.id,
         session_id:        session.id,
         is_manual:         true,
+        beneficiary_id:    student.beneficiary_id,
       })
       notify.success(`Registro exitoso para ${student.name}`)
       handleClear()
@@ -165,6 +166,16 @@ export function ManualRegistrationPage() {
               </Badge>
             </div>
 
+            {student.is_beneficiary ? (
+              <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
+                Usuario beneficiario
+              </div>
+            ) : (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700">
+                Este usuario no es beneficiario
+              </div>
+            )}
+
             {isSuspended && (
               <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
                 Este estudiante está suspendido y no puede registrar consumo.
@@ -176,12 +187,8 @@ export function ManualRegistrationPage() {
               <Input value={student.name} readOnly fullWidth />
             </div>
             <div className="flex flex-row items-center gap-14">
-              <p className="w-40 text-xs uppercase tracking-wide text-slate-400">Carrera*</p>
-              <Input value={student.career} readOnly fullWidth />
-            </div>
-            <div className="flex flex-row items-center gap-14">
-              <p className="w-40 text-xs uppercase tracking-wide text-slate-400">Tipo de usuario*</p>
-              <Input value={student.user_type} readOnly fullWidth />
+              <p className="w-40 text-xs uppercase tracking-wide text-slate-400">Email*</p>
+              <Input value={student.email ?? '—'} readOnly fullWidth />
             </div>
             <div className="flex flex-row items-center gap-14">
               <p className="w-40 text-xs uppercase tracking-wide text-slate-400">Estatus*</p>
@@ -216,7 +223,7 @@ export function ManualRegistrationPage() {
           variant="primary"
           leftIcon={<Save size={15} />}
           loading={saving}
-          disabled={!student || isSuspended || noSession}
+          disabled={!student || isSuspended || noSession || !student.is_beneficiary}
           onClick={handleSave}
         >
           Guardar Estudiante

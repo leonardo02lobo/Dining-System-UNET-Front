@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Search, ScanLine } from 'lucide-react'
 import { normalizeCedula } from '../utils/cedula'
 import { beneficiaryApi } from '../api/beneficiary'
+import { externalStudentApi, mapExternalToStudent } from '../api/externalStudent'
 import { sanctionApi } from '../api/sanction'
 import { notify } from '../utils/toast'
 import { SuspendConfirmModal } from '../components/SuspendConfirmModal'
@@ -12,15 +13,8 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { Avatar } from '../components/ui/Avatar'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
-import type { Beneficiary } from '../types/beneficiary'
+import type { Student } from '../types/user'
 import type { Sanction } from '../types/sanction'
-
-const USER_TYPE_LABEL: Record<string, string> = {
-  STUDENT:        'Estudiante',
-  TEACHER:        'Docente',
-  ADMINISTRATIVE: 'Administrativo',
-  WORKER:         'Obrero',
-}
 
 const STATUS_LABEL: Record<string, string> = {
   ACTIVE:   'Activo',
@@ -29,9 +23,10 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 export function SuspendStudent() {
-  const [cedula,       setCedula]       = useState('')
-  const [beneficiary,  setBeneficiary]  = useState<Beneficiary | null>(null)
-  const [history,      setHistory]      = useState<Sanction[]>([])
+  const [cedula,        setCedula]        = useState('')
+  const [student,       setStudent]       = useState<Student | null>(null)
+  const [beneficiaryId, setBeneficiaryId] = useState<number | null>(null)
+  const [history,       setHistory]       = useState<Sanction[]>([])
   const [loading,      setLoading]      = useState(false)
   const [saving,       setSaving]       = useState(false)
   const [error,        setError]        = useState<string | null>(null)
@@ -83,15 +78,22 @@ export function SuspendStudent() {
     setSearched(true)
     setObservations('')
     setObsError(null)
-    setBeneficiary(null)
+    setStudent(null)
+    setBeneficiaryId(null)
     setHistory([])
     try {
-      const b = await beneficiaryApi.lookup(clean)
-      setBeneficiary(b)
-      const result = await sanctionApi.history(b.id)
-      setHistory(result.items)
+      const ext = await externalStudentApi.lookup(clean)
+      setStudent(mapExternalToStudent(ext))
+      try {
+        const b = await beneficiaryApi.lookup(clean)
+        setBeneficiaryId(b.id)
+        const result = await sanctionApi.history(b.id)
+        setHistory(result.items)
+      } catch {
+        // Student not in internal system — sanctions unavailable
+      }
     } catch (err: any) {
-      setError(err.message ?? 'Error al consultar el beneficiario')
+      setError(err.message ?? 'Error al consultar el estudiante')
     } finally {
       setLoading(false)
     }
@@ -100,7 +102,7 @@ export function SuspendStudent() {
   function handleSearch() { void triggerSearch(cedula) }
 
   async function handleSuspend() {
-    if (!beneficiary || !observations.trim()) {
+    if (!student || !beneficiaryId || !observations.trim()) {
       setObsError('Debes indicar el motivo de la suspensión')
       return
     }
@@ -110,13 +112,12 @@ export function SuspendStudent() {
     const end   = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
     try {
       const newSanction = await sanctionApi.create({
-        beneficiary_id: beneficiary.id,
+        beneficiary_id: beneficiaryId,
         reason:         observations,
         start_date:     today,
         end_date:       end,
       })
       setHistory((prev) => [newSanction, ...prev])
-      setBeneficiary((prev) => prev ? { ...prev, status: 'SUSPENDED' } : prev)
       setObservations('')
       setConfirmOpen(false)
       notify.success('Beneficiario suspendido correctamente.')
@@ -133,7 +134,6 @@ export function SuspendStudent() {
     try {
       const updated = await sanctionApi.revoke(activeSanction.id)
       setHistory((prev) => prev.map((s) => s.id === updated.id ? updated : s))
-      setBeneficiary((prev) => prev ? { ...prev, status: 'ACTIVE' } : prev)
       notify.success('Sanción revocada. El beneficiario fue reactivado.')
     } catch (err) {
       notify.error(err)
@@ -146,18 +146,7 @@ export function SuspendStudent() {
     if (e.key === 'Enter') void handleSearch()
   }
 
-  // Adaptador para SuspendConfirmModal que sigue esperando el tipo Student
-  const studentCompat = beneficiary
-    ? {
-        cedula:       beneficiary.document_id,
-        name:         `${beneficiary.first_name} ${beneficiary.last_name}`,
-        career:       beneficiary.career ?? '',
-        user_type:    beneficiary.user_type,
-        is_suspended: beneficiary.status === 'SUSPENDED',
-      }
-    : null
-
-  const isSuspended = beneficiary?.status === 'SUSPENDED'
+  const isSuspended = activeSanction !== null
 
   return (
     <div>
@@ -205,17 +194,17 @@ export function SuspendStudent() {
         </div>
       )}
 
-      {!loading && searched && !beneficiary && !error && (
+      {!loading && searched && !student && !error && (
         <div className="rounded-md border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-400">
           No se encontró ningún beneficiario con la cédula <strong>{cedula}</strong>.
         </div>
       )}
 
-      {!loading && beneficiary && (
+      {!loading && student && (
         <Card variant="outlined" padding="lg" className="mb-6">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
             <div className="flex flex-col items-center gap-3">
-              <Avatar name={`${beneficiary.first_name} ${beneficiary.last_name}`} />
+              <Avatar name={student.name} src={student.avatar_url} />
               <Badge variant={isSuspended ? 'danger' : 'success'}>
                 {isSuspended ? 'Suspendido' : 'Activo'}
               </Badge>
@@ -223,19 +212,15 @@ export function SuspendStudent() {
             <div className="flex flex-1 flex-col gap-4">
               <div className="flex flex-row items-center gap-14">
                 <p className="w-48 text-xs uppercase tracking-wide text-slate-400">Documento</p>
-                <Input value={beneficiary.document_id} readOnly fullWidth />
+                <Input value={student.cedula} readOnly fullWidth />
               </div>
               <div className="flex flex-row items-center gap-14">
                 <p className="w-48 text-xs uppercase tracking-wide text-slate-400">Nombre</p>
-                <Input value={`${beneficiary.first_name} ${beneficiary.last_name}`} readOnly fullWidth />
+                <Input value={student.name} readOnly fullWidth />
               </div>
               <div className="flex flex-row items-center gap-14">
-                <p className="w-48 text-xs uppercase tracking-wide text-slate-400">Carrera</p>
-                <Input value={beneficiary.career ?? '—'} readOnly fullWidth />
-              </div>
-              <div className="flex flex-row items-center gap-14">
-                <p className="w-48 text-xs uppercase tracking-wide text-slate-400">Tipo de Usuario</p>
-                <Input value={USER_TYPE_LABEL[beneficiary.user_type] ?? beneficiary.user_type} readOnly fullWidth />
+                <p className="w-48 text-xs uppercase tracking-wide text-slate-400">Email</p>
+                <Input value={student.email ?? '—'} readOnly fullWidth />
               </div>
 
               {!isSuspended && (
@@ -262,7 +247,9 @@ export function SuspendStudent() {
               )}
 
               <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
-                {isSuspended ? (
+                {beneficiaryId === null ? (
+                  <p className="text-xs text-slate-400">Estudiante no registrado en el sistema de comedor.</p>
+                ) : isSuspended ? (
                   <Button variant="secondary" onClick={handleRevoke} loading={saving}>
                     Reactivar acceso
                   </Button>
@@ -278,7 +265,7 @@ export function SuspendStudent() {
       )}
 
       {/* Historial de sanciones */}
-      {!loading && beneficiary && history.length > 0 && (
+      {!loading && student && history.length > 0 && (
         <Card variant="outlined" padding="lg">
           <p className="mb-3 text-sm font-semibold text-slate-700">Historial de Sanciones</p>
           <div className="flex flex-col gap-2">
@@ -299,12 +286,12 @@ export function SuspendStudent() {
         </Card>
       )}
 
-      {studentCompat && (
+      {student && (
         <SuspendConfirmModal
           open={confirmOpen}
           onClose={() => setConfirmOpen(false)}
           onConfirm={async () => { await handleSuspend() }}
-          student={studentCompat}
+          student={student}
           observations={observations}
           loading={saving}
         />
