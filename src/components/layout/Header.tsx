@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Smile } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { LogoUnet } from "../icons/LogoUnet";
+import { LogoDecanato } from "../icons/LogoDecanato";
 
 const ROLE_LABEL: Record<string, string> = {
   SUPER_ADMIN:  'Super Administrador',
@@ -22,11 +24,7 @@ export function Header({isLogin}: Props) {
     <header className={styles}>
       <div className="flex items-center justify-between px-6 py-3 bg-white rounded-2xl">
         <div className="flex items-center gap-4">
-          <img
-            src="assets/logo-unet.png"
-            alt="UNET"
-            className="h-36 w-36 object-contain"
-          />
+          <LogoUnet className="h-36 w-36 object-contain" />
           <div className="flex flex-col gap-0.5">
             <span className="text-2xl font-bold leading-tight text-slate-800">
               UNIVERSIDAD NACIONAL EXPERIMENTAL DEL TÁCHIRA
@@ -40,11 +38,7 @@ export function Header({isLogin}: Props) {
           </div>
         </div>
         <div className="hidden flex-col items-end gap-1 md:flex">
-          <img
-            src="assets/LOGO DECANATO.png"
-            alt="Decanato de Orlando Student"
-            className="h-36 w-96 object-contain"
-          />
+          <LogoDecanato className="h-36 w-96 object-contain" />
           <span className="text-[10px] text-slate-400">Decanato</span>
         </div>
       </div>

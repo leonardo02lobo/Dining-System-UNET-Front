@@ -61,8 +61,8 @@ export function ReportsPage() {
 
     try {
       const data = await reportsApi.consumptionReports({
-        fromDate: toIsoDate(80),
-        toDate: toIsoDate(0),
+        fromDate: dateFrom,
+        toDate: dateTo,
       })
       setItems(data)
     } catch (err) {
@@ -70,7 +70,7 @@ export function ReportsPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [dateFrom, dateTo])
 
   useEffect(() => {
     void loadReport()

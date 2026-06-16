@@ -4,6 +4,7 @@ interface LunchFooterActionsProps {
   onSave: () => void
   onDownload: () => void
   saving?: boolean
+  downloadDisabled?: boolean
   saveAsTemplate: boolean
   onSaveAsTemplateChange: (value: boolean) => void
 }
@@ -12,6 +13,7 @@ export function LunchFooterActions({
   onSave,
   onDownload,
   saving = false,
+  downloadDisabled = false,
   saveAsTemplate,
   onSaveAsTemplateChange,
 }: LunchFooterActionsProps) {
@@ -39,7 +41,8 @@ export function LunchFooterActions({
       <button
         type="button"
         onClick={onDownload}
-        className="inline-flex h-[45px] min-w-[200px] items-center justify-center gap-2.5 rounded-[10px] bg-[#03216a] px-6 text-[15px] font-bold text-white transition hover:bg-[#021a52]"
+        disabled={downloadDisabled}
+        className="inline-flex h-[45px] min-w-[200px] items-center justify-center gap-2.5 rounded-[10px] bg-[#03216a] px-6 text-[15px] font-bold text-white transition hover:bg-[#021a52] disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Download size={22} />
         Descargar lista

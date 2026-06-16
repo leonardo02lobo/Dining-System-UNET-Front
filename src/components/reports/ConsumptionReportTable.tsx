@@ -1,64 +1,30 @@
 import type { ConsumptionReportRow } from '../../types/consumptionReport'
+import { Table, type ColumnDef } from '../ui/Table'
 
 interface ConsumptionReportTableProps {
   rows: ConsumptionReportRow[]
 }
 
+const columns: ColumnDef<ConsumptionReportRow>[] = [
+  { key: 'supply_name', header: 'Insumo', sortable: true },
+  { key: 'category', header: 'Categoría', sortable: true },
+  {
+    key: 'consumed_amount',
+    header: 'Cantidad consumida',
+    sortable: true,
+    render: (_, row) => `${row.consumed_amount} ${row.unit}`,
+  },
+  { key: 'date_from', header: 'Desde', sortable: true },
+  { key: 'date_to', header: 'Hasta', sortable: true },
+]
+
 export function ConsumptionReportTable({ rows }: ConsumptionReportTableProps) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px] border-collapse text-[15px] sm:text-base">
-        <thead>
-          <tr className="bg-[#d9d9d9]">
-            <th className="rounded-tl-[10px] border border-black px-2 py-3 text-center font-medium text-black">
-              Insumo
-            </th>
-            <th className="border border-black px-2 py-3 text-center font-medium text-black">
-              Categoría
-            </th>
-            <th className="border border-black px-2 py-3 text-center font-medium text-black">
-              Cantidad Consumida
-            </th>
-            <th className="border border-black px-2 py-3 text-center font-medium text-black">
-              Desde
-            </th>
-            <th className="rounded-tr-[10px] border border-black px-2 py-3 text-center font-medium text-black">
-              Hasta
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 ? (
-            <tr>
-              <td colSpan={5} className="border border-black px-4 py-8 text-center text-slate-500">
-                No hay datos en el rango seleccionado.
-              </td>
-            </tr>
-          ) : (
-            rows.map((row) => (
-              <tr key={row.id} className="bg-white">
-                <td className="border border-black px-2 py-2.5 text-center text-black">
-                  {row.supply_name}
-                </td>
-                <td className="border border-black px-2 py-2.5 text-center text-black">
-                  {row.category}
-                </td>
-                <td className="border border-black px-2 py-2.5 text-center text-black">
-                  {row.consumed_amount}
-                  {' '}
-                  {row.unit}
-                </td>
-                <td className="border border-black px-2 py-2.5 text-center text-black">
-                  {row.date_from}
-                </td>
-                <td className="border border-black px-2 py-2.5 text-center text-black">
-                  {row.date_to}
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
+    <Table<ConsumptionReportRow>
+      columns={columns}
+      rows={rows}
+      keyField="id"
+      emptyMessage="No hay datos en el rango seleccionado."
+    />
   )
 }
