@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Pencil, Trash2, UserPlus } from 'lucide-react'
-import { beneficiaryApi } from '../api/beneficiary'
-import type { Beneficiary, BeneficiaryStatus, UserType } from '../types/beneficiary'
+import { accesoDirectoApi } from '../api/acceso_directo'
+import type { AccesoDirecto, AccesoDirectoStatus, UserType } from '../types/acceso_directo'
 import { useAuth } from '../context/AuthContext'
 import { notify } from '../utils/toast'
 import { Table, type ColumnDef } from '../components/ui/Table'
@@ -11,15 +11,15 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { SearchInput } from '../components/ui/SearchInput'
 import { Select } from '../components/ui/Select'
 import { Modal } from '../components/ui/Modal'
-import { BeneficiaryFormModal } from '../components/BeneficiaryFormModal'
+import { AccesoDirectoFormModal } from '../components/AccesoDirectoFormModal'
 
-const STATUS_LABEL: Record<BeneficiaryStatus, string> = {
+const STATUS_LABEL: Record<AccesoDirectoStatus, string> = {
   ACTIVE:    'Activo',
   SUSPENDED: 'Suspendido',
   INACTIVE:  'Inactivo',
 }
 
-const STATUS_VARIANT: Record<BeneficiaryStatus, 'success' | 'danger' | 'neutral'> = {
+const STATUS_VARIANT: Record<AccesoDirectoStatus, 'success' | 'danger' | 'neutral'> = {
   ACTIVE:    'success',
   SUSPENDED: 'danger',
   INACTIVE:  'neutral',
@@ -39,18 +39,18 @@ const USER_TYPE_VARIANT: Record<UserType, 'info' | 'warning' | 'neutral' | 'succ
   WORKER:         'success',
 }
 
-export function BeneficiaryPage() {
+export function AccesoDirectoPage() {
   const { user: currentUser } = useAuth()
 
-  const [rows,          setRows]         = useState<Beneficiary[]>([])
+  const [rows,          setRows]         = useState<AccesoDirecto[]>([])
   const [total,         setTotal]        = useState(0)
   const [loading,       setLoading]      = useState(true)
   const [search,        setSearch]       = useState('')
   const [selectedStatus, setStatus]      = useState<string>('all')
   const [selectedType,  setType]         = useState<string>('all')
   const [formOpen,      setFormOpen]     = useState(false)
-  const [editingRow,    setEditingRow]   = useState<Beneficiary | null>(null)
-  const [deleteTarget,  setDeleteTarget] = useState<Beneficiary | null>(null)
+  const [editingRow,    setEditingRow]   = useState<AccesoDirecto | null>(null)
+  const [deleteTarget,  setDeleteTarget] = useState<AccesoDirecto | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
 
   const canManage = currentUser?.role.name === 'SUPER_ADMIN' || currentUser?.role.name === 'ADMIN'
@@ -58,9 +58,9 @@ export function BeneficiaryPage() {
   const refetch = useCallback(async () => {
     setLoading(true)
     try {
-      const result = await beneficiaryApi.list({
+      const result = await accesoDirectoApi.list({
         search:    search || undefined,
-        status:    selectedStatus !== 'all' ? (selectedStatus as BeneficiaryStatus) : undefined,
+        status:    selectedStatus !== 'all' ? (selectedStatus as AccesoDirectoStatus) : undefined,
         user_type: selectedType  !== 'all' ? (selectedType as UserType) : undefined,
         limit: 100,
       })
@@ -76,15 +76,15 @@ export function BeneficiaryPage() {
   useEffect(() => { void refetch() }, [refetch])
 
   const openCreate = () => { setEditingRow(null); setFormOpen(true) }
-  const openEdit   = (row: Beneficiary) => { setEditingRow(row); setFormOpen(true) }
+  const openEdit   = (row: AccesoDirecto) => { setEditingRow(row); setFormOpen(true) }
 
   const confirmDelete = async () => {
     if (!deleteTarget) return
     setDeleteLoading(true)
     try {
-      await beneficiaryApi.remove(deleteTarget.id)
+      await accesoDirectoApi.remove(deleteTarget.id)
       setDeleteTarget(null)
-      notify.success('Beneficiario eliminado.')
+      notify.success('Acceso directo eliminado.')
       await refetch()
     } catch (err) {
       notify.error(err)
@@ -109,7 +109,7 @@ export function BeneficiaryPage() {
     { value: 'WORKER',         label: 'Obrero'          },
   ]
 
-  const columns: ColumnDef<Beneficiary>[] = [
+  const columns: ColumnDef<AccesoDirecto>[] = [
     {
       key: 'first_name',
       header: 'Nombre',
@@ -161,12 +161,12 @@ export function BeneficiaryPage() {
   return (
     <div>
       <PageHeader
-        title="Beneficiarios"
-        subtitle={`${total} beneficiario${total !== 1 ? 's' : ''} en total`}
+        title="Accesos Directos"
+        subtitle={`${total} acceso${total !== 1 ? 's' : ''} directo${total !== 1 ? 's' : ''} en total`}
         actions={
           canManage ? (
             <Button variant="primary" leftIcon={<UserPlus size={15} />} size="sm" onClick={openCreate}>
-              Nuevo Beneficiario
+              Nuevo Acceso Directo
             </Button>
           ) : undefined
         }
@@ -194,12 +194,12 @@ export function BeneficiaryPage() {
         />
       </div>
 
-      <Table<Beneficiary>
+      <Table<AccesoDirecto>
         columns={columns}
         rows={rows}
         keyField="id"
         loading={loading}
-        emptyMessage="No hay beneficiarios para los filtros seleccionados."
+        emptyMessage="No hay accesos directos para los filtros seleccionados."
         actions={
           canManage
             ? (row) => (
@@ -226,7 +226,7 @@ export function BeneficiaryPage() {
         }
       />
 
-      <BeneficiaryFormModal
+      <AccesoDirectoFormModal
         open={formOpen}
         onClose={() => setFormOpen(false)}
         onSave={refetch}
@@ -236,7 +236,7 @@ export function BeneficiaryPage() {
       <Modal
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
-        title="Eliminar beneficiario"
+        title="Eliminar acceso directo"
         size="sm"
         footer={
           <>

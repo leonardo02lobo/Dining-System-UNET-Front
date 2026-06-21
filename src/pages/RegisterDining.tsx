@@ -109,7 +109,7 @@ export function RegisterDining() {
         registered_by_id: user.id,
         session_id:       session.id,
         is_manual:        false,
-        beneficiary_id:   student.beneficiary_id,
+        acceso_directo_id: student.acceso_directo_id,
       })
       notify.success(`Consumo registrado para ${student.name}`)
       setCedula('')
@@ -118,7 +118,7 @@ export function RegisterDining() {
     } catch (err: any) {
       // 403 = sanción activa — el mensaje ya viene limpio del apiClient
       const msg = err?.status === 409
-        ? 'Este beneficiario ya registró consumo en la sesión de hoy.'
+        ? 'Este acceso directo ya registró consumo en la sesión de hoy.'
         : (err?.message ?? 'Error al registrar el consumo')
       notify.error(msg)
       setError(msg)
@@ -197,14 +197,6 @@ export function RegisterDining() {
         <Card variant="outlined" padding="lg">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
 
-            {/* Avatar + badge */}
-            <div className="flex flex-col items-center gap-3">
-              <Avatar name={student.name} src={student.avatar_url} />
-              <Badge variant={student.is_suspended ? 'danger' : 'success'}>
-                {student.is_suspended ? 'Suspendido' : 'Activo'}
-              </Badge>
-            </div>
-
             {/* Campos */}
             <div className="flex flex-1 flex-col gap-4">
               <div className="flex flex-row items-center gap-14">
@@ -220,13 +212,13 @@ export function RegisterDining() {
                 <Input value={student.email ?? '—'} readOnly fullWidth />
               </div>
 
-              {student.is_beneficiary ? (
+              {student.is_acceso_directo ? (
                 <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
-                  Usuario beneficiario
+                  Usuario con acceso directo
                 </div>
               ) : (
                 <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700">
-                  Este usuario no es beneficiario
+                  Este usuario no tiene acceso directo
                 </div>
               )}
 
@@ -240,12 +232,20 @@ export function RegisterDining() {
                 <Button
                   variant="primary"
                   loading={saving}
-                  disabled={student.is_suspended || noSession || !student.is_beneficiary}
+                  disabled={student.is_suspended || noSession || !student.is_acceso_directo}
                   onClick={handleRegister}
                 >
                   Registrar Consumo
                 </Button>
               </div>
+            </div>
+
+            {/* Avatar + badge */}
+            <div className="flex flex-col items-center gap-3">
+              <Avatar name={student.name} src={student.avatar_url} shape="square" />
+              <Badge variant={student.is_suspended ? 'danger' : 'success'}>
+                {student.is_suspended ? 'Suspendido' : 'Activo'}
+              </Badge>
             </div>
           </div>
         </Card>

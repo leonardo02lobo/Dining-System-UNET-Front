@@ -8,7 +8,7 @@ export const ROUTE_ACCESS: Record<string, RoleName[]> = {
   '/comedor/registro-manual':  ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'],
   '/comedor/sesion':           ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'],
   '/suspendStudent':           ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'],
-  '/beneficiarios':            ['SUPER_ADMIN', 'ADMIN'],
+  '/accesos_directos':         ['SUPER_ADMIN', 'ADMIN'],
   '/usuarios':                 ['SUPER_ADMIN', 'ADMIN'],
   '/inventario':               ['SUPER_ADMIN', 'ADMIN'],
   '/inventario/general':       ['SUPER_ADMIN', 'ADMIN'],
@@ -17,7 +17,7 @@ export const ROUTE_ACCESS: Record<string, RoleName[]> = {
   '/inventario/pruebas-almuerzo': ['SUPER_ADMIN', 'ADMIN'],
   '/auditoria':                ['SUPER_ADMIN', 'ADMIN'],
   '/admin/permisos':           ['SUPER_ADMIN'],
-  '/verificar-beneficiario':   ['BENEFICIARIO', 'SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'],
+  '/verificar-acceso-directo': ['ACCESO_DIRECTO', 'SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'],
   '/sedes':                    ['SUPER_ADMIN', 'ADMIN'],
 }
 
@@ -25,7 +25,7 @@ export const DEFAULT_ROUTE: Record<RoleName, string> = {
   SUPER_ADMIN:  '/',
   ADMIN:        '/',
   TAQUILLERO:   '/',
-  BENEFICIARIO: '/verificar-beneficiario',
+  ACCESO_DIRECTO: '/verificar-acceso-directo',
 }
 
 export function canAccess(

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ChangeEvent } from 'react'
-import { beneficiaryApi } from '../api/beneficiary'
-import type { Beneficiary, BeneficiaryCreate, BeneficiaryUpdate, UserType, BeneficiaryStatus } from '../types/beneficiary'
+import { accesoDirectoApi } from '../api/acceso_directo'
+import type { AccesoDirecto, AccesoDirectoCreate, AccesoDirectoUpdate, UserType, AccesoDirectoStatus } from '../types/acceso_directo'
 import { Modal } from './ui/Modal'
 import { Input } from './ui/Input'
 import { Select } from './ui/Select'
@@ -12,7 +12,7 @@ interface Props {
   open: boolean
   onClose: () => void
   onSave: () => void
-  initial?: Beneficiary | null
+  initial?: AccesoDirecto | null
 }
 
 const USER_TYPE_OPTIONS: { value: UserType; label: string }[] = [
@@ -22,7 +22,7 @@ const USER_TYPE_OPTIONS: { value: UserType; label: string }[] = [
   { value: 'WORKER',         label: 'Obrero'         },
 ]
 
-const STATUS_OPTIONS: { value: BeneficiaryStatus; label: string }[] = [
+const STATUS_OPTIONS: { value: AccesoDirectoStatus; label: string }[] = [
   { value: 'ACTIVE',    label: 'Activo'     },
   { value: 'SUSPENDED', label: 'Suspendido' },
   { value: 'INACTIVE',  label: 'Inactivo'   },
@@ -36,10 +36,10 @@ const EMPTY = {
   career:      '',
   is_priority: false,
   user_type:   'STUDENT' as UserType,
-  status:      'ACTIVE' as BeneficiaryStatus,
+  status:      'ACTIVE' as AccesoDirectoStatus,
 }
 
-export function BeneficiaryFormModal({ open, onClose, onSave, initial }: Props) {
+export function AccesoDirectoFormModal({ open, onClose, onSave, initial }: Props) {
   const [form,     setForm]     = useState(EMPTY)
   const [errors,   setErrors]   = useState<Record<string, string>>({})
   const [apiError, setApiError] = useState<string | null>(null)
@@ -89,7 +89,7 @@ export function BeneficiaryFormModal({ open, onClose, onSave, initial }: Props) 
     setApiError(null)
     try {
       if (initial) {
-        const payload: BeneficiaryUpdate = {
+        const payload: AccesoDirectoUpdate = {
           first_name:  form.first_name,
           last_name:   form.last_name,
           card_code:   form.card_code || undefined,
@@ -98,9 +98,9 @@ export function BeneficiaryFormModal({ open, onClose, onSave, initial }: Props) 
           user_type:   form.user_type,
           status:      form.status,
         }
-        await beneficiaryApi.update(initial.id, payload)
+        await accesoDirectoApi.update(initial.id, payload)
       } else {
-        const payload: BeneficiaryCreate = {
+        const payload: AccesoDirectoCreate = {
           first_name:  form.first_name,
           last_name:   form.last_name,
           document_id: form.document_id,
@@ -109,13 +109,13 @@ export function BeneficiaryFormModal({ open, onClose, onSave, initial }: Props) 
           is_priority: form.is_priority,
           user_type:   form.user_type,
         }
-        await beneficiaryApi.create(payload)
+        await accesoDirectoApi.create(payload)
       }
       onSave()
       onClose()
     } catch (err: unknown) {
       const e = err as ApiError
-      setApiError(e.message ?? 'Error al guardar el beneficiario')
+      setApiError(e.message ?? 'Error al guardar el acceso directo')
     } finally {
       setLoading(false)
     }
@@ -125,7 +125,7 @@ export function BeneficiaryFormModal({ open, onClose, onSave, initial }: Props) 
     <Modal
       open={open}
       onClose={onClose}
-      title={initial ? 'Editar Beneficiario' : 'Nuevo Beneficiario'}
+      title={initial ? 'Editar Acceso Directo' : 'Nuevo Acceso Directo'}
       size="md"
       footer={
         <>
@@ -133,7 +133,7 @@ export function BeneficiaryFormModal({ open, onClose, onSave, initial }: Props) 
             Cancelar
           </Button>
           <Button variant="primary" size="sm" onClick={handleSubmit} loading={loading}>
-            {initial ? 'Guardar cambios' : 'Crear beneficiario'}
+            {initial ? 'Guardar cambios' : 'Crear acceso directo'}
           </Button>
         </>
       }
@@ -211,7 +211,7 @@ export function BeneficiaryFormModal({ open, onClose, onSave, initial }: Props) 
             onChange={(e) => setForm((prev) => ({ ...prev, is_priority: e.target.checked }))}
           />
           <div className="flex flex-col">
-            <span className="text-sm font-medium text-slate-800">Beneficiario VIP</span>
+            <span className="text-sm font-medium text-slate-800">Acceso Directo VIP</span>
             <span className="text-xs text-slate-400">Tiene prioridad de acceso al comedor</span>
           </div>
         </label>

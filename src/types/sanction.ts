@@ -2,7 +2,7 @@ export type SanctionStatus = 'ACTIVE' | 'REVOKED' | 'EXPIRED'
 
 export interface Sanction {
   id: number
-  beneficiary_id: number
+  acceso_directo_id: number
   created_by_id: number
   reason: string
   description?: string
@@ -16,7 +16,7 @@ export interface Sanction {
 }
 
 export interface SanctionCreate {
-  beneficiary_id: number
+  acceso_directo_id: number
   reason: string
   description?: string
   start_date: string

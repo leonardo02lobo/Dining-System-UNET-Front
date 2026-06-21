@@ -1,4 +1,6 @@
-export function Footer() {
+import { memo } from 'react'
+
+function FooterComponent() {
   const year = new Date().getFullYear()
 
   return (
@@ -15,3 +17,5 @@ export function Footer() {
     </footer>
   )
 }
+
+export const Footer = memo(FooterComponent)

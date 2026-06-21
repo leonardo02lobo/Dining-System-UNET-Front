@@ -73,13 +73,13 @@ export function ManualRegistrationPage() {
         registered_by_id:  user.id,
         session_id:        session.id,
         is_manual:         true,
-        beneficiary_id:    student.beneficiary_id,
+        acceso_directo_id: student.acceso_directo_id,
       })
       notify.success(`Registro exitoso para ${student.name}`)
       handleClear()
     } catch (err: any) {
       const msg = err?.status === 409
-        ? 'Este beneficiario ya registró consumo en la sesión de hoy.'
+        ? 'Este acceso directo ya registró consumo en la sesión de hoy.'
         : 'Error al registrar el consumo'
       notify.error(msg)
       setError(msg)
@@ -166,13 +166,13 @@ export function ManualRegistrationPage() {
               </Badge>
             </div>
 
-            {student.is_beneficiary ? (
+            {student.is_acceso_directo ? (
               <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
-                Usuario beneficiario
+                Usuario con acceso directo
               </div>
             ) : (
               <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700">
-                Este usuario no es beneficiario
+                Este usuario no tiene acceso directo
               </div>
             )}
 
@@ -223,7 +223,7 @@ export function ManualRegistrationPage() {
           variant="primary"
           leftIcon={<Save size={15} />}
           loading={saving}
-          disabled={!student || isSuspended || noSession || !student.is_beneficiary}
+          disabled={!student || isSuspended || noSession || !student.is_acceso_directo}
           onClick={handleSave}
         >
           Guardar Estudiante

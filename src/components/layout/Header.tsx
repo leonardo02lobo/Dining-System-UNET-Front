@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { Smile } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { LogoUnet } from "../icons/LogoUnet";
@@ -8,13 +8,13 @@ const ROLE_LABEL: Record<string, string> = {
   SUPER_ADMIN:  'Super Administrador',
   ADMIN:        'Administrador',
   TAQUILLERO:   'Taquillero',
-  BENEFICIARIO: 'Beneficiario',
+  ACCESO_DIRECTO: 'Acceso Directo',
 }
 
 interface Props {
   isLogin?: boolean;
 }
-export function Header({isLogin}: Props) {
+function HeaderComponent({isLogin}: Props) {
   const [date] = useState(new Date())
   const { user } = useAuth()
   const styles = isLogin
@@ -55,3 +55,5 @@ export function Header({isLogin}: Props) {
     </header>
   )
 }
+
+export const Header = memo(HeaderComponent)

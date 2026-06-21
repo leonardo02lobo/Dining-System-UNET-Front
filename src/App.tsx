@@ -16,10 +16,10 @@ import { ReportsPage } from './pages/ReportsPage'
 import { ManualRegistrationPage } from './pages/ManualRegistrationPage'
 import { PermissionsPage } from './pages/PermissionsPage'
 import { LunchSessionPage } from './pages/LunchSessionPage'
-import { BeneficiaryPage } from './pages/BeneficiaryPage'
+import { AccesoDirectoPage } from './pages/AccesoDirectoPage'
 import { GeneralInventoryPage } from './pages/GeneralInventoryPage'
 import { ConsumptionReportPage } from './pages/ConsumptionReportPage'
-import { VerifyBeneficiaryPage } from './pages/VerifyBeneficiaryPage'
+import { VerifyAccesoDirectoPage } from './pages/VerifyAccesoDirectoPage'
 import { SedesPage } from './pages/SedesPage'
 
 export default function App() {
@@ -47,8 +47,8 @@ export default function App() {
               <Route path="auditoria" element={<LoginAuditPage />} />
               <Route path="suspendStudent" element={<SuspendStudent />} />
               <Route path="comedor/sesion" element={<LunchSessionPage />} />
-              <Route path="beneficiarios" element={<BeneficiaryPage />} />
-              <Route path="verificar-beneficiario" element={<VerifyBeneficiaryPage />} />
+              <Route path="accesos_directos" element={<AccesoDirectoPage />} />
+              <Route path="verificar-acceso-directo" element={<VerifyAccesoDirectoPage />} />
               <Route path="sedes" element={<SedesPage />} />
 
               <Route path="checkConsumes" element={<Navigate to="/comedor/consultar" replace />} />

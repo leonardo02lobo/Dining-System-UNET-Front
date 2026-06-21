@@ -1,6 +1,6 @@
 import { ChevronDown, Lock, RotateCcw } from 'lucide-react'
-import { useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { canAccess } from '../../config/routeAccess'
 import { Button } from './Button'
@@ -26,8 +26,8 @@ const navGroups: NavGroup[] = [
       { to: '/comedor/reporte',          label: 'Reporte de Comedor'  },
       { to: '/comedor/registro-manual',  label: 'Registro Manual'     },
       { to: '/suspendStudent',           label: 'Suspender Usuario'   },
-      { to: '/verificar-beneficiario',   label: 'Verificar Beneficiario' },
-      { to: '/beneficiarios',            label: 'Beneficiarios'          },
+      { to: '/verificar-acceso-directo',  label: 'Verificar Acceso Directo' },
+      { to: '/accesos_directos',         label: 'Accesos Directos'         },
       { to: '/usuarios',                 label: 'Lista de Usuario'       },
     ],
   },
@@ -53,11 +53,17 @@ const navGroups: NavGroup[] = [
 
 export function NavBar() {
   const { user, logout, permissions } = useAuth()
-  const [openGroup, setOpenGroup] = useState<string | null>(null)
+  const { pathname } = useLocation()
+  const currentGroup = navGroups.find((group) => group.items.some((item) => item.to === pathname))?.label ?? null
+  const [openGroup, setOpenGroup] = useState<string | null>(currentGroup)
   const [logoutModalOpen, setLogoutModalOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
 
   const role = user?.role.name
+
+  useEffect(() => {
+    if (currentGroup) setOpenGroup(currentGroup)
+  }, [currentGroup])
 
   function toggleGroup(label: string) {
     setOpenGroup((prev) => (prev === label ? null : label))
@@ -109,6 +115,7 @@ export function NavBar() {
                     <li key={item.to}>
                       <NavLink
                         to={item.to}
+                        end
                         className={({ isActive }) =>
                           `block px-6 py-1.5 text-sm transition-colors ${
                             isActive

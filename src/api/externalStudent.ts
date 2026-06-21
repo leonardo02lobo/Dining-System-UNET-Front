@@ -22,7 +22,7 @@ export function mapExternalToStudent(data: ExternalStudentData): Student {
     user_type:      '',
     is_suspended:   !data.is_active,
     avatar_url:     data.foto_perfil,
-    is_beneficiary: false,
+    is_acceso_directo: false,
   }
 }
 

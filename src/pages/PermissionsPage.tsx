@@ -16,14 +16,14 @@ const ROLE_LABEL: Record<RoleName, string> = {
   SUPER_ADMIN:  'Super Admin',
   ADMIN:        'Admin',
   TAQUILLERO:   'Taquillero',
-  BENEFICIARIO: 'Beneficiario',
+  ACCESO_DIRECTO: 'Acceso Directo',
 }
 
 const ROLE_VARIANT: Record<RoleName, 'info' | 'warning' | 'neutral'> = {
   SUPER_ADMIN:  'info',
   ADMIN:        'warning',
   TAQUILLERO:   'neutral',
-  BENEFICIARIO: 'neutral',
+  ACCESO_DIRECTO: 'neutral',
 }
 
 export function PermissionsPage() {
