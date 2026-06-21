@@ -40,8 +40,8 @@ export interface Student {
   user_type:       string
   is_suspended:    boolean
   avatar_url?:     string
-  is_beneficiary:  boolean
-  beneficiary_id?: number
+  is_acceso_directo:  boolean
+  acceso_directo_id?: number
 }
 
 /** Usuario del sistema (administrador, taquillero, etc.) */

@@ -39,9 +39,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setPermissions([])
         }
       })
-      .catch(() => { setUser(null); setPermissions([]) })
+      .catch(() => {
+        setUser(null)
+        setPermissions([])
+        navigate('/login')
+      })
       .finally(() => setLoading(false))
-  }, [])
+  }, [navigate])
 
   const logout = useCallback(async () => {
     try {

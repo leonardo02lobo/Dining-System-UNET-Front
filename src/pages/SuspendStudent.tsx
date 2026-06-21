@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Search, ScanLine } from 'lucide-react'
 import { normalizeCedula } from '../utils/cedula'
-import { beneficiaryApi } from '../api/beneficiary'
+import { accesoDirectoApi } from '../api/acceso_directo'
 import { externalStudentApi, mapExternalToStudent } from '../api/externalStudent'
 import { sanctionApi } from '../api/sanction'
 import { notify } from '../utils/toast'
@@ -25,7 +25,7 @@ const STATUS_LABEL: Record<string, string> = {
 export function SuspendStudent() {
   const [cedula,        setCedula]        = useState('')
   const [student,       setStudent]       = useState<Student | null>(null)
-  const [beneficiaryId, setBeneficiaryId] = useState<number | null>(null)
+  const [accesoDirectoId, setAccesoDirectoId] = useState<number | null>(null)
   const [history,       setHistory]       = useState<Sanction[]>([])
   const [loading,      setLoading]      = useState(false)
   const [saving,       setSaving]       = useState(false)
@@ -35,7 +35,7 @@ export function SuspendStudent() {
   const [obsError,     setObsError]     = useState<string | null>(null)
   const [confirmOpen,  setConfirmOpen]  = useState(false)
 
-  // Sanción activa del beneficiario (si existe)
+  // Sanción activa del acceso directo (si existe)
   const activeSanction = history.find((s) => s.status === 'ACTIVE') ?? null
 
   const lastKeyAtRef = useRef(0)
@@ -79,14 +79,14 @@ export function SuspendStudent() {
     setObservations('')
     setObsError(null)
     setStudent(null)
-    setBeneficiaryId(null)
+    setAccesoDirectoId(null)
     setHistory([])
     try {
       const ext = await externalStudentApi.lookup(clean)
       setStudent(mapExternalToStudent(ext))
       try {
-        const b = await beneficiaryApi.lookup(clean)
-        setBeneficiaryId(b.id)
+        const b = await accesoDirectoApi.lookup(clean)
+        setAccesoDirectoId(b.id)
         const result = await sanctionApi.history(b.id)
         setHistory(result.items)
       } catch {
@@ -102,7 +102,7 @@ export function SuspendStudent() {
   function handleSearch() { void triggerSearch(cedula) }
 
   async function handleSuspend() {
-    if (!student || !beneficiaryId || !observations.trim()) {
+    if (!student || !accesoDirectoId || !observations.trim()) {
       setObsError('Debes indicar el motivo de la suspensión')
       return
     }
@@ -112,7 +112,7 @@ export function SuspendStudent() {
     const end   = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
     try {
       const newSanction = await sanctionApi.create({
-        beneficiary_id: beneficiaryId,
+        acceso_directo_id: accesoDirectoId,
         reason:         observations,
         start_date:     today,
         end_date:       end,
@@ -120,7 +120,7 @@ export function SuspendStudent() {
       setHistory((prev) => [newSanction, ...prev])
       setObservations('')
       setConfirmOpen(false)
-      notify.success('Beneficiario suspendido correctamente.')
+      notify.success('Acceso directo suspendido correctamente.')
     } catch (err) {
       notify.error(err)
     } finally {
@@ -134,7 +134,7 @@ export function SuspendStudent() {
     try {
       const updated = await sanctionApi.revoke(activeSanction.id)
       setHistory((prev) => prev.map((s) => s.id === updated.id ? updated : s))
-      notify.success('Sanción revocada. El beneficiario fue reactivado.')
+      notify.success('Sanción revocada. El acceso directo fue reactivado.')
     } catch (err) {
       notify.error(err)
     } finally {
@@ -151,8 +151,8 @@ export function SuspendStudent() {
   return (
     <div>
       <PageHeader
-        title="Gestión de Beneficiario"
-        subtitle="Consulta y administra el acceso al comedor de un beneficiario"
+        title="Gestión de Acceso Directo"
+        subtitle="Consulta y administra el acceso al comedor de un acceso directo"
       />
 
       <Card variant="outlined" padding="md" className="mb-6">
@@ -196,19 +196,13 @@ export function SuspendStudent() {
 
       {!loading && searched && !student && !error && (
         <div className="rounded-md border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-400">
-          No se encontró ningún beneficiario con la cédula <strong>{cedula}</strong>.
+          No se encontró ningún acceso directo con la cédula <strong>{cedula}</strong>.
         </div>
       )}
 
       {!loading && student && (
         <Card variant="outlined" padding="lg" className="mb-6">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-            <div className="flex flex-col items-center gap-3">
-              <Avatar name={student.name} src={student.avatar_url} />
-              <Badge variant={isSuspended ? 'danger' : 'success'}>
-                {isSuspended ? 'Suspendido' : 'Activo'}
-              </Badge>
-            </div>
             <div className="flex flex-1 flex-col gap-4">
               <div className="flex flex-row items-center gap-14">
                 <p className="w-48 text-xs uppercase tracking-wide text-slate-400">Documento</p>
@@ -247,7 +241,7 @@ export function SuspendStudent() {
               )}
 
               <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
-                {beneficiaryId === null ? (
+                {accesoDirectoId === null ? (
                   <p className="text-xs text-slate-400">Estudiante no registrado en el sistema de comedor.</p>
                 ) : isSuspended ? (
                   <Button variant="secondary" onClick={handleRevoke} loading={saving}>
@@ -259,6 +253,12 @@ export function SuspendStudent() {
                   </Button>
                 )}
               </div>
+            </div>
+            <div className="flex flex-col items-center gap-3">
+              <Avatar name={student.name} src={student.avatar_url} shape="square" />
+              <Badge variant={isSuspended ? 'danger' : 'success'}>
+                {isSuspended ? 'Suspendido' : 'Activo'}
+              </Badge>
             </div>
           </div>
         </Card>

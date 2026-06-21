@@ -10,6 +10,7 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { Spinner } from '../components/ui/Spinner'
 import { notify } from '../utils/toast'
 import { reportsApi } from '../api/reports'
+import { consumptionApi, type UserConsumptionStats } from '../api/consumption'
 import type { ConsumptionReportItem } from '../types/report'
 
 const COLORS = [
@@ -53,6 +54,8 @@ function getReportedPeriod(items: ConsumptionReportItem[]) {
 export function ReportsPage() {
   const [loading, setLoading] = useState(false)
   const [items, setItems] = useState<ConsumptionReportItem[] | null>(null)
+  const [userStats, setUserStats] = useState<UserConsumptionStats | null>(null)
+  const [userStatsLoading, setUserStatsLoading] = useState(false)
   const [dateFrom, setDateFrom] = useState(toIsoDate(30))
   const [dateTo, setDateTo] = useState(toIsoDate(0))
 
@@ -72,9 +75,25 @@ export function ReportsPage() {
     }
   }, [dateFrom, dateTo])
 
+  const loadUserStats = useCallback(async () => {
+    setUserStatsLoading(true)
+    try {
+      const data = await consumptionApi.userStats({
+        from: dateFrom,
+        to: dateTo,
+      })
+      setUserStats(data)
+    } catch (err) {
+      notify.error(err)
+    } finally {
+      setUserStatsLoading(false)
+    }
+  }, [dateFrom, dateTo])
+
   useEffect(() => {
     void loadReport()
-  }, [loadReport])
+    void loadUserStats()
+  }, [loadReport, loadUserStats])
 
   const rows = items ?? []
   const reportedPeriod = getReportedPeriod(rows)
@@ -127,6 +146,57 @@ export function ReportsPage() {
       ],
     }
   }, [rows])
+
+  const genderChartData = useMemo(() => {
+    if (!userStats) return null
+    return {
+      labels: userStats.genderStats.map((s) => s.gender),
+      datasets: [
+        {
+          label: 'Cantidad',
+          data: userStats.genderStats.map((s) => s.count),
+          backgroundColor: [COLORS[0], COLORS[1]],
+          borderColor: [COLORS[0].replace('0.7', '1'), COLORS[1].replace('0.7', '1')],
+          borderWidth: 1,
+          borderRadius: 4,
+        },
+      ],
+    }
+  }, [userStats])
+
+  const careerChartData = useMemo(() => {
+    if (!userStats) return null
+    return {
+      labels: userStats.careerStats.map((s) => s.career),
+      datasets: [
+        {
+          data: userStats.careerStats.map((s) => s.count),
+          backgroundColor: userStats.careerStats.map((_, i) => COLORS[i % COLORS.length]),
+          borderWidth: 1,
+        },
+      ],
+    }
+  }, [userStats])
+
+  const dailyChartData = useMemo(() => {
+    if (!userStats) return null
+    return {
+      labels: userStats.dailyStats.map((s) => {
+        const date = new Date(s.date)
+        return date.toLocaleDateString('es-VE', { day: '2-digit', month: 'short' })
+      }),
+      datasets: [
+        {
+          label: 'Consumos',
+          data: userStats.dailyStats.map((s) => s.count),
+          backgroundColor: COLORS[2],
+          borderColor: COLORS[2].replace('0.7', '1'),
+          borderWidth: 1,
+          borderRadius: 4,
+        },
+      ],
+    }
+  }, [userStats])
 
   function handleDownload() {
     if (rows.length === 0) {
@@ -267,6 +337,34 @@ export function ReportsPage() {
               </Card.Body>
             </Card>
           </div>
+
+          {/* User Statistics Charts */}
+          {!userStatsLoading && userStats && (
+            <>
+              <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+                <Card variant="outlined" padding="md">
+                  <Card.Header title="Reporte por Género" subtitle="Distribución de consumos" />
+                  <Card.Body>
+                    {genderChartData && <BarChart data={genderChartData} />}
+                  </Card.Body>
+                </Card>
+
+                <Card variant="outlined" padding="md">
+                  <Card.Header title="Reporte por Carrera" subtitle="Distribución por carrera" />
+                  <Card.Body>
+                    {careerChartData && <PieChart data={careerChartData} />}
+                  </Card.Body>
+                </Card>
+
+                <Card variant="outlined" padding="md">
+                  <Card.Header title="Reporte por Días" subtitle="Consumos diarios" />
+                  <Card.Body>
+                    {dailyChartData && <BarChart data={dailyChartData} />}
+                  </Card.Body>
+                </Card>
+              </div>
+            </>
+          )}
 
           <Card variant="outlined" padding="md">
             <Card.Header title="Detalle de consumo de insumos" />

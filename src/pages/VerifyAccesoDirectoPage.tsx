@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Search, CheckCircle2, XCircle, Star } from 'lucide-react'
-import { beneficiaryApi } from '../api/beneficiary'
-import type { BeneficiaryVerifyResult } from '../types/beneficiary'
+import { accesoDirectoApi } from '../api/acceso_directo'
+import type { AccesoDirectoVerifyResult } from '../types/acceso_directo'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
@@ -20,9 +20,9 @@ const STATUS_VARIANT: Record<string, 'success' | 'danger' | 'neutral'> = {
   INACTIVE:  'neutral',
 }
 
-export function VerifyBeneficiaryPage() {
+export function VerifyAccesoDirectoPage() {
   const [query,   setQuery]   = useState('')
-  const [result,  setResult]  = useState<BeneficiaryVerifyResult | null>(null)
+  const [result,  setResult]  = useState<AccesoDirectoVerifyResult | null>(null)
   const [notFound, setNotFound] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState<string | null>(null)
@@ -35,7 +35,7 @@ export function VerifyBeneficiaryPage() {
     setNotFound(false)
     setError(null)
     try {
-      const data = await beneficiaryApi.verify(q)
+      const data = await accesoDirectoApi.verify(q)
       setResult(data)
     } catch (err: unknown) {
       const e = err as { status?: number; message?: string }
@@ -59,8 +59,8 @@ export function VerifyBeneficiaryPage() {
     <div className="p-6 max-w-lg mx-auto">
       <PageHeader
         breadcrumb="Comedor"
-        title="Verificar Beneficiario"
-        subtitle="Consulta si una persona está registrada en la lista de beneficiarios."
+        title="Verificar Acceso Directo"
+        subtitle="Consulta si una persona está registrada en la lista de accesos directos."
       />
 
       <Card variant="outlined" padding="lg">
@@ -87,7 +87,6 @@ export function VerifyBeneficiaryPage() {
           </Button>
         </div>
 
-        {/* Resultado */}
         {result && (
           <div className="mt-5 flex flex-col gap-3">
             <div className={`flex items-center gap-3 rounded-lg border px-4 py-3 ${isActive ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
@@ -119,8 +118,8 @@ export function VerifyBeneficiaryPage() {
             {!isActive && (
               <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                 {result.status === 'SUSPENDED'
-                  ? 'Este beneficiario se encuentra suspendido y no puede acceder al comedor.'
-                  : 'Este beneficiario está inactivo.'}
+                  ? 'Este acceso directo se encuentra suspendido y no puede acceder al comedor.'
+                  : 'Este acceso directo está inactivo.'}
               </p>
             )}
           </div>
@@ -132,7 +131,7 @@ export function VerifyBeneficiaryPage() {
             <div>
               <p className="font-semibold text-slate-700">No encontrado</p>
               <p className="text-sm text-slate-500">
-                La cédula <span className="font-mono">{query}</span> no está registrada como beneficiario.
+                La cédula <span className="font-mono">{query}</span> no está registrada como acceso directo.
               </p>
             </div>
           </div>

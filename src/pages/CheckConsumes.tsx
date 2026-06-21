@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Search, ScanLine, CheckCircle2, XCircle } from 'lucide-react'
 import { normalizeCedula } from '../utils/cedula'
-import { beneficiaryApi } from '../api/beneficiary'
+import { accesoDirectoApi } from '../api/acceso_directo'
 import { externalStudentApi, mapExternalToStudent } from '../api/externalStudent'
 import { consumptionApi } from '../api/consumption'
 import { lunchSessionApi } from '../api/lunchSession'
@@ -75,7 +75,7 @@ export function CheckConsumes() {
       const ext = await externalStudentApi.lookup(clean)
       setStudent(mapExternalToStudent(ext))
       try {
-        const b = await beneficiaryApi.lookup(clean)
+        const b = await accesoDirectoApi.lookup(clean)
         const check = await consumptionApi.check(b.id)
         setCheckResult(check)
       } catch {
@@ -100,7 +100,7 @@ export function CheckConsumes() {
     <div>
       <PageHeader
         title="Consultar Comedor"
-        subtitle="Busca un beneficiario por su cédula o carnet"
+        subtitle="Busca un acceso directo por su cédula o carnet"
       />
 
       {noSession && (
@@ -150,15 +150,13 @@ export function CheckConsumes() {
 
       {!loading && searched && !student && !error && (
         <div className="rounded-md border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-400">
-          No se encontró ningún beneficiario con la cédula <strong>{cedula}</strong>.
+          No se encontró ningún acceso directo con la cédula <strong>{cedula}</strong>.
         </div>
       )}
 
       {!loading && student && (
         <Card variant="outlined" padding="lg">
           <div className="flex flex-col items-start gap-6 sm:flex-row">
-            <Avatar name={student.name} src={student.avatar_url} />
-
             <div className="flex flex-1 flex-col gap-4 text-sm">
               <div className="flex flex-row items-center gap-14">
                 <p className="w-48 text-xs uppercase tracking-wide text-slate-400">Documento</p>
@@ -197,6 +195,7 @@ export function CheckConsumes() {
                 </div>
               )}
             </div>
+            <Avatar name={student.name} src={student.avatar_url} shape="square" />
           </div>
         </Card>
       )}

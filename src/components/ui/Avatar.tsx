@@ -1,19 +1,20 @@
 interface AvatarProps {
   name?: string
   src?: string
-  shape?: 'circle' | 'rounded'
+  shape?: 'circle' | 'rounded' | 'square'
   className?: string
 }
 
 const shapeClasses = {
   circle:  'rounded-full',
   rounded: 'rounded-lg',
+  square: 'rounded-none',
 }
 
 export function Avatar({ name, src, shape = 'circle', className = '' }: AvatarProps) {
   return (
     <div
-      className={`relative flex flex-shrink-0 items-center justify-center overflow-hidden bg-slate-200 h-48 w-48 text-2xl ${shapeClasses[shape]} ${className}`}
+      className={`relative flex flex-shrink-0 items-center justify-center overflow-hidden bg-slate-200 h-80 w-80 text-4xl ${shapeClasses[shape]} ${className}`}
       title={name}
     >
       {src ? (

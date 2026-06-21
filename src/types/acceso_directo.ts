@@ -1,8 +1,8 @@
-export type BeneficiaryStatus = 'ACTIVE' | 'SUSPENDED' | 'INACTIVE'
+export type AccesoDirectoStatus = 'ACTIVE' | 'SUSPENDED' | 'INACTIVE'
 
 export type UserType = 'STUDENT' | 'TEACHER' | 'ADMINISTRATIVE' | 'WORKER'
 
-export interface Beneficiary {
+export interface AccesoDirecto {
   id: number
   first_name: string
   last_name: string
@@ -13,12 +13,12 @@ export interface Beneficiary {
   user_type: UserType
   career?: string | null
   is_priority: boolean
-  status: BeneficiaryStatus
+  status: AccesoDirectoStatus
   created_at: string
   updated_at: string | null
 }
 
-export interface BeneficiaryCreate {
+export interface AccesoDirectoCreate {
   first_name: string
   last_name: string
   document_id: string
@@ -28,10 +28,10 @@ export interface BeneficiaryCreate {
   user_type: UserType
   career?: string
   is_priority?: boolean
-  status?: BeneficiaryStatus
+  status?: AccesoDirectoStatus
 }
 
-export interface BeneficiaryUpdate {
+export interface AccesoDirectoUpdate {
   first_name?: string
   last_name?: string
   card_code?: string
@@ -40,29 +40,28 @@ export interface BeneficiaryUpdate {
   user_type?: UserType
   career?: string
   is_priority?: boolean
-  status?: BeneficiaryStatus
+  status?: AccesoDirectoStatus
 }
 
-export interface BeneficiaryVerifyResult {
+export interface AccesoDirectoVerifyResult {
   document_id: string
   first_name: string
   last_name: string
-  status: BeneficiaryStatus
+  status: AccesoDirectoStatus
   is_priority: boolean
 }
 
-export interface BeneficiaryFilters {
+export interface AccesoDirectoFilters {
   skip?: number
   limit?: number
   search?: string
-  status?: BeneficiaryStatus
+  status?: AccesoDirectoStatus
   user_type?: UserType
 }
 
-/** El endpoint /lookup retorna la misma forma que BeneficiaryResponse */
-export type BeneficiaryLookupResult = Beneficiary
+export type AccesoDirectoLookupResult = AccesoDirecto
 
-export interface PaginatedBeneficiaries {
-  items: Beneficiary[]
+export interface PaginatedAccesosDirectos {
+  items: AccesoDirecto[]
   total: number
 }

@@ -1,4 +1,4 @@
-export type RoleName = 'SUPER_ADMIN' | 'ADMIN' | 'TAQUILLERO' | 'BENEFICIARIO'
+export type RoleName = 'SUPER_ADMIN' | 'ADMIN' | 'TAQUILLERO' | 'ACCESO_DIRECTO'
 
 export interface LoginCredentials {
   username: string
