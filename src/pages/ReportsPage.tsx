@@ -11,7 +11,14 @@ import { Spinner } from '../components/ui/Spinner'
 import { notify } from '../utils/toast'
 import { reportsApi } from '../api/reports'
 import { consumptionApi, type UserConsumptionStats } from '../api/consumption'
-import type { ConsumptionReportItem } from '../types/report'
+import type { ConsumptionReportItem, ConsumptionReport } from '../types/report'
+
+const USER_TYPE_LABEL: Record<string, string> = {
+  STUDENT:        'Estudiantes',
+  TEACHER:        'Docentes',
+  ADMINISTRATIVE: 'Administrativos',
+  WORKER:         'Obreros',
+}
 
 const COLORS = [
   'rgba(37, 99, 235, 0.7)',
@@ -56,6 +63,7 @@ export function ReportsPage() {
   const [items, setItems] = useState<ConsumptionReportItem[] | null>(null)
   const [userStats, setUserStats] = useState<UserConsumptionStats | null>(null)
   const [userStatsLoading, setUserStatsLoading] = useState(false)
+  const [consumptionReport, setConsumptionReport] = useState<ConsumptionReport | null>(null)
   const [dateFrom, setDateFrom] = useState(toIsoDate(30))
   const [dateTo, setDateTo] = useState(toIsoDate(0))
 
@@ -78,11 +86,12 @@ export function ReportsPage() {
   const loadUserStats = useCallback(async () => {
     setUserStatsLoading(true)
     try {
-      const data = await consumptionApi.userStats({
-        from: dateFrom,
-        to: dateTo,
-      })
-      setUserStats(data)
+      const [stats, report] = await Promise.all([
+        consumptionApi.userStats({ from: dateFrom, to: dateTo }),
+        reportsApi.consumption({ from_date: dateFrom, to_date: dateTo }),
+      ])
+      setUserStats(stats)
+      setConsumptionReport(report)
     } catch (err) {
       notify.error(err)
     } finally {
@@ -197,6 +206,24 @@ export function ReportsPage() {
       ],
     }
   }, [userStats])
+
+  const userTypeChartData = useMemo(() => {
+    if (!consumptionReport || consumptionReport.by_user_type.length === 0) return null
+    return {
+      labels: consumptionReport.by_user_type.map(
+        (s) => USER_TYPE_LABEL[s.user_type] ?? s.user_type,
+      ),
+      datasets: [
+        {
+          data: consumptionReport.by_user_type.map((s) => s.total),
+          backgroundColor: consumptionReport.by_user_type.map(
+            (_, i) => COLORS[i % COLORS.length],
+          ),
+          borderWidth: 1,
+        },
+      ],
+    }
+  }, [consumptionReport])
 
   function handleDownload() {
     if (rows.length === 0) {
@@ -363,6 +390,20 @@ export function ReportsPage() {
                   </Card.Body>
                 </Card>
               </div>
+
+              {userTypeChartData && (
+                <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+                  <Card variant="outlined" padding="md">
+                    <Card.Header
+                      title="Reporte por Tipo de Persona"
+                      subtitle="Estudiantes, docentes, administrativos y obreros"
+                    />
+                    <Card.Body>
+                      <PieChart data={userTypeChartData} />
+                    </Card.Body>
+                  </Card>
+                </div>
+              )}
             </>
           )}
 

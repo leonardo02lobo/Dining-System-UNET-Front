@@ -24,7 +24,7 @@ export const ROUTE_ACCESS: Record<string, RoleName[]> = {
 export const DEFAULT_ROUTE: Record<RoleName, string> = {
   SUPER_ADMIN:  '/',
   ADMIN:        '/',
-  TAQUILLERO:   '/',
+  TAQUILLERO:   '/comedor/registrar',
   ACCESO_DIRECTO: '/verificar-acceso-directo',
 }
 
