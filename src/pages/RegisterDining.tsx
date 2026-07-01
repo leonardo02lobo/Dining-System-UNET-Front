@@ -1,15 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
-import { Search, ScanLine } from 'lucide-react'
+import { Search, ScanLine, Ban } from 'lucide-react'
 import { studentApi } from '../api/student'
 import { lunchSessionApi } from '../api/lunchSession'
+import { consumptionApi } from '../api/consumption'
+import { sanctionApi } from '../api/sanction'
 import { normalizeCedula } from '../utils/cedula'
 import type { Student } from '../types/user'
 import type { LunchSession } from '../types/lunchSession'
+import type { Sanction } from '../types/sanction'
 import { notify } from '../utils/toast'
 import { useAuth } from '../context/AuthContext'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
+import { Modal } from '../components/ui/Modal'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Avatar } from '../components/ui/Avatar'
 import { Badge } from '../components/ui/Badge'
@@ -27,6 +31,13 @@ export function RegisterDining() {
   const [saving,     setSaving]     = useState(false)
   const [error,      setError]      = useState<string | null>(null)
   const [searched,   setSearched]   = useState(false)
+
+  // Suspensión rápida (problemáticas 29 y 30)
+  const [activeSanction, setActiveSanction] = useState<Sanction | null>(null)
+  const [suspendOpen,    setSuspendOpen]    = useState(false)
+  const [suspendReason,  setSuspendReason]  = useState('')
+  const [suspendError,   setSuspendError]   = useState<string | null>(null)
+  const [suspending,     setSuspending]     = useState(false)
 
   const lastKeyAtRef = useRef(0)
   const bufferRef    = useRef('')
@@ -81,9 +92,19 @@ export function RegisterDining() {
     setError(null)
     setSearched(true)
     setStudent(null)
+    setActiveSanction(null)
     try {
       const data = await studentApi.lookup(clean)
       setStudent(data)
+      // Si es acceso directo, consultamos si tiene una suspensión activa
+      if (data.acceso_directo_id) {
+        try {
+          const check = await consumptionApi.check(data.acceso_directo_id)
+          setActiveSanction(check.active_sanction)
+        } catch {
+          // Si la consulta de sanción falla, continuamos sin bloquear la búsqueda
+        }
+      }
     } catch (err: any) {
       setError(err.message ?? 'Error al consultar el estudiante')
     } finally {
@@ -115,6 +136,7 @@ export function RegisterDining() {
       setCedula('')
       setStudent(null)
       setSearched(false)
+      setActiveSanction(null)
     } catch (err: any) {
       // 403 = sanción activa — el mensaje ya viene limpio del apiClient
       const msg = err?.status === 409
@@ -127,8 +149,45 @@ export function RegisterDining() {
     }
   }
 
+  // ── Suspensión rápida desde el registro (problemáticas 29 y 30) ──
+  function openSuspend() {
+    setSuspendReason('')
+    setSuspendError(null)
+    setSuspendOpen(true)
+  }
+
+  async function handleQuickSuspend() {
+    if (!student?.acceso_directo_id) return
+    const reason = suspendReason.trim()
+    if (reason.length < 3) {
+      setSuspendError('Indica el motivo de la suspensión (mínimo 3 caracteres).')
+      return
+    }
+    setSuspending(true)
+    setSuspendError(null)
+    try {
+      const sanction = await sanctionApi.quickCreate({
+        acceso_directo_id: student.acceso_directo_id,
+        reason,
+      })
+      setActiveSanction(sanction)
+      setSuspendOpen(false)
+      notify.success(`${student.name} fue suspendido.`)
+    } catch (err: any) {
+      const msg = err?.status === 409
+        ? 'Esta persona ya tiene una suspensión activa.'
+        : (err?.message ?? 'Error al suspender al usuario')
+      notify.error(msg)
+      setSuspendError(msg)
+    } finally {
+      setSuspending(false)
+    }
+  }
+
   const noSession = session === null
   const sessionLoading = session === undefined
+  const isSuspended = activeSanction !== null || (student?.is_suspended ?? false)
+  const canSuspend = !!student?.is_acceso_directo && activeSanction === null
 
   return (
     <div>
@@ -222,17 +281,31 @@ export function RegisterDining() {
                 </div>
               )}
 
-              {student.is_suspended && (
+              {activeSanction ? (
+                <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  Usuario suspendido y no puede registrar consumo.
+                  <span className="mt-0.5 block text-xs text-red-600">Motivo: {activeSanction.reason}</span>
+                </div>
+              ) : student.is_suspended && (
                 <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
                   Este estudiante está suspendido y no puede registrar consumo.
                 </div>
               )}
 
-              <div className="flex justify-end border-t border-slate-100 pt-4">
+              <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
+                {canSuspend && (
+                  <Button
+                    variant="danger"
+                    leftIcon={<Ban size={15} />}
+                    onClick={openSuspend}
+                  >
+                    Suspender
+                  </Button>
+                )}
                 <Button
                   variant="primary"
                   loading={saving}
-                  disabled={student.is_suspended || noSession || !student.is_acceso_directo}
+                  disabled={isSuspended || noSession || !student.is_acceso_directo}
                   onClick={handleRegister}
                 >
                   Registrar Consumo
@@ -243,13 +316,62 @@ export function RegisterDining() {
             {/* Avatar + badge */}
             <div className="flex flex-col items-center gap-3">
               <Avatar name={student.name} src={student.avatar_url} shape="square" />
-              <Badge variant={student.is_suspended ? 'danger' : 'success'}>
-                {student.is_suspended ? 'Suspendido' : 'Activo'}
+              <Badge variant={isSuspended ? 'danger' : 'success'}>
+                {isSuspended ? 'Suspendido' : 'Activo'}
               </Badge>
             </div>
           </div>
         </Card>
       )}
+
+      {/* Modal de suspensión rápida (problemáticas 29 y 30) */}
+      <Modal
+        open={suspendOpen}
+        onClose={() => { if (!suspending) setSuspendOpen(false) }}
+        title="Suspender usuario"
+        size="md"
+        footer={
+          <>
+            <Button variant="ghost" size="sm" onClick={() => setSuspendOpen(false)} disabled={suspending}>
+              Cancelar
+            </Button>
+            <Button variant="danger" size="sm" onClick={handleQuickSuspend} loading={suspending}>
+              Confirmar suspensión
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          {student && (
+            <p className="text-sm text-slate-600">
+              Vas a suspender a <span className="font-semibold text-slate-900">{student.name}</span>{' '}
+              (C.I. {student.cedula}). No podrá registrar consumo hasta que se levante la suspensión.
+            </p>
+          )}
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="suspend-reason" className="text-[13px] font-semibold text-slate-900">
+              Motivo de la suspensión <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              id="suspend-reason"
+              rows={3}
+              autoFocus
+              placeholder="Indica el motivo de la suspensión..."
+              value={suspendReason}
+              onChange={(e) => { setSuspendReason(e.target.value); setSuspendError(null) }}
+              className={[
+                'w-full resize-none rounded-md border bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:ring-4',
+                suspendError
+                  ? 'border-red-600 focus:border-red-600 focus:ring-red-500/15'
+                  : 'border-slate-300 focus:border-blue-500 focus:ring-blue-500/15',
+              ].join(' ')}
+            />
+            {suspendError && (
+              <span className="text-xs text-red-600" role="alert">{suspendError}</span>
+            )}
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

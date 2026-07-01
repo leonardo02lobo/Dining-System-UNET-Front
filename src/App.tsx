@@ -21,6 +21,7 @@ import { GeneralInventoryPage } from './pages/GeneralInventoryPage'
 import { ConsumptionReportPage } from './pages/ConsumptionReportPage'
 import { VerifyAccesoDirectoPage } from './pages/VerifyAccesoDirectoPage'
 import { SedesPage } from './pages/SedesPage'
+import { SuspendedListPage } from './pages/SuspendedListPage'
 
 export default function App() {
   return (
@@ -46,6 +47,7 @@ export default function App() {
               <Route path="usuarios" element={<ListUser />} />
               <Route path="auditoria" element={<LoginAuditPage />} />
               <Route path="suspendStudent" element={<SuspendStudent />} />
+              <Route path="suspendidos" element={<SuspendedListPage />} />
               <Route path="comedor/sesion" element={<LunchSessionPage />} />
               <Route path="accesos_directos" element={<AccesoDirectoPage />} />
               <Route path="verificar-acceso-directo" element={<VerifyAccesoDirectoPage />} />
