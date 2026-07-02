@@ -1,0 +1,2 @@
+- [Arquitectura Backend UNET](project_backend_architecture.md) — Estructura real de módulos, tablas, auth, roles y endpoints del backend FastAPI
+- [Feedback Revisión Backend 2026-06-28](feedback_backend_review_2026_06_28.md) — Vulnerabilidades y patrones a evitar descubiertos en la revisión sistemática del backend

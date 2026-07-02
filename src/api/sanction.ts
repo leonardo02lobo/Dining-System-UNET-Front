@@ -1,8 +1,18 @@
 import { apiClient } from './client'
-import type { Sanction, SanctionCreate } from '../types/sanction'
+import type {
+  Sanction,
+  SanctionCreate,
+  SanctionQuickCreate,
+  SuspendedAccesoDirecto,
+} from '../types/sanction'
 
 export interface PaginatedSanctions {
   items: Sanction[]
+  total: number
+}
+
+export interface PaginatedSuspended {
+  items: SuspendedAccesoDirecto[]
   total: number
 }
 
@@ -17,4 +27,17 @@ export const sanctionApi = {
     const qs = p.toString()
     return apiClient.get<PaginatedSanctions>(`/sanctions/${qs ? `?${qs}` : ''}`)
   },
+
+  // --- Suspensión rápida y sección de suspendidos (problemáticas 29-31) ---
+  quickCreate: (data: SanctionQuickCreate) => apiClient.post<Sanction>('/sanctions/quick', data),
+
+  suspended: (params?: { search?: string }) => {
+    const p = new URLSearchParams()
+    if (params?.search) p.set('search', params.search)
+    const qs = p.toString()
+    return apiClient.get<PaginatedSuspended>(`/sanctions/suspended${qs ? `?${qs}` : ''}`)
+  },
+
+  /** Levanta la suspensión activa de una persona sin conocer el id de la sanción. */
+  lift: (accesoDirectoId: number) => apiClient.put<Sanction>(`/sanctions/acceso_directo/${accesoDirectoId}/lift`),
 }

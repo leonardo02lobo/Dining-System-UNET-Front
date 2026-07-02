@@ -135,12 +135,6 @@ export function LoginPage() {
               >
                 Iniciar Sesión
               </Button>
-
-              <div className="text-center">
-                <span className="text-xs text-slate-300 select-none">
-                  ¿Olvidaste tu contraseña? Contacta al administrador del sistema.
-                </span>
-              </div>
             </form>
           </Card>
 

@@ -1,48 +1,83 @@
-import { useEffect, useState } from 'react'
-import { Search, Save, RotateCcw } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { Search, Save, RotateCcw, Printer, Pencil, Trash2 } from 'lucide-react'
 import { studentApi } from '../api/student'
-import { lunchSessionApi } from '../api/lunchSession'
+import { accesoDirectoApi } from '../api/acceso_directo'
+import { consumptionApi } from '../api/consumption'
 import { normalizeCedula } from '../utils/cedula'
+import { printManualList } from '../utils/printManual'
 import type { Student } from '../types/user'
-import type { LunchSession } from '../types/lunchSession'
+import type { ManualConsumption, ManualOrderBy, OrderDir } from '../types/consumption'
 import { notify } from '../utils/toast'
-import { useAuth } from '../context/AuthContext'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
+import { Select } from '../components/ui/Select'
+import { Modal } from '../components/ui/Modal'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
+import { Table, type ColumnDef } from '../components/ui/Table'
 
-const ROLE_LABEL: Record<string, string> = {
-  SUPER_ADMIN: 'Super Administrador',
-  ADMIN:       'Administrador',
-  TAQUILLERO:  'Taquillero',
+const USER_TYPE_LABEL: Record<string, string> = {
+  STUDENT:        'Estudiante',
+  TEACHER:        'Docente',
+  ADMINISTRATIVE: 'Administrativo',
+  WORKER:         'Obrero',
 }
 
-function nowString() {
-  return new Date().toLocaleString('es-VE', {
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit',
-  })
+/** Fecha local de hoy en formato YYYY-MM-DD (sin desfase de zona horaria). */
+function todayISO(): string {
+  const d = new Date()
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+  return local.toISOString().slice(0, 10)
+}
+
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })
 }
 
 export function ManualRegistrationPage() {
-  const { user } = useAuth()
+  // Fecha obligatoria del registro manual (problemática 23)
+  const [date,     setDate]     = useState<string>(todayISO())
 
-  const [session,  setSession]  = useState<LunchSession | null | undefined>(undefined)
+  // Búsqueda del estudiante
   const [cedula,   setCedula]   = useState('')
   const [student,  setStudent]  = useState<Student | null>(null)
   const [loading,  setLoading]  = useState(false)
   const [saving,   setSaving]   = useState(false)
-  const [error,    setError]    = useState<string | null>(null)
   const [searched, setSearched] = useState(false)
+  const [error,    setError]    = useState<string | null>(null)
 
-  useEffect(() => {
-    lunchSessionApi.today()
-      .then((s) => setSession(s))
-      .catch(() => setSession(null))
-  }, [])
+  // Listado de registros manuales (problemáticas 24 y 28)
+  const [rows,        setRows]      = useState<ManualConsumption[]>([])
+  const [listLoading, setListLoad]  = useState(false)
+  const [orderBy,     setOrderBy]   = useState<ManualOrderBy>('document_id')
+  const [orderDir,    setOrderDir]  = useState<OrderDir>('asc')
+
+  // Edición (problemática 25)
+  const [editTarget, setEditTarget] = useState<ManualConsumption | null>(null)
+  const [editDate,   setEditDate]   = useState('')
+  const [editCedula, setEditCedula] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
+
+  // Eliminación (problemática 26)
+  const [deleteTarget,  setDeleteTarget]  = useState<ManualConsumption | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+
+  const refetchList = useCallback(async () => {
+    if (!date) return
+    setListLoad(true)
+    try {
+      const result = await consumptionApi.listManual({ date, order_by: orderBy, order_dir: orderDir })
+      setRows(result.items)
+    } catch (err) {
+      notify.error(err)
+    } finally {
+      setListLoad(false)
+    }
+  }, [date, orderBy, orderDir])
+
+  useEffect(() => { void refetchList() }, [refetchList])
 
   async function handleSearch() {
     const clean = normalizeCedula(cedula)
@@ -63,24 +98,25 @@ export function ManualRegistrationPage() {
   }
 
   async function handleSave() {
-    if (!student || !user || !session) return
+    if (!student || !date) return
+    if (!student.is_acceso_directo || !student.acceso_directo_id) {
+      notify.error('Solo los usuarios con acceso directo pueden registrarse manualmente.')
+      return
+    }
     setSaving(true)
     setError(null)
     try {
-      await studentApi.registerDining({
-        cedula:            student.cedula,
-        date:              new Date().toISOString(),
-        registered_by_id:  user.id,
-        session_id:        session.id,
-        is_manual:         true,
+      await consumptionApi.registerManual({
+        date,
         acceso_directo_id: student.acceso_directo_id,
       })
-      notify.success(`Registro exitoso para ${student.name}`)
+      notify.success(`Registro manual exitoso para ${student.name}`)
       handleClear()
+      await refetchList()
     } catch (err: any) {
       const msg = err?.status === 409
-        ? 'Este acceso directo ya registró consumo en la sesión de hoy.'
-        : 'Error al registrar el consumo'
+        ? 'Esta persona ya tiene un registro manual en la fecha seleccionada.'
+        : (err?.message ?? 'Error al registrar el consumo')
       notify.error(msg)
       setError(msg)
     } finally {
@@ -99,21 +135,117 @@ export function ManualRegistrationPage() {
     if (e.key === 'Enter') void handleSearch()
   }
 
+  function openEdit(row: ManualConsumption) {
+    setEditTarget(row)
+    setEditDate(row.date)
+    setEditCedula(row.document_id)
+  }
+
+  async function confirmEdit() {
+    if (!editTarget) return
+    const payload: { acceso_directo_id?: number; date?: string } = {}
+    if (editDate && editDate !== editTarget.date) payload.date = editDate
+
+    const cleanCedula = normalizeCedula(editCedula)
+    if (cleanCedula && cleanCedula !== editTarget.document_id) {
+      try {
+        const ad = await accesoDirectoApi.lookup(cleanCedula)
+        payload.acceso_directo_id = ad.id
+      } catch {
+        notify.error('No se encontró un acceso directo con esa cédula.')
+        return
+      }
+    }
+
+    if (payload.date === undefined && payload.acceso_directo_id === undefined) {
+      setEditTarget(null)
+      return
+    }
+
+    setEditSaving(true)
+    try {
+      await consumptionApi.updateManual(editTarget.id, payload)
+      notify.success('Registro manual actualizado.')
+      setEditTarget(null)
+      await refetchList()
+    } catch (err: any) {
+      const msg = err?.status === 409
+        ? 'Ya existe un registro manual para esa persona en esa fecha.'
+        : (err?.message ?? 'Error al actualizar el registro')
+      notify.error(msg)
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return
+    setDeleteLoading(true)
+    try {
+      await consumptionApi.deleteManual(deleteTarget.id)
+      notify.success('Registro manual eliminado.')
+      setDeleteTarget(null)
+      await refetchList()
+    } catch (err) {
+      notify.error(err)
+      setDeleteTarget(null)
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
   const isSuspended = student?.is_suspended ?? false
-  const noSession = session === null
+  const canSave = !!student && !!date && !!student.is_acceso_directo
+
+  const orderOptions = [
+    { value: 'document_id:asc',   label: 'Cédula (ascendente)'  },
+    { value: 'document_id:desc',  label: 'Cédula (descendente)' },
+    { value: 'registered_at:asc',  label: 'Hora (más antiguo)'  },
+    { value: 'registered_at:desc', label: 'Hora (más reciente)' },
+  ]
+
+  function handleOrderChange(value: string) {
+    const [by, dir] = value.split(':') as [ManualOrderBy, OrderDir]
+    setOrderBy(by)
+    setOrderDir(dir)
+  }
+
+  const columns: ColumnDef<ManualConsumption>[] = [
+    {
+      key: 'document_id',
+      header: 'Cédula',
+      render: (_, row) => <span className="font-medium text-slate-800">{row.document_id}</span>,
+    },
+    {
+      key: 'name',
+      header: 'Nombre',
+      render: (_, row) => <span className="text-slate-700">{row.first_name} {row.last_name}</span>,
+    },
+    {
+      key: 'user_type',
+      header: 'Tipo',
+      render: (_, row) => (
+        <Badge variant="info">{USER_TYPE_LABEL[row.user_type] ?? row.user_type}</Badge>
+      ),
+    },
+    {
+      key: 'career',
+      header: 'Carrera',
+      render: (_, row) => <span className="text-slate-500">{row.career ?? '—'}</span>,
+    },
+    {
+      key: 'registered_at',
+      header: 'Hora',
+      render: (_, row) => <span className="text-slate-500">{formatTime(row.registered_at)}</span>,
+    },
+  ]
 
   return (
     <div>
       <PageHeader
         title="Registro Manual de Estudiantes"
-        subtitle="Registra manualmente el consumo de comedor de un estudiante"
+        subtitle="Registra manualmente el consumo de comedor asociado a una fecha"
       />
-
-      {noSession && (
-        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-          No hay una sesión de almuerzo activa hoy. Un administrador debe abrir la sesión antes de registrar consumos.
-        </div>
-      )}
 
       {error && (
         <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
@@ -122,7 +254,19 @@ export function ManualRegistrationPage() {
       )}
 
       <Card variant="outlined" padding="lg" className="mb-6">
-        <p className="mb-4 text-sm font-semibold text-blue-600">Datos del Estudiante</p>
+        <p className="mb-4 text-sm font-semibold text-blue-600">Datos del Registro</p>
+
+        <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Input
+            id="fecha-manual"
+            type="date"
+            label="Fecha del registro*"
+            value={date}
+            max={todayISO()}
+            onChange={(e) => setDate(e.target.value)}
+            fullWidth
+          />
+        </div>
 
         <div className="mb-4 flex items-end gap-3">
           <Input
@@ -172,13 +316,7 @@ export function ManualRegistrationPage() {
               </div>
             ) : (
               <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700">
-                Este usuario no tiene acceso directo
-              </div>
-            )}
-
-            {isSuspended && (
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                Este estudiante está suspendido y no puede registrar consumo.
+                Este usuario no tiene acceso directo y no puede registrarse manualmente.
               </div>
             )}
 
@@ -190,52 +328,149 @@ export function ManualRegistrationPage() {
               <p className="w-40 text-xs uppercase tracking-wide text-slate-400">Email*</p>
               <Input value={student.email ?? '—'} readOnly fullWidth />
             </div>
-            <div className="flex flex-row items-center gap-14">
-              <p className="w-40 text-xs uppercase tracking-wide text-slate-400">Estatus*</p>
-              <Input value={isSuspended ? 'SUSPENDIDO' : 'ACTIVO'} readOnly fullWidth />
-            </div>
           </div>
         )}
+
+        <div className="mt-5 flex gap-3">
+          <Button
+            variant="primary"
+            leftIcon={<Save size={15} />}
+            loading={saving}
+            disabled={!canSave}
+            onClick={handleSave}
+          >
+            Guardar Registro
+          </Button>
+          <Button
+            variant="secondary"
+            leftIcon={<RotateCcw size={15} />}
+            onClick={handleClear}
+          >
+            Limpiar campos
+          </Button>
+        </div>
       </Card>
 
-      {!loading && student && (
-        <Card variant="outlined" padding="lg" className="mb-6">
-          <p className="mb-4 text-sm font-semibold text-blue-600">Datos del Registro</p>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Input
-              label="Fecha de registro"
-              value={nowString()}
-              readOnly
-              fullWidth
-            />
-            <Input
-              label="Registrado por"
-              value={user ? `${user.name} (${ROLE_LABEL[user.role.name] ?? user.role.name})` : ''}
-              readOnly
-              fullWidth
-            />
+      {/* Listado de registros manuales de la fecha seleccionada */}
+      <Card variant="outlined" padding="lg">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-blue-600">Registros manuales de la fecha</p>
+            <p className="text-xs text-slate-500">
+              {rows.length} registro{rows.length !== 1 ? 's' : ''} cargado{rows.length !== 1 ? 's' : ''}
+            </p>
           </div>
-        </Card>
-      )}
+          <div className="flex items-end gap-3">
+            <Select
+              options={orderOptions}
+              value={`${orderBy}:${orderDir}`}
+              onChange={(e) => handleOrderChange(e.target.value)}
+              className="w-52"
+            />
+            <Button
+              variant="secondary"
+              leftIcon={<Printer size={15} />}
+              onClick={() => printManualList(date, rows)}
+              disabled={rows.length === 0}
+            >
+              Imprimir
+            </Button>
+          </div>
+        </div>
 
-      <div className="flex gap-3">
-        <Button
-          variant="primary"
-          leftIcon={<Save size={15} />}
-          loading={saving}
-          disabled={!student || isSuspended || noSession || !student.is_acceso_directo}
-          onClick={handleSave}
-        >
-          Guardar Estudiante
-        </Button>
-        <Button
-          variant="secondary"
-          leftIcon={<RotateCcw size={15} />}
-          onClick={handleClear}
-        >
-          Limpiar campos
-        </Button>
-      </div>
+        <Table<ManualConsumption>
+          columns={columns}
+          rows={rows}
+          keyField="id"
+          loading={listLoading}
+          emptyMessage="No hay registros manuales para la fecha seleccionada."
+          actions={(row) => (
+            <>
+              <button
+                type="button"
+                title="Editar"
+                className="rounded p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
+                onClick={() => openEdit(row)}
+              >
+                <Pencil size={14} />
+              </button>
+              <button
+                type="button"
+                title="Eliminar"
+                className="rounded p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                onClick={() => setDeleteTarget(row)}
+              >
+                <Trash2 size={14} />
+              </button>
+            </>
+          )}
+        />
+      </Card>
+
+      {/* Modal de edición */}
+      <Modal
+        open={!!editTarget}
+        onClose={() => setEditTarget(null)}
+        title="Editar registro manual"
+        size="md"
+        footer={
+          <>
+            <Button variant="ghost" size="sm" onClick={() => setEditTarget(null)} disabled={editSaving}>
+              Cancelar
+            </Button>
+            <Button variant="primary" size="sm" onClick={confirmEdit} loading={editSaving}>
+              Guardar cambios
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <Input
+            id="edit-fecha"
+            type="date"
+            label="Fecha del registro"
+            value={editDate}
+            max={todayISO()}
+            onChange={(e) => setEditDate(e.target.value)}
+            fullWidth
+          />
+          <Input
+            id="edit-cedula"
+            label="Cédula del acceso directo"
+            hint="Cambia la cédula para reasignar el registro a otra persona."
+            value={editCedula}
+            onChange={(e) => setEditCedula(e.target.value)}
+            leftIcon={<Search size={16} />}
+            fullWidth
+          />
+        </div>
+      </Modal>
+
+      {/* Modal de confirmación de eliminación */}
+      <Modal
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="Eliminar registro manual"
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(null)} disabled={deleteLoading}>
+              Cancelar
+            </Button>
+            <Button variant="danger" size="sm" onClick={confirmDelete} loading={deleteLoading}>
+              Eliminar
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-600">
+          ¿Estás seguro de que deseas eliminar el registro manual de{' '}
+          <span className="font-semibold text-slate-900">
+            {deleteTarget?.first_name} {deleteTarget?.last_name}
+          </span>{' '}
+          (C.I. {deleteTarget?.document_id})? Esta acción no se puede deshacer.
+        </p>
+      </Modal>
     </div>
   )
 }
