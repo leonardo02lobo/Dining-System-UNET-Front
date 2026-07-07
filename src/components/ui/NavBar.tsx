@@ -26,6 +26,7 @@ const navGroups: NavGroup[] = [
       { to: '/comedor/reporte',          label: 'Reporte de Comedor'  },
       { to: '/comedor/registro-manual',  label: 'Registro Manual'     },
       { to: '/suspendStudent',           label: 'Suspender Usuario'   },
+      { to: '/suspendidos',              label: 'Usuarios Suspendidos' },
       { to: '/verificar-acceso-directo',  label: 'Verificar Acceso Directo' },
       { to: '/accesos_directos',         label: 'Accesos Directos'         },
       { to: '/usuarios',                 label: 'Lista de Usuario'       },

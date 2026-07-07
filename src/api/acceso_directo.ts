@@ -16,6 +16,7 @@ function buildParams(filters?: AccesoDirectoFilters): string {
   if (filters.search)    p.set('search', filters.search)
   if (filters.status)    p.set('status', filters.status)
   if (filters.user_type) p.set('user_type', filters.user_type)
+  if (filters.access_reason_id !== undefined) p.set('access_reason_id', String(filters.access_reason_id))
   const str = p.toString()
   return str ? `?${str}` : ''
 }

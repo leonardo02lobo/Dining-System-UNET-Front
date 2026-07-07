@@ -1,5 +1,15 @@
 import { apiClient } from './client'
-import type { Consumption, ConsumptionCreate, ConsumptionCheckResult } from '../types/consumption'
+import type {
+  Consumption,
+  ConsumptionCreate,
+  ConsumptionCheckResult,
+  ManualConsumption,
+  ManualConsumptionCreate,
+  ManualConsumptionUpdate,
+  ManualOrderBy,
+  OrderDir,
+  PaginatedManualConsumptions,
+} from '../types/consumption'
 
 export interface PaginatedConsumptions {
   items: Consumption[]
@@ -44,4 +54,22 @@ export const consumptionApi = {
     const qs = p.toString()
     return apiClient.get<UserConsumptionStats>(`/consumptions/user-stats${qs ? `?${qs}` : ''}`)
   },
+
+  // --- Registro manual (problemáticas 23-28) ---
+  registerManual: (data: ManualConsumptionCreate) =>
+    apiClient.post<ManualConsumption>('/consumptions/manual', data),
+
+  listManual: (params: { date: string; order_by?: ManualOrderBy; order_dir?: OrderDir }) => {
+    const p = new URLSearchParams()
+    p.set('date', params.date)
+    if (params.order_by)  p.set('order_by', params.order_by)
+    if (params.order_dir) p.set('order_dir', params.order_dir)
+    return apiClient.get<PaginatedManualConsumptions>(`/consumptions/manual?${p.toString()}`)
+  },
+
+  updateManual: (id: number, data: ManualConsumptionUpdate) =>
+    apiClient.put<ManualConsumption>(`/consumptions/manual/${id}`, data),
+
+  deleteManual: (id: number) =>
+    apiClient.delete<void>(`/consumptions/manual/${id}`),
 }

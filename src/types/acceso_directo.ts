@@ -2,6 +2,19 @@ export type AccesoDirectoStatus = 'ACTIVE' | 'SUSPENDED' | 'INACTIVE'
 
 export type UserType = 'STUDENT' | 'TEACHER' | 'ADMINISTRATIVE' | 'WORKER'
 
+export interface AccessReason {
+  id: number
+  name: string
+  description?: string | null
+  created_at: string
+  updated_at: string | null
+}
+
+export interface AccessReasonCreate {
+  name: string
+  description?: string
+}
+
 export interface AccesoDirecto {
   id: number
   first_name: string
@@ -13,6 +26,9 @@ export interface AccesoDirecto {
   user_type: UserType
   career?: string | null
   is_priority: boolean
+  photo_url?: string | null
+  access_reason_id?: number | null
+  access_reason?: AccessReason | null
   status: AccesoDirectoStatus
   created_at: string
   updated_at: string | null
@@ -28,6 +44,8 @@ export interface AccesoDirectoCreate {
   user_type: UserType
   career?: string
   is_priority?: boolean
+  photo_url?: string
+  access_reason_id?: number | null
   status?: AccesoDirectoStatus
 }
 
@@ -40,6 +58,8 @@ export interface AccesoDirectoUpdate {
   user_type?: UserType
   career?: string
   is_priority?: boolean
+  photo_url?: string | null
+  access_reason_id?: number | null
   status?: AccesoDirectoStatus
 }
 
@@ -49,6 +69,8 @@ export interface AccesoDirectoVerifyResult {
   last_name: string
   status: AccesoDirectoStatus
   is_priority: boolean
+  photo_url?: string | null
+  access_reason?: AccessReason | null
 }
 
 export interface AccesoDirectoFilters {
@@ -57,6 +79,7 @@ export interface AccesoDirectoFilters {
   search?: string
   status?: AccesoDirectoStatus
   user_type?: UserType
+  access_reason_id?: number
 }
 
 export type AccesoDirectoLookupResult = AccesoDirecto

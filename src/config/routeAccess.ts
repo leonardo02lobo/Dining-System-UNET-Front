@@ -8,6 +8,7 @@ export const ROUTE_ACCESS: Record<string, RoleName[]> = {
   '/comedor/registro-manual':  ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'],
   '/comedor/sesion':           ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'],
   '/suspendStudent':           ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'],
+  '/suspendidos':              ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'],
   '/accesos_directos':         ['SUPER_ADMIN', 'ADMIN'],
   '/usuarios':                 ['SUPER_ADMIN', 'ADMIN'],
   '/inventario':               ['SUPER_ADMIN', 'ADMIN'],
@@ -24,7 +25,7 @@ export const ROUTE_ACCESS: Record<string, RoleName[]> = {
 export const DEFAULT_ROUTE: Record<RoleName, string> = {
   SUPER_ADMIN:  '/',
   ADMIN:        '/',
-  TAQUILLERO:   '/',
+  TAQUILLERO:   '/comedor/registrar',
   ACCESO_DIRECTO: '/verificar-acceso-directo',
 }
 

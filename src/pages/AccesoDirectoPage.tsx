@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Pencil, Trash2, UserPlus } from 'lucide-react'
 import { accesoDirectoApi } from '../api/acceso_directo'
-import type { AccesoDirecto, AccesoDirectoStatus, UserType } from '../types/acceso_directo'
+import { accessReasonApi } from '../api/accessReason'
+import type { AccesoDirecto, AccesoDirectoStatus, AccessReason, UserType } from '../types/acceso_directo'
 import { useAuth } from '../context/AuthContext'
 import { notify } from '../utils/toast'
 import { Table, type ColumnDef } from '../components/ui/Table'
@@ -48,6 +49,8 @@ export function AccesoDirectoPage() {
   const [search,        setSearch]       = useState('')
   const [selectedStatus, setStatus]      = useState<string>('all')
   const [selectedType,  setType]         = useState<string>('all')
+  const [selectedReason, setReason]      = useState<string>('all')
+  const [reasons,       setReasons]      = useState<AccessReason[]>([])
   const [formOpen,      setFormOpen]     = useState(false)
   const [editingRow,    setEditingRow]   = useState<AccesoDirecto | null>(null)
   const [deleteTarget,  setDeleteTarget] = useState<AccesoDirecto | null>(null)
@@ -62,6 +65,7 @@ export function AccesoDirectoPage() {
         search:    search || undefined,
         status:    selectedStatus !== 'all' ? (selectedStatus as AccesoDirectoStatus) : undefined,
         user_type: selectedType  !== 'all' ? (selectedType as UserType) : undefined,
+        access_reason_id: selectedReason !== 'all' ? Number(selectedReason) : undefined,
         limit: 100,
       })
       setRows(result.items)
@@ -71,9 +75,17 @@ export function AccesoDirectoPage() {
     } finally {
       setLoading(false)
     }
-  }, [search, selectedStatus, selectedType])
+  }, [search, selectedStatus, selectedType, selectedReason])
 
   useEffect(() => { void refetch() }, [refetch])
+
+  // Carga los motivos/roles para el filtro de búsqueda por grupo/rol.
+  useEffect(() => {
+    accessReasonApi
+      .list()
+      .then(setReasons)
+      .catch(() => setReasons([]))
+  }, [])
 
   const openCreate = () => { setEditingRow(null); setFormOpen(true) }
   const openEdit   = (row: AccesoDirecto) => { setEditingRow(row); setFormOpen(true) }
@@ -109,6 +121,11 @@ export function AccesoDirectoPage() {
     { value: 'WORKER',         label: 'Obrero'          },
   ]
 
+  const reasonOptions = [
+    { value: 'all', label: 'Todos los motivos' },
+    ...reasons.map((r) => ({ value: String(r.id), label: r.name })),
+  ]
+
   const columns: ColumnDef<AccesoDirecto>[] = [
     {
       key: 'first_name',
@@ -141,6 +158,16 @@ export function AccesoDirectoPage() {
       ),
     },
     {
+      key: 'access_reason',
+      header: 'Motivo',
+      render: (_, row) =>
+        row.access_reason ? (
+          <Badge variant="info">{row.access_reason.name}</Badge>
+        ) : (
+          <span className="text-slate-300">—</span>
+        ),
+    },
+    {
       key: 'status',
       header: 'Estado',
       sortable: true,
@@ -152,9 +179,9 @@ export function AccesoDirectoPage() {
     },
     {
       key: 'is_priority',
-      header: 'VIP',
+      header: 'Prioritario',
       render: (_, row) =>
-        row.is_priority ? <Badge variant="warning">VIP</Badge> : null,
+        row.is_priority ? <Badge variant="warning">Prioritario</Badge> : null,
     },
   ]
 
@@ -190,6 +217,12 @@ export function AccesoDirectoPage() {
           options={typeOptions}
           value={selectedType}
           onChange={(e) => setType(e.target.value)}
+          className="w-44"
+        />
+        <Select
+          options={reasonOptions}
+          value={selectedReason}
+          onChange={(e) => setReason(e.target.value)}
           className="w-44"
         />
       </div>
