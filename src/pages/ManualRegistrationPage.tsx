@@ -4,6 +4,7 @@ import { studentApi } from '../api/student'
 import { accesoDirectoApi } from '../api/acceso_directo'
 import { consumptionApi } from '../api/consumption'
 import { normalizeCedula } from '../utils/cedula'
+import { errorMessage, CONFLICT } from '../utils/apiErrors'
 import { printManualList } from '../utils/printManual'
 import type { Student } from '../types/user'
 import type { ManualConsumption, ManualOrderBy, OrderDir } from '../types/consumption'
@@ -114,9 +115,7 @@ export function ManualRegistrationPage() {
       handleClear()
       await refetchList()
     } catch (err: any) {
-      const msg = err?.status === 409
-        ? 'Esta persona ya tiene un registro manual en la fecha seleccionada.'
-        : (err?.message ?? 'Error al registrar el consumo')
+      const msg = errorMessage(err, { 409: CONFLICT.manualDuplicate }, 'Error al registrar el consumo')
       notify.error(msg)
       setError(msg)
     } finally {
@@ -169,10 +168,7 @@ export function ManualRegistrationPage() {
       setEditTarget(null)
       await refetchList()
     } catch (err: any) {
-      const msg = err?.status === 409
-        ? 'Ya existe un registro manual para esa persona en esa fecha.'
-        : (err?.message ?? 'Error al actualizar el registro')
-      notify.error(msg)
+      notify.error(errorMessage(err, { 409: CONFLICT.manualDuplicate }, 'Error al actualizar el registro'))
     } finally {
       setEditSaving(false)
     }

@@ -13,11 +13,10 @@ import { Avatar } from '../components/ui/Avatar'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
 import type { Student } from '../types/user'
-import type { LunchSession } from '../types/lunchSession'
 import type { ConsumptionCheckResult } from '../types/consumption'
 
 export function CheckConsumes() {
-  const [session, setSession] = useState<LunchSession | null | undefined>(undefined)
+  const [hasOpenSessions, setHasOpenSessions] = useState<boolean | undefined>(undefined)
   const [cedula,      setCedula]      = useState('')
   const [student,     setStudent]     = useState<Student | null>(null)
   const [checkResult, setCheckResult] = useState<ConsumptionCheckResult | null>(null)
@@ -29,9 +28,9 @@ export function CheckConsumes() {
   const bufferRef = useRef('')
 
   useEffect(() => {
-    lunchSessionApi.today()
-      .then((s) => setSession(s))
-      .catch(() => setSession(null))
+    lunchSessionApi.openList()
+      .then((r) => setHasOpenSessions(r.total > 0))
+      .catch(() => setHasOpenSessions(false))
   }, [])
 
   useEffect(() => {
@@ -94,7 +93,7 @@ export function CheckConsumes() {
     if (e.key === 'Enter') handleSearch()
   }
 
-  const noSession = session === null
+  const noSession = hasOpenSessions === false
 
   return (
     <div>
@@ -105,7 +104,7 @@ export function CheckConsumes() {
 
       {noSession && (
         <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-          No hay una sesión de almuerzo activa hoy.
+          No hay ninguna sesión de almuerzo activa en este momento (en ninguna sede).
         </div>
       )}
 

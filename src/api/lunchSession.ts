@@ -7,16 +7,19 @@ export interface PaginatedSessions {
 }
 
 export const lunchSessionApi = {
-  open:  (data?: LunchSessionCreate) => apiClient.post<LunchSession>('/lunch-sessions/', data ?? {}),
+  open: (data: LunchSessionCreate) => apiClient.post<LunchSession>('/lunch-sessions/', data),
 
-  today: async (): Promise<LunchSession | null> => {
+  today: async (sedeId?: number): Promise<LunchSession | null> => {
     try {
-      return await apiClient.get<LunchSession>('/lunch-sessions/today')
+      const query = sedeId != null ? `?sede_id=${sedeId}` : ''
+      return await apiClient.get<LunchSession>(`/lunch-sessions/today${query}`)
     } catch (err: any) {
       if (err?.status === 404) return null
       throw err
     }
   },
+
+  openList: () => apiClient.get<PaginatedSessions>('/lunch-sessions/open'),
 
   close: (id: number) => apiClient.put<LunchSession>(`/lunch-sessions/${id}/close`),
 
