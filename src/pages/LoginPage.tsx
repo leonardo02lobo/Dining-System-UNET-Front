@@ -3,6 +3,7 @@ import React, { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { authApi } from '../api/auth'
 import { useAuth } from '../context/AuthContext'
+import { DEFAULT_ROUTE } from '../config/routeAccess'
 import type { ApiError, LoginCredentials } from '../types/auth'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
@@ -43,9 +44,9 @@ export function LoginPage() {
 
     setLoading(true)
     try {
-      await authApi.login(credentials)
+      const { user: loggedUser } = await authApi.login(credentials)
       await refetch()
-      navigate('/')
+      navigate(DEFAULT_ROUTE[loggedUser.role.name] ?? '/')
     } catch (err) {
       const error = err as ApiError
       if (error.status === 401) {
