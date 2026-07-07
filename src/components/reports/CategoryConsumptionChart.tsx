@@ -1,5 +1,6 @@
 import type { ChartOptions } from 'chart.js'
 import { PieChart } from '../ui/Chart'
+import { formatPercent, labelWithPercent } from '../../utils/chartPercent'
 import type { CategoryConsumption } from '../../types/consumptionReport'
 
 interface CategoryConsumptionChartProps {
@@ -7,6 +8,8 @@ interface CategoryConsumptionChartProps {
 }
 
 export function CategoryConsumptionChart({ data }: CategoryConsumptionChartProps) {
+  const total = data.reduce((acc, d) => acc + d.total, 0)
+
   const pieData = {
     labels: data.map((d) => d.category),
     datasets: [
@@ -25,6 +28,11 @@ export function CategoryConsumptionChart({ data }: CategoryConsumptionChartProps
     plugins: {
       legend: { display: false },
       title: { display: false },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => labelWithPercent(String(ctx.label), Number(ctx.raw), total),
+        },
+      },
     },
   }
 
@@ -44,7 +52,7 @@ export function CategoryConsumptionChart({ data }: CategoryConsumptionChartProps
               className="h-[15px] w-[15px] flex-shrink-0 rounded-[5px]"
               style={{ backgroundColor: item.color }}
             />
-            {item.category}
+            {item.category} — {item.total} ({formatPercent(item.total, total)})
           </li>
         ))}
       </ul>

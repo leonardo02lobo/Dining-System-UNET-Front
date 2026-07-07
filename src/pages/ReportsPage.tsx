@@ -3,6 +3,7 @@ import { Download, RefreshCw } from 'lucide-react'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { BarChart, PieChart } from '../components/ui/Chart'
+import { piePercentOptions } from '../utils/chartPercent'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { DateInput } from '../components/ui/DateInput'
@@ -12,6 +13,8 @@ import { notify } from '../utils/toast'
 import { reportsApi } from '../api/reports'
 import { consumptionApi, type UserConsumptionStats } from '../api/consumption'
 import type { ConsumptionReportItem, ConsumptionReport } from '../types/report'
+
+const PIE_PERCENT_OPTIONS = piePercentOptions()
 
 const USER_TYPE_LABEL: Record<string, string> = {
   STUDENT:        'Estudiantes',
@@ -353,7 +356,7 @@ export function ReportsPage() {
             <Card variant="outlined" padding="md">
               <Card.Header title="Consumo por categoria" subtitle="Agrupado por categoria y unidad" />
               <Card.Body>
-                <PieChart data={categoryChartData} />
+                <PieChart data={categoryChartData} options={PIE_PERCENT_OPTIONS} />
               </Card.Body>
             </Card>
 
@@ -379,7 +382,7 @@ export function ReportsPage() {
                 <Card variant="outlined" padding="md">
                   <Card.Header title="Reporte por Carrera" subtitle="Distribución por carrera" />
                   <Card.Body>
-                    {careerChartData && <PieChart data={careerChartData} />}
+                    {careerChartData && <PieChart data={careerChartData} options={PIE_PERCENT_OPTIONS} />}
                   </Card.Body>
                 </Card>
 
@@ -399,7 +402,7 @@ export function ReportsPage() {
                       subtitle="Estudiantes, docentes, administrativos y obreros"
                     />
                     <Card.Body>
-                      <PieChart data={userTypeChartData} />
+                      <PieChart data={userTypeChartData} options={PIE_PERCENT_OPTIONS} />
                     </Card.Body>
                   </Card>
                 </div>

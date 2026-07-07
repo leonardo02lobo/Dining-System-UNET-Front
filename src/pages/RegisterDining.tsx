@@ -5,9 +5,11 @@ import { lunchSessionApi } from '../api/lunchSession'
 import { consumptionApi } from '../api/consumption'
 import { sanctionApi } from '../api/sanction'
 import { normalizeCedula } from '../utils/cedula'
+import { errorMessage, CONFLICT } from '../utils/apiErrors'
 import type { Student } from '../types/user'
 import type { LunchSession } from '../types/lunchSession'
 import type { Sanction } from '../types/sanction'
+import type { Sede } from '../types/sede'
 import { notify } from '../utils/toast'
 import { useAuth } from '../context/AuthContext'
 import { Button } from '../components/ui/Button'
@@ -18,12 +20,24 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { Avatar } from '../components/ui/Avatar'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
+import { SedeSelector } from '../components/SedeSelector'
 
 const MIN_SCAN_LENGTH = 6
 const MAX_GAP_MS      = 60
+// Única clave persistida en localStorage del proyecto: recuerda la sede elegida
+// por el taquillero entre sesiones del navegador (no es información sensible).
+const SEDE_STORAGE_KEY = 'selected_sede_id'
+
+function readStoredSedeId(): number | null {
+  const raw = localStorage.getItem(SEDE_STORAGE_KEY)
+  const parsed = raw ? Number(raw) : NaN
+  return Number.isFinite(parsed) ? parsed : null
+}
 
 export function RegisterDining() {
   const { user } = useAuth()
+  const [sedeId,     setSedeId]     = useState<number | null>(readStoredSedeId)
+  const [sedes,      setSedes]      = useState<Sede[]>([])
   const [session,    setSession]    = useState<LunchSession | null | undefined>(undefined)
   const [cedula,     setCedula]     = useState('')
   const [student,    setStudent]    = useState<Student | null>(null)
@@ -43,10 +57,37 @@ export function RegisterDining() {
   const bufferRef    = useRef('')
 
   useEffect(() => {
-    lunchSessionApi.today()
+    if (sedeId == null) {
+      setSession(null)
+      return
+    }
+    setSession(undefined)
+    lunchSessionApi.today(sedeId)
       .then((s) => setSession(s))
       .catch(() => setSession(null))
-  }, [])
+  }, [sedeId])
+
+  function handleSedeChange(id: number | null) {
+    setSedeId(id)
+    if (id != null) {
+      localStorage.setItem(SEDE_STORAGE_KEY, String(id))
+    } else {
+      localStorage.removeItem(SEDE_STORAGE_KEY)
+    }
+  }
+
+  function handleSedesLoaded(loaded: Sede[]) {
+    setSedes(loaded)
+    if (sedeId != null && !loaded.some((s) => s.id === sedeId)) {
+      // La sede guardada ya no existe o no está activa
+      setSedeId(null)
+      localStorage.removeItem(SEDE_STORAGE_KEY)
+      return
+    }
+    if (sedeId == null && loaded.length === 1) {
+      handleSedeChange(loaded[0].id)
+    }
+  }
 
   // ── Scanner USB: captura entrada rápida de teclado ──────────────
   useEffect(() => {
@@ -139,9 +180,7 @@ export function RegisterDining() {
       setActiveSanction(null)
     } catch (err: any) {
       // 403 = sanción activa — el mensaje ya viene limpio del apiClient
-      const msg = err?.status === 409
-        ? 'Este acceso directo ya registró consumo en la sesión de hoy.'
-        : (err?.message ?? 'Error al registrar el consumo')
+      const msg = errorMessage(err, { 409: CONFLICT.consumptionToday }, 'Error al registrar el consumo')
       notify.error(msg)
       setError(msg)
     } finally {
@@ -174,9 +213,7 @@ export function RegisterDining() {
       setSuspendOpen(false)
       notify.success(`${student.name} fue suspendido.`)
     } catch (err: any) {
-      const msg = err?.status === 409
-        ? 'Esta persona ya tiene una suspensión activa.'
-        : (err?.message ?? 'Error al suspender al usuario')
+      const msg = errorMessage(err, { 409: CONFLICT.sanctionActive }, 'Error al suspender al usuario')
       notify.error(msg)
       setSuspendError(msg)
     } finally {
@@ -184,10 +221,13 @@ export function RegisterDining() {
     }
   }
 
-  const noSession = session === null
-  const sessionLoading = session === undefined
+  const noSedeSelected = sedeId == null
+  const sessionLoading = sedeId != null && session === undefined
+  const noSession = sedeId != null && session === null
+  const registrationBlocked = noSedeSelected || noSession || sessionLoading
   const isSuspended = activeSanction !== null || (student?.is_suspended ?? false)
   const canSuspend = !!student?.is_acceso_directo && activeSanction === null
+  const selectedSede = sedes.find((s) => s.id === sedeId) ?? null
 
   return (
     <div>
@@ -196,9 +236,34 @@ export function RegisterDining() {
         subtitle="Escanea el carnet o búsqueda por cédula para registrar el consumo"
       />
 
+      <Card variant="outlined" padding="md" className="mb-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="max-w-xs flex-1">
+            <SedeSelector value={sedeId} onChange={handleSedeChange} onLoaded={handleSedesLoaded} />
+          </div>
+          {selectedSede && !sessionLoading && (
+            <Badge variant={session ? 'success' : 'warning'}>
+              {session ? `Sesión abierta en ${selectedSede.name}` : `Sin sesión activa en ${selectedSede.name}`}
+            </Badge>
+          )}
+        </div>
+      </Card>
+
+      {sedes.length === 0 && !sessionLoading && (
+        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          No hay sedes activas registradas. Contacta a un administrador.
+        </div>
+      )}
+
+      {sedes.length > 0 && noSedeSelected && (
+        <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          Selecciona la sede donde estás registrando para comenzar.
+        </div>
+      )}
+
       {noSession && (
         <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-          No hay una sesión de almuerzo activa hoy. Un administrador debe abrir la sesión antes de registrar consumos.
+          No hay una sesión de almuerzo activa en esta sede. Un administrador debe abrirla antes de registrar consumos.
         </div>
       )}
 
@@ -220,13 +285,13 @@ export function RegisterDining() {
             onKeyDown={handleKeyDown}
             leftIcon={<Search size={16} />}
             fullWidth
-            disabled={noSession || sessionLoading}
+            disabled={registrationBlocked}
           />
           <Button
             variant="primary"
             onClick={handleSearch}
             loading={loading}
-            disabled={noSession || sessionLoading}
+            disabled={registrationBlocked}
             className="flex-shrink-0"
           >
             Consultar
@@ -305,7 +370,7 @@ export function RegisterDining() {
                 <Button
                   variant="primary"
                   loading={saving}
-                  disabled={isSuspended || noSession || !student.is_acceso_directo}
+                  disabled={isSuspended || registrationBlocked || !student.is_acceso_directo}
                   onClick={handleRegister}
                 >
                   Registrar Consumo
