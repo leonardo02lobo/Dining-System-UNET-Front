@@ -1,3 +1,5 @@
+import type { Sede } from './sede'
+
 export type SessionStatus = 'OPEN' | 'CLOSED'
 
 export interface LunchSession {
@@ -9,10 +11,12 @@ export interface LunchSession {
   opened_by_id: number | null
   closed_by_id: number | null
   sede_id: number | null
+  sede?: Sede | null
   created_at: string
   updated_at: string | null
 }
 
 export interface LunchSessionCreate {
+  sede_id: number
   date?: string
 }
