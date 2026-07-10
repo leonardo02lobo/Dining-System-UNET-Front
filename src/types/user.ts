@@ -1,4 +1,6 @@
-export type RoleName = 'SUPER_ADMIN' | 'ADMIN' | 'TAQUILLERO'
+// RoleName has a single source of truth in ./auth (includes ACCESO_DIRECTO).
+import type { RoleName } from './auth'
+export type { RoleName }
 
 export interface Role {
   id: number

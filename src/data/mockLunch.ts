@@ -1,5 +1,8 @@
 import type { LunchFormIngredient, PreloadedLunch } from '../types/lunch'
 
+// Demo data only. Recalculation business logic lives in
+// `src/utils/lunchRecalculation.ts` (fixes.md #14).
+
 export const MOCK_PANTRY = [
   { id: 1, name: 'Papa',    category: 'Verdura',  unit: 'kg', available: 120 },
   { id: 2, name: 'Pasta',   category: 'Víveres',  unit: 'kg', available: 80 },
@@ -32,57 +35,9 @@ export const MOCK_PRELOADED_LUNCHES: PreloadedLunch[] = [
   },
 ]
 
-const BASE_PLATES = 500
-
-function roundQty(value: number) {
-  return Math.round(value * 100) / 100
-}
-
-export function buildIngredientFromTemplate(
-  item: PreloadedLunch['ingredients'][0],
-  plateCount: number,
-  available: number
-): LunchFormIngredient {
-  const calculated = roundQty(item.quantity_per_plate * plateCount)
-  return {
-    ingredient_id: item.ingredient_id,
-    ingredient_name: item.ingredient_name,
-    category: item.category,
-    unit: item.unit,
-    calculated_quantity: calculated,
-    available_quantity: available,
-    quantity_per_plate: item.quantity_per_plate,
-  }
-}
-
 export const MOCK_INITIAL_INGREDIENTS: LunchFormIngredient[] = [
   { ingredient_id: 1, ingredient_name: 'Papa',    category: 'Verdura', unit: 'kg', calculated_quantity: 40,  available_quantity: 120, quantity_per_plate: 0.08 },
   { ingredient_id: 2, ingredient_name: 'Pasta',   category: 'Víveres', unit: 'kg', calculated_quantity: 20,  available_quantity: 80,  quantity_per_plate: 0.04 },
   { ingredient_id: 3, ingredient_name: 'Tomate',  category: 'Verdura', unit: 'kg', calculated_quantity: 8,   available_quantity: 80,  quantity_per_plate: 0.016 },
   { ingredient_id: 4, ingredient_name: 'Cebolla', category: 'Verdura', unit: 'kg', calculated_quantity: 9,   available_quantity: 90,  quantity_per_plate: 0.018 },
 ]
-
-export function recalculateIngredients(
-  items: LunchFormIngredient[],
-  plateCount: number
-): LunchFormIngredient[] {
-  return items.map((item) => ({
-    ...item,
-    calculated_quantity: roundQty(item.quantity_per_plate * plateCount),
-  }))
-}
-
-export function getRecalculationPreview(
-  items: LunchFormIngredient[],
-  previousPlates: number,
-  newPlates: number
-) {
-  return items.map((item) => ({
-    ingredient_name: item.ingredient_name,
-    unit: item.unit,
-    previous_quantity: roundQty(item.quantity_per_plate * previousPlates),
-    new_quantity: roundQty(item.quantity_per_plate * newPlates),
-  }))
-}
-
-export { BASE_PLATES }

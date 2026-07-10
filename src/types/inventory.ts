@@ -24,7 +24,7 @@ export interface InventoryCategory {
   id: number
   name: string
   createdAt: string
-  updatedAt: string
+  updatedAt: string | null
 }
 
 export interface InventoryCategoryCreatePayload {
@@ -41,7 +41,7 @@ export interface InventoryItem {
   minimumStock: number
   lastUpdatedAt: string
   createdAt: string
-  updatedAt: string
+  updatedAt: string | null
 }
 
 export interface InventoryItemCreatePayload {

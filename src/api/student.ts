@@ -2,6 +2,7 @@ import { accesoDirectoApi } from './acceso_directo'
 import { consumptionApi } from './consumption'
 import { externalStudentApi, mapExternalToStudent } from './externalStudent'
 import type { Student } from '../types/user'
+import type { AccesoDirectoIdentity, ConsumptionCreate } from '../types/consumption'
 
 interface RegisterDiningPayload {
   cedula:              string
@@ -10,6 +11,22 @@ interface RegisterDiningPayload {
   session_id:          number
   is_manual?:          boolean
   acceso_directo_id?:  number
+  /** Datos de la persona para el alta implícita si no es acceso directo (Issue 2). */
+  person?:             AccesoDirectoIdentity
+}
+
+/** Deriva los datos mínimos de alta implícita a partir del estudiante (Issue 2). */
+export function studentToIdentity(s: Student): AccesoDirectoIdentity {
+  const parts = s.name.trim().split(/\s+/)
+  const first_name = parts[0] ?? s.name.trim()
+  const last_name = parts.length > 1 ? parts.slice(1).join(' ') : ''
+  return {
+    document_id: s.cedula,
+    first_name,
+    last_name,
+    email: s.email || null,
+    photo_url: s.avatar_url || null,
+  }
 }
 
 export const studentApi = {
@@ -28,12 +45,18 @@ export const studentApi = {
   },
 
   registerDining: async (payload: RegisterDiningPayload): Promise<void> => {
-    const accesoDirectoId = payload.acceso_directo_id
-      ?? (await accesoDirectoApi.lookup(payload.cedula)).id
-    await consumptionApi.register({
-      acceso_directo_id: accesoDirectoId,
-      lunch_session_id:  payload.session_id,
-      is_manual:         payload.is_manual ?? false,
-    })
+    const body: ConsumptionCreate = {
+      lunch_session_id: payload.session_id,
+      is_manual:        payload.is_manual ?? false,
+    }
+    if (payload.acceso_directo_id) {
+      body.acceso_directo_id = payload.acceso_directo_id
+    } else if (payload.person) {
+      // No es acceso directo: se envían sus datos para el alta al vuelo (Issue 2).
+      body.person = payload.person
+    } else {
+      body.acceso_directo_id = (await accesoDirectoApi.lookup(payload.cedula)).id
+    }
+    await consumptionApi.register(body)
   },
 }

@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
 import { LunchDetailsForm } from '../components/lunch/LunchDetailsForm'
 import { LunchFooterActions } from '../components/lunch/LunchFooterActions'
 import { LunchIngredientsTable } from '../components/lunch/LunchIngredientsTable'
@@ -10,14 +8,16 @@ import { PreloadedLunchBar } from '../components/lunch/PreloadedLunchBar'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
+import { PageHeader } from '../components/ui/PageHeader'
 import { Table, type ColumnDef } from '../components/ui/Table'
+import { notify } from '../utils/toast'
 import { inventoryApi } from '../api/inventory'
 import { lunchApi } from '../api/lunch'
 import {
   buildIngredientFromTemplate,
   getRecalculationPreview,
   recalculateIngredients,
-} from '../data/mockLunch'
+} from '../utils/lunchRecalculation'
 import type { InventoryItem } from '../types/inventory'
 import type {
   LunchFormIngredient,
@@ -26,30 +26,10 @@ import type {
   LunchTemplateResponse,
   PreloadedLunch,
 } from '../types/lunch'
-import { logoUnetDataUri, logoDecanatoDataUri } from '../utils/pdfLogos'
+import { generateLunchListPdf } from '../utils/pdfLunch'
 
 function todayIso() {
   return new Date().toISOString().split('T')[0]
-}
-
-function formatPdfDate(value: string) {
-  const parsedDate = new Date(`${value}T00:00:00`)
-  if (Number.isNaN(parsedDate.getTime())) return value || 'Sin fecha'
-  return parsedDate.toLocaleDateString('es-VE')
-}
-
-async function loadPdfImage(src: string, maxWidth: number, maxHeight: number) {
-  const image = new Image()
-  image.src = src
-  await image.decode()
-
-  const scale = Math.min(maxWidth / image.naturalWidth, maxHeight / image.naturalHeight, 1)
-  const canvas = document.createElement('canvas')
-  canvas.width = Math.max(1, Math.round(image.naturalWidth * scale))
-  canvas.height = Math.max(1, Math.round(image.naturalHeight * scale))
-  canvas.getContext('2d')?.drawImage(image, 0, 0, canvas.width, canvas.height)
-
-  return canvas.toDataURL('image/png')
 }
 
 interface PantryItem {
@@ -186,6 +166,7 @@ export function CreateLunchPage() {
   const [preloadedId, setPreloadedId] = useState<number | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<LunchFormIngredient | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<LunchFormIngredient | null>(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [saveAsTemplate, setSaveAsTemplate] = useState(false)
@@ -395,8 +376,13 @@ export function CreateLunchPage() {
   }
 
   function handleDelete(item: LunchFormIngredient) {
-    if (!confirm(`¿Quitar "${item.ingredient_name}" del almuerzo?`)) return
-    setIngredients((prev) => prev.filter((i) => i.ingredient_id !== item.ingredient_id))
+    setDeleteTarget(item)
+  }
+
+  function confirmDelete() {
+    if (!deleteTarget) return
+    setIngredients((prev) => prev.filter((i) => i.ingredient_id !== deleteTarget.ingredient_id))
+    setDeleteTarget(null)
   }
 
   function handleApplyRecalculation() {
@@ -487,43 +473,21 @@ export function CreateLunchPage() {
     setSaveError('')
 
     try {
-      const payload = {
+      const result = await lunchApi.createConfirmedLunch({
         name: trimmedName,
         date,
         platesQuantity: desiredPlateCount,
         basePlatesQuantity: plateCount,
-        ingredients: [],
-      }
-
-      const createdLunch = await lunchApi.createLunch(payload)
-
-      await Promise.all(
-        lunchIngredientPayloads.map((ingredientPayload) =>
-          lunchApi.addLunchIngredient(createdLunch.id, ingredientPayload),
-        ),
-      )
-
-      const lunchToRecalculate = await lunchApi.getLunch(createdLunch.id)
-      const recalculatedLunch = await lunchApi.recalculateLunch(createdLunch.id, {
-        ...lunchToRecalculate,
-        platesQuantity: desiredPlateCount,
-        basePlatesQuantity: plateCount,
+        ingredients: lunchIngredientPayloads,
+        saveAsTemplate,
       })
 
-      const stockValidation = await lunchApi.validateStock(createdLunch.id)
-      if (!stockValidation.isValid) {
-        setSaveError(buildInsufficientStockMessage(stockValidation.items))
+      if (result.status === 'insufficient_stock') {
+        setSaveError(buildInsufficientStockMessage(result.items))
         return
       }
 
-      await lunchApi.confirmLunch(createdLunch.id, recalculatedLunch)
-
       if (saveAsTemplate) {
-        await lunchApi.createLunchTemplate({
-          ...payload,
-          lunchId: createdLunch.id,
-          ingredients: lunchIngredientPayloads,
-        })
         const templates = await lunchApi.listLunchTemplates()
         setPreloadedTemplates(templates.map(mapTemplateToPreloaded))
       }
@@ -535,7 +499,7 @@ export function CreateLunchPage() {
       const updatedPantry = await inventoryApi.listItems()
       setPantry(updatedPantry.map(mapInventoryItemToPantry))
 
-      alert(saveAsTemplate ? 'Almuerzo confirmado y plantilla guardada correctamente.' : 'Almuerzo confirmado correctamente.')
+      notify.success(saveAsTemplate ? 'Almuerzo confirmado y plantilla guardada correctamente.' : 'Almuerzo confirmado correctamente.')
     } catch {
       setSaveError(
         saveAsTemplate
@@ -563,126 +527,12 @@ export function CreateLunchPage() {
     setSaveError('')
 
     try {
-      const [unetLogo, deanLogo] = await Promise.all([
-        loadPdfImage(logoUnetDataUri, 500, 500),
-        loadPdfImage(logoDecanatoDataUri, 1000, 500),
-      ])
-
-      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
-      const pageWidth = doc.internal.pageSize.getWidth()
-      const pageHeight = doc.internal.pageSize.getHeight()
-      const generatedAt = new Date().toLocaleString('es-VE', {
-        dateStyle: 'long',
-        timeStyle: 'short',
+      await generateLunchListPdf({
+        name: trimmedName,
+        date,
+        plateCount,
+        ingredients,
       })
-
-      function drawHeader() {
-        doc.addImage(unetLogo, 'PNG', 14, 8, 22, 22)
-        doc.addImage(deanLogo, 'PNG', pageWidth - 58, 10, 44, 20)
-        doc.setTextColor(3, 33, 106)
-        doc.setFont('helvetica', 'bold')
-        doc.setFontSize(12)
-        doc.text('UNIVERSIDAD NACIONAL EXPERIMENTAL DEL TÁCHIRA', pageWidth / 2, 13, { align: 'center' })
-        doc.setFontSize(10)
-        doc.text('VICERRECTORADO ACADÉMICO', pageWidth / 2, 18, { align: 'center' })
-        doc.text('DECANATO DE DESARROLLO ESTUDIANTIL', pageWidth / 2, 23, { align: 'center' })
-        doc.setDrawColor(3, 33, 106)
-        doc.setLineWidth(0.6)
-        doc.line(14, 34, pageWidth - 14, 34)
-      }
-
-      function drawFooter(pageNumber: number) {
-        doc.setDrawColor(203, 213, 225)
-        doc.setLineWidth(0.3)
-        doc.line(14, pageHeight - 13, pageWidth - 14, pageHeight - 13)
-        doc.setFont('helvetica', 'normal')
-        doc.setFontSize(8)
-        doc.setTextColor(100, 116, 139)
-        doc.text('Sistema de Comedor Universitario - Lista de preparación de almuerzo', 14, pageHeight - 8)
-        doc.text(`Página ${pageNumber}`, pageWidth - 14, pageHeight - 8, { align: 'right' })
-      }
-
-      drawHeader()
-      doc.setTextColor(15, 23, 42)
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(17)
-      doc.text('LISTA DE INGREDIENTES DEL ALMUERZO', pageWidth / 2, 44, { align: 'center' })
-
-      doc.setFillColor(248, 250, 252)
-      doc.setDrawColor(203, 213, 225)
-      doc.roundedRect(14, 50, pageWidth - 28, 25, 2, 2, 'FD')
-      doc.setFontSize(9)
-      doc.setTextColor(71, 85, 105)
-      doc.setFont('helvetica', 'bold')
-      doc.text('ALMUERZO', 20, 58)
-      doc.text('FECHA DE PREPARACIÓN', 105, 58)
-      doc.text('CANTIDAD DE PLATOS', 176, 58)
-      doc.text('FECHA DE EMISIÓN', 230, 58)
-      doc.setFont('helvetica', 'normal')
-      doc.setTextColor(15, 23, 42)
-      doc.text(trimmedName, 20, 66, { maxWidth: 76 })
-      doc.text(formatPdfDate(date), 105, 66)
-      doc.text(plateCount.toLocaleString('es-VE'), 176, 66)
-      doc.text(generatedAt, 230, 66, { maxWidth: 50 })
-
-      autoTable(doc, {
-        startY: 82,
-        margin: { top: 42, right: 14, bottom: 20, left: 14 },
-        head: [[
-          'N.º',
-          'Ingrediente',
-          'Categoría',
-          `Cantidad calculada (${plateCount} platos)`,
-          'Cantidad por plato',
-          'Stock disponible',
-        ]],
-        body: ingredients.map((item, index) => [
-          index + 1,
-          item.ingredient_name,
-          item.category,
-          formatQuantity(item.calculated_quantity, item.unit),
-          formatQuantity(item.quantity_per_plate, item.unit),
-          formatQuantity(item.available_quantity, item.unit),
-        ]),
-        theme: 'grid',
-        styles: {
-          font: 'helvetica',
-          fontSize: 9,
-          cellPadding: 3,
-          lineColor: [203, 213, 225],
-          lineWidth: 0.2,
-          textColor: [30, 41, 59],
-          valign: 'middle',
-        },
-        headStyles: {
-          fillColor: [3, 33, 106],
-          textColor: [255, 255, 255],
-          fontStyle: 'bold',
-          halign: 'center',
-        },
-        alternateRowStyles: { fillColor: [248, 250, 252] },
-        columnStyles: {
-          0: { cellWidth: 14, halign: 'center' },
-          1: { cellWidth: 58 },
-          2: { cellWidth: 45 },
-          3: { cellWidth: 48, halign: 'right' },
-          4: { cellWidth: 45, halign: 'right' },
-          5: { cellWidth: 45, halign: 'right' },
-        },
-        didDrawPage: ({ pageNumber }) => {
-          if (pageNumber > 1) drawHeader()
-          drawFooter(pageNumber)
-        },
-      })
-
-      const filename = trimmedName
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-zA-Z0-9]+/g, '-')
-        .replace(/^-|-$/g, '')
-        .toLowerCase()
-
-      doc.save(`lista-almuerzo-${filename || date}-${date}.pdf`)
     } catch {
       setSaveError('No se pudo generar el archivo PDF. Intenta nuevamente.')
     }
@@ -690,7 +540,7 @@ export function CreateLunchPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-bold text-black sm:text-3xl">Crear Almuerzo</h1>
+      <PageHeader title="Crear Almuerzo" />
 
       <PreloadedLunchBar
         options={preloadedTemplates}
@@ -986,6 +836,29 @@ export function CreateLunchPage() {
             </div>
           </div>
         )}
+      </Modal>
+
+      <Modal
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="Quitar ingrediente"
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(null)}>
+              Cancelar
+            </Button>
+            <Button variant="danger" size="sm" onClick={confirmDelete}>
+              Quitar
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-600">
+          ¿Estás seguro de que deseas quitar{' '}
+          <span className="font-semibold text-slate-900">{deleteTarget?.ingredient_name}</span>{' '}
+          del almuerzo?
+        </p>
       </Modal>
     </div>
   )

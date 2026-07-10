@@ -9,10 +9,23 @@ export interface Consumption {
   is_manual: boolean
 }
 
+/** Datos mínimos para dar de alta al vuelo a quien no es acceso directo (Issue 2). */
+export interface AccesoDirectoIdentity {
+  document_id: string
+  first_name: string
+  last_name?: string
+  email?: string | null
+  user_type?: string
+  photo_url?: string | null
+  career?: string | null
+}
+
 export interface ConsumptionCreate {
-  acceso_directo_id: number
+  acceso_directo_id?: number
   lunch_session_id?: number
   is_manual: boolean
+  /** Si la persona no es acceso directo, se envían sus datos para crearla al vuelo. */
+  person?: AccesoDirectoIdentity
 }
 
 export interface ConsumptionCheckResult {
@@ -46,6 +59,8 @@ export interface ManualConsumptionCreate {
   date: string                  // YYYY-MM-DD (obligatoria)
   acceso_directo_id?: number
   document_id?: string
+  /** Si la persona no es acceso directo, se envían sus datos para crearla al vuelo (Issue 2). */
+  person?: AccesoDirectoIdentity
 }
 
 export interface ManualConsumptionUpdate {

@@ -7,7 +7,7 @@ export interface Sanction {
   reason: string
   description?: string
   start_date: string
-  end_date: string
+  end_date: string | null
   status: SanctionStatus
   notified_user: boolean
   notified_authority: boolean

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { ConsumptionReportTable } from '../components/reports/ConsumptionReportTable'
@@ -8,15 +8,8 @@ import { reportsApi } from '../api/reports'
 import { inventoryApi } from '../api/inventory'
 import type { ConsumptionReportItem } from '../types/report'
 import type { InventoryCategory } from '../types/inventory'
-import type {
-  CategoryConsumption,
-  ConsumptionReportRow,
-  SupplyConsumption,
-} from '../types/consumptionReport'
 import { notify } from '../utils/toast'
 import { logoUnetDataUri, logoDecanatoDataUri } from '../utils/pdfLogos'
-
-const CATEGORY_COLORS = ['#03216a', '#34c759', '#f59e0b', '#ef4444', '#8b5cf6', '#0ea5e9']
 
 async function loadImageData(src: string, maxWidth: number, maxHeight: number) {
   const image = new Image()
@@ -43,39 +36,6 @@ function formatDisplayDate(value: string) {
   if (Number.isNaN(date.getTime())) return value || 'Sin fecha'
 
   return date.toLocaleDateString('es-VE')
-}
-
-function toReportRow(item: ConsumptionReportItem, index: number): ConsumptionReportRow {
-  return {
-    id: item.itemId || index,
-    supply_name: item.itemName,
-    category: item.categoryName,
-    consumed_amount: item.quantityConsumed,
-    unit: item.unit,
-    date_from: formatDisplayDate(item.period.fromDate),
-    date_to: formatDisplayDate(item.period.toDate),
-  }
-}
-
-function toCategoryConsumption(items: ConsumptionReportItem[]): CategoryConsumption[] {
-  const totals = new Map<string, number>()
-  items.forEach((item) => {
-    totals.set(item.categoryName, (totals.get(item.categoryName) ?? 0) + item.quantityConsumed)
-  })
-
-  return Array.from(totals.entries()).map(([category, total], index) => ({
-    category,
-    total,
-    color: CATEGORY_COLORS[index % CATEGORY_COLORS.length],
-  }))
-}
-
-function toSupplyConsumption(items: ConsumptionReportItem[]): SupplyConsumption[] {
-  return items.map((item) => ({
-    supply_name: item.itemName,
-    total: item.quantityConsumed,
-    unit: item.unit,
-  }))
 }
 
 export function ConsumptionReportPage() {
@@ -302,10 +262,6 @@ export function ConsumptionReportPage() {
     }
   }
 
-  const rows = useMemo(() => (items ?? []).map(toReportRow), [items])
-  const categoryData = useMemo(() => toCategoryConsumption(items ?? []), [items])
-  const supplyData = useMemo(() => toSupplyConsumption(items ?? []), [items])
-
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-2xl font-bold text-black sm:text-3xl">Reportes de consumo</h1>
@@ -338,15 +294,15 @@ export function ConsumptionReportPage() {
       />
 
       {items !== null ? (
-        <ConsumptionReportTable rows={rows} />
+        <ConsumptionReportTable items={items} />
       ) : (
         <div className="rounded-lg border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500">
           Selecciona un rango de fechas y presiona <strong>Generar Reporte</strong>.
         </div>
       )}
 
-      {items !== null && rows.length > 0 && (
-        <ReportChartsPanel categoryData={categoryData} supplyData={supplyData} />
+      {items !== null && items.length > 0 && (
+        <ReportChartsPanel items={items} />
       )}
     </div>
   )

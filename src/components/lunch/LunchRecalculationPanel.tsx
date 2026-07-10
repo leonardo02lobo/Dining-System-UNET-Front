@@ -1,5 +1,7 @@
 import { ArrowRight, Plus, RefreshCw } from 'lucide-react'
 import type { RecalculationPreview } from '../../types/lunch'
+import { Button } from '../ui/Button'
+import { Input } from '../ui/Input'
 
 interface LunchRecalculationPanelProps {
   basePlates: number
@@ -23,14 +25,15 @@ export function LunchRecalculationPanel({
 
   return (
     <aside className="w-full xl:w-80 xl:flex-shrink-0 xl:sticky xl:top-6">
-      <button
+      <Button
         type="button"
         onClick={onAddIngredient}
-        className="mb-4 flex h-[45px] w-full items-center justify-center gap-2.5 rounded-[10px] bg-[#03216a] text-[15px] font-bold text-white transition hover:bg-[#021a52]"
+        fullWidth
+        leftIcon={<Plus size={22} />}
+        className="mb-4"
       >
-        <Plus size={22} />
         Agregar ingrediente
-      </button>
+      </Button>
 
       <div className="rounded-[10px] bg-white p-4 shadow-sm">
         <div className="flex items-center gap-2">
@@ -53,13 +56,13 @@ export function LunchRecalculationPanel({
             <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500" htmlFor="desired-plate-count">
               Deseada
             </label>
-            <input
+            <Input
               id="desired-plate-count"
               type="number"
               min={1}
               value={desiredPlates}
               onChange={(event) => onDesiredPlatesChange(Math.max(1, Number(event.target.value) || 1))}
-              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-center text-sm font-semibold text-[#03216a] outline-none focus:border-[#03216a] focus:ring-2 focus:ring-[#03216a]/15"
+              className="h-9 text-center font-semibold text-blue-700"
             />
           </div>
         </div>
@@ -70,7 +73,7 @@ export function LunchRecalculationPanel({
             <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-end gap-x-3 border-b border-slate-200 pb-1.5 text-[10px] font-semibold uppercase tracking-wide">
               <span className="text-slate-500">Ingrediente</span>
               <span className="text-right text-slate-500">Base · {basePlates}</span>
-              <span className="text-right text-[#03216a]">Nuevo · {desiredPlates}</span>
+              <span className="text-right text-blue-700">Nuevo · {desiredPlates}</span>
             </div>
 
             {/* Lista compacta con scroll para no ocupar demasiado alto */}
@@ -90,7 +93,7 @@ export function LunchRecalculationPanel({
                     </span>
                     <span
                       className={`text-right font-semibold tabular-nums ${
-                        changed ? 'text-[#03216a]' : 'text-slate-400'
+                        changed ? 'text-blue-700' : 'text-slate-400'
                       }`}
                     >
                       {row.new_quantity}{row.unit}
@@ -100,15 +103,16 @@ export function LunchRecalculationPanel({
               })}
             </div>
 
-            <button
+            <Button
               type="button"
               onClick={onApplyRecalculation}
               disabled={!platesChanged}
-              className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-[10px] bg-[#03216a] text-sm font-bold text-white transition hover:bg-[#021a52] disabled:cursor-not-allowed disabled:opacity-50"
+              fullWidth
+              leftIcon={<RefreshCw size={16} />}
+              className="mt-3"
             >
-              <RefreshCw size={16} />
               Aplicar recálculo
-            </button>
+            </Button>
           </div>
         ) : (
           <p className="mt-4 text-xs text-slate-500">

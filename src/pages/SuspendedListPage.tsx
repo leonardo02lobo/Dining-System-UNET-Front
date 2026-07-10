@@ -10,13 +10,7 @@ import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { PageHeader } from '../components/ui/PageHeader'
 import { SearchInput } from '../components/ui/SearchInput'
-
-const USER_TYPE_LABEL: Record<string, string> = {
-  STUDENT:        'Estudiante',
-  TEACHER:        'Docente',
-  ADMINISTRATIVE: 'Administrativo',
-  WORKER:         'Obrero',
-}
+import { userTypeLabel } from '../utils/labels'
 
 export function SuspendedListPage() {
   const { user } = useAuth()
@@ -76,7 +70,7 @@ export function SuspendedListPage() {
       key: 'user_type',
       header: 'Tipo',
       render: (_, row) => (
-        <Badge variant="info">{USER_TYPE_LABEL[row.user_type] ?? row.user_type}</Badge>
+        <Badge variant="info">{userTypeLabel(row.user_type)}</Badge>
       ),
     },
     {
