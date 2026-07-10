@@ -59,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [navigate])
 
   useEffect(() => {
-    refetch()
+    void refetch()
   }, [refetch])
 
   return (

@@ -43,7 +43,7 @@ The backend is a separate FastAPI service (see `/home/leonardo/Documentos/Projec
 │   │   ├── client.ts           # Base HTTP client
 │   │   ├── auth.ts             # Auth endpoints
 │   │   ├── audit.ts            # Audit log endpoints
-│   │   └── user.ts             # User data (currently mock via randomuser.me)
+│   │   └── user.ts             # Real user + role endpoints (/users, /roles)
 │   ├── components/
 │   │   ├── layout/             # App-level shell components
 │   │   │   ├── Header.tsx      # University header bar
@@ -69,7 +69,6 @@ The backend is a separate FastAPI service (see `/home/leonardo/Documentos/Projec
 │   ├── pages/                  # One component per route
 │   │   ├── Index.tsx           # Root layout (Header + NavBar + Outlet + Footer)
 │   │   ├── LoginPage.tsx
-│   │   ├── Dashboard.tsx
 │   │   ├── CheckConsumes.tsx
 │   │   ├── RegisterDining.tsx
 │   │   ├── SuspendStudent.tsx
@@ -127,7 +126,6 @@ npm run tauri build    # Packages the desktop app for all targets
 |---|---|---|
 | `LoginPage` | `/login` | Standalone login form, no sidebar |
 | `Index` | `/` | Root layout shell — Header, sidebar NavBar, Outlet, Footer |
-| `Dashboard` | `/dashboard` | Bar + Pie charts (currently uses randomuser.me mock data) |
 | `CheckConsumes` | `/comedor/consultar` | Look up student by ID card; shows profile + suspension status |
 | `RegisterDining` | `/comedor/registrar` | Barcode scanner integration — listens to `keydown` for fast hardware scanner input |
 | `SuspendStudent` | `/suspendStudent` | Look up student, toggle suspension status |
@@ -182,7 +180,7 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8001/api
 |---|---|---|
 | Auth | `src/api/auth.ts` | `login` (posts form, then fetches `/users/me`), `logout`, `me` |
 | Audit | `src/api/audit.ts` | `getLogs(skip, limit)` — paginated |
-| User | `src/api/user.ts` | **Currently a mock** — fetches from randomuser.me and seeds careers locally. Replace with real backend calls when the endpoint is ready. |
+| User | `src/api/user.ts` | Real `userApi` (`/users` CRUD) and `roleApi` (`/roles`). |
 
 ### Backend API base path
 
@@ -256,19 +254,19 @@ useEffect(() => {
 
 ### Barcode scanner detection (`RegisterDining`)
 
-The barcode scanner integration works by listening to `window keydown` events globally. Characters arriving faster than `MAX_GAP_MS = 60ms` are accumulated in a ref buffer; an `Enter` key finalises the scan. This is the standard approach for USB HID barcode readers that emulate a keyboard.
+The barcode scanner integration is the shared `useBarcodeScanner(onScan, options?)` hook (`src/hooks/useBarcodeScanner.ts`). It listens to `window` `keydown` events globally: characters arriving faster than `maxGapMs` (default 60ms) are accumulated in a ref buffer and an `Enter` finalises the scan. Used by `RegisterDining`, `CheckConsumes` and `SuspendStudent`. This is the standard approach for USB HID barcode readers that emulate a keyboard.
 
-### Mock data / stubs in progress
+### API integration status
 
-Several pages are partially wired up with mocks pending real API integration:
+The app is wired to the real FastAPI backend. Notable points:
 
-- **`CheckConsumes`** and **`SuspendStudent`** — hardcode a student object after a fake 600ms delay instead of calling the backend.
-- **`Dashboard`** — pulls from randomuser.me (public test API).
-- **`api/user.ts`** — the `getData()` function is a mock. The `ListUser` page uses this.
-- **`InventoryPage`** and **`CreateLunchPage`** — `MOCK_INGREDIENTS` constant; `handleSave`/`handleConfirm` use `setTimeout` and `alert()`.
-- **`ReportsPage`** — `MOCK_DATA` constant; API call is a `TODO` comment.
+- **`CheckConsumes`** / **`SuspendStudent`** — real lookups via `externalStudentApi` + `accesoDirectoApi` / `sanctionApi`.
+- **`InventoryPage`** / **`CreateLunchPage`** — real `inventoryApi` / `lunchApi`; multi-step lunch creation is composed in `lunchApi.createConfirmedLunch`.
+- **`ReportsPage`** / **`ConsumptionReportPage`** — real `reportsApi`.
+- **`api/user.ts`** — real `userApi` (`/users`) and `roleApi` (`/roles`), used by `ListUser`.
+- Demo-only data lives under `src/data/` (e.g. `mockLunch.ts`); business logic that used to live there was moved to `src/utils/`.
 
-When wiring up real API calls, follow the pattern in `auditApi` (the only fully real endpoint besides auth).
+The `/dashboard` route is a redirect to `/` (the old `Dashboard.tsx` mock page was removed).
 
 ### Backward-compatible route redirects
 

@@ -6,6 +6,7 @@ import { InventoryToolbar } from '../components/inventory/InventoryToolbar'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
+import { PageHeader } from '../components/ui/PageHeader'
 import { Select } from '../components/ui/Select'
 import {
   INGREDIENT_CATEGORIES,
@@ -105,6 +106,8 @@ export function InventoryPage() {
   const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null)
   const [deletingItemId, setDeletingItemId] = useState<number | null>(null)
   const [updatingStockId, setUpdatingStockId] = useState<number | null>(null)
+  const [deleteItemTarget, setDeleteItemTarget] = useState<Ingredient | null>(null)
+  const [deleteCategoryTarget, setDeleteCategoryTarget] = useState<InventoryCategory | null>(null)
 
   const categoryNames = useMemo(
     () => categories.map((category) => category.name),
@@ -149,7 +152,7 @@ export function InventoryPage() {
       }
     }
 
-    loadCategories()
+    void loadCategories()
 
     return () => {
       mounted = false
@@ -157,7 +160,7 @@ export function InventoryPage() {
   }, [])
 
   useEffect(() => {
-    loadItems()
+    void loadItems()
   }, [loadItems])
 
   const filtered = useMemo(() => {
@@ -300,17 +303,25 @@ export function InventoryPage() {
     }
   }
 
-  async function handleDelete(item: Ingredient) {
-    if (!confirm(`¿Eliminar el insumo "${item.name}"?`)) return
+  function handleDelete(item: Ingredient) {
+    setItemsLoadError('')
+    setDeleteItemTarget(item)
+  }
 
+  async function confirmDeleteItem() {
+    if (!deleteItemTarget) return
+
+    const item = deleteItemTarget
     setDeletingItemId(item.id)
     setItemsLoadError('')
 
     try {
       await inventoryApi.deleteItem(item.id)
       setItems((prev) => prev.filter((i) => i.id !== item.id))
+      setDeleteItemTarget(null)
     } catch {
       setItemsLoadError('No se pudo eliminar el insumo. Intenta nuevamente.')
+      setDeleteItemTarget(null)
     } finally {
       setDeletingItemId(null)
     }
@@ -353,14 +364,20 @@ export function InventoryPage() {
     }
   }
 
-  async function handleDeleteCategory(category: InventoryCategory, itemCount: number) {
+  function handleDeleteCategory(category: InventoryCategory, itemCount: number) {
     if (itemCount > 0) {
       setCategoryError('No puedes eliminar una categoría con insumos asociados.')
       return
     }
 
-    if (!confirm(`¿Eliminar la categoría "${category.name}"?`)) return
+    setCategoryError('')
+    setDeleteCategoryTarget(category)
+  }
 
+  async function confirmDeleteCategory() {
+    if (!deleteCategoryTarget) return
+
+    const category = deleteCategoryTarget
     setDeletingCategoryId(category.id)
     setCategoryError('')
 
@@ -376,8 +393,10 @@ export function InventoryPage() {
         const nextCategory = categories.find((item) => item.id !== category.id)?.name ?? ''
         setForm((prev) => ({ ...prev, category: nextCategory }))
       }
+      setDeleteCategoryTarget(null)
     } catch {
       setCategoryError('No se pudo eliminar la categoría. Intenta nuevamente.')
+      setDeleteCategoryTarget(null)
     } finally {
       setDeletingCategoryId(null)
     }
@@ -413,7 +432,7 @@ export function InventoryPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-bold text-black sm:text-3xl">Inventario</h1>
+      <PageHeader title="Inventario" />
 
       <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
         <div className="min-w-0 flex-1 space-y-4">
@@ -658,6 +677,72 @@ export function InventoryPage() {
             </ul>
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        open={!!deleteItemTarget}
+        onClose={() => setDeleteItemTarget(null)}
+        title="Eliminar insumo"
+        size="sm"
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setDeleteItemTarget(null)}
+              disabled={deletingItemId !== null}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={confirmDeleteItem}
+              loading={deletingItemId !== null}
+            >
+              Eliminar
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-600">
+          ¿Estás seguro de que deseas eliminar el insumo{' '}
+          <span className="font-semibold text-slate-900">{deleteItemTarget?.name}</span>?{' '}
+          Esta acción no se puede deshacer.
+        </p>
+      </Modal>
+
+      <Modal
+        open={!!deleteCategoryTarget}
+        onClose={() => setDeleteCategoryTarget(null)}
+        title="Eliminar categoría"
+        size="sm"
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setDeleteCategoryTarget(null)}
+              disabled={deletingCategoryId !== null}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={confirmDeleteCategory}
+              loading={deletingCategoryId !== null}
+            >
+              Eliminar
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-600">
+          ¿Estás seguro de que deseas eliminar la categoría{' '}
+          <span className="font-semibold text-slate-900">{deleteCategoryTarget?.name}</span>?{' '}
+          Esta acción no se puede deshacer.
+        </p>
       </Modal>
     </div>
   )

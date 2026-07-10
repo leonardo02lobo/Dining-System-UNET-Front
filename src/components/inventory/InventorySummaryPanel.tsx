@@ -1,6 +1,6 @@
+import { useMemo } from 'react'
 import { AlertTriangle, Calendar, ClipboardList, Package } from 'lucide-react'
 import type { Ingredient, StockAlert } from '../../types/inventory'
-import { getInventorySummary } from '../../data/mockInventory'
 import { StockAlertItem } from './StockAlertItem'
 import { SummaryStatCard } from './SummaryStatCard'
 
@@ -9,8 +9,33 @@ interface InventorySummaryPanelProps {
   alerts: StockAlert[]
 }
 
+/** Convierte una fecha localizada "d/m/aaaa" a timestamp para comparar. NaN si no parsea. */
+function parseLocalDate(value: string): number {
+  const parts = value.split('/')
+  if (parts.length !== 3) return NaN
+  const [day, month, year] = parts.map(Number)
+  return new Date(year, month - 1, day).getTime()
+}
+
 export function InventorySummaryPanel({ items, alerts }: InventorySummaryPanelProps) {
-  const summary = getInventorySummary(items)
+  // Resumen calculado sobre los insumos reales ya cargados (fixes.md #5).
+  const summary = useMemo(() => {
+    const lowStockCount = items.filter((i) => i.quantity < i.min_stock).length
+    const lastUpdate = items.reduce((latest, item) => {
+      if (!latest) return item.last_updated
+      const latestTs = parseLocalDate(latest)
+      const itemTs = parseLocalDate(item.last_updated)
+      if (Number.isNaN(itemTs)) return latest
+      if (Number.isNaN(latestTs) || itemTs > latestTs) return item.last_updated
+      return latest
+    }, items[0]?.last_updated ?? '')
+
+    return {
+      totalItems: items.length,
+      lowStockCount,
+      lastUpdate: lastUpdate || '—',
+    }
+  }, [items])
 
   return (
     <aside className="w-full flex-shrink-0 xl:w-[267px]">

@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Search, ScanLine } from 'lucide-react'
 import { normalizeCedula } from '../utils/cedula'
+import { useBarcodeScanner } from '../hooks/useBarcodeScanner'
 import { accesoDirectoApi } from '../api/acceso_directo'
 import { externalStudentApi, mapExternalToStudent } from '../api/externalStudent'
 import { sanctionApi } from '../api/sanction'
@@ -15,6 +16,11 @@ import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
 import type { Student } from '../types/user'
 import type { Sanction } from '../types/sanction'
+
+/** Duración fija de una suspensión (días). A futuro: selector de duración. */
+const SUSPENSION_DAYS = 30
+/** Longitud mínima del motivo, alineada con RegisterDining. */
+const MIN_REASON_LENGTH = 3
 
 const STATUS_LABEL: Record<string, string> = {
   ACTIVE:   'Activo',
@@ -38,36 +44,10 @@ export function SuspendStudent() {
   // Sanción activa del acceso directo (si existe)
   const activeSanction = history.find((s) => s.status === 'ACTIVE') ?? null
 
-  const lastKeyAtRef = useRef(0)
-  const bufferRef    = useRef('')
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.altKey || e.metaKey) return
-      const tag = (e.target as HTMLElement).tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return
-
-      const now = Date.now()
-      if (now - lastKeyAtRef.current > 60) bufferRef.current = ''
-
-      if (e.key === 'Enter') {
-        const scanned = bufferRef.current.trim()
-        if (scanned.length >= 6) {
-          setCedula(scanned)
-          void triggerSearch(scanned)
-        }
-        bufferRef.current    = ''
-        lastKeyAtRef.current = now
-        return
-      }
-      if (e.key.length === 1) {
-        bufferRef.current    += e.key
-        lastKeyAtRef.current  = now
-      }
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
+  useBarcodeScanner((scanned) => {
+    setCedula(scanned)
+    void triggerSearch(scanned)
+  })
 
   async function triggerSearch(value: string) {
     const clean = normalizeCedula(value)
@@ -102,14 +82,15 @@ export function SuspendStudent() {
   function handleSearch() { void triggerSearch(cedula) }
 
   async function handleSuspend() {
-    if (!student || !accesoDirectoId || !observations.trim()) {
-      setObsError('Debes indicar el motivo de la suspensión')
+    if (!student || !accesoDirectoId) return
+    if (observations.trim().length < MIN_REASON_LENGTH) {
+      setObsError(`Indica el motivo de la suspensión (mínimo ${MIN_REASON_LENGTH} caracteres).`)
       return
     }
     setObsError(null)
     setSaving(true)
     const today = new Date().toISOString().slice(0, 10)
-    const end   = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    const end   = new Date(Date.now() + SUSPENSION_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
     try {
       const newSanction = await sanctionApi.create({
         acceso_directo_id: accesoDirectoId,
@@ -203,6 +184,12 @@ export function SuspendStudent() {
       {!loading && student && (
         <Card variant="outlined" padding="lg" className="mb-6">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
+            <div className="flex flex-col items-center gap-3">
+              <Avatar name={student.name} src={student.avatar_url} shape="square" />
+              <Badge variant={isSuspended ? 'danger' : 'success'}>
+                {isSuspended ? 'Suspendido' : 'Activo'}
+              </Badge>
+            </div>
             <div className="flex flex-1 flex-col gap-4">
               <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-6">
                 <p className="w-full sm:w-48 text-xs uppercase tracking-wide text-slate-400">Documento</p>
@@ -234,8 +221,12 @@ export function SuspendStudent() {
                         : 'border-slate-300 focus:border-blue-500 focus:ring-blue-500/15',
                     ].join(' ')}
                   />
-                  {obsError && (
+                  {obsError ? (
                     <span className="text-xs text-red-600" role="alert">{obsError}</span>
+                  ) : (
+                    <span className="text-xs text-slate-500">
+                      La suspensión tendrá una duración de {SUSPENSION_DAYS} días a partir de hoy.
+                    </span>
                   )}
                 </div>
               )}
@@ -254,12 +245,6 @@ export function SuspendStudent() {
                 )}
               </div>
             </div>
-            <div className="flex flex-col items-center gap-3">
-              <Avatar name={student.name} src={student.avatar_url} shape="square" />
-              <Badge variant={isSuspended ? 'danger' : 'success'}>
-                {isSuspended ? 'Suspendido' : 'Activo'}
-              </Badge>
-            </div>
           </div>
         </Card>
       )}
@@ -274,7 +259,7 @@ export function SuspendStudent() {
                 <div className="flex flex-col gap-0.5">
                   <span className="font-medium text-slate-800">{s.reason}</span>
                   <span className="text-xs text-slate-400">
-                    {s.start_date} → {s.end_date}
+                    {s.start_date} → {s.end_date ?? 'indefinida'}
                   </span>
                 </div>
                 <Badge variant={s.status === 'ACTIVE' ? 'danger' : 'neutral'}>

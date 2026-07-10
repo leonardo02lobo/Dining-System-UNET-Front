@@ -45,9 +45,10 @@ const navGroups: NavGroup[] = [
   {
     label: 'Administración',
     items: [
-      { to: '/auditoria',      label: 'Auditoría de Acceso'  },
-      { to: '/admin/permisos', label: 'Gestión de Permisos'  },
-      { to: '/sedes',          label: 'Sedes'                 },
+      { to: '/auditoria',            label: 'Auditoría de Acceso'  },
+      { to: '/admin/permisos',       label: 'Gestión de Permisos'  },
+      { to: '/admin/plantilla-correo', label: 'Plantilla de Correo' },
+      { to: '/sedes',                label: 'Sedes'                 },
     ],
   },
 ]
