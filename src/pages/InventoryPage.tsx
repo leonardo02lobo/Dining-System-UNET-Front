@@ -433,7 +433,6 @@ export function InventoryPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title="Inventario" />
-      <h1 className="text-2xl font-bold text-black sm:text-3xl">Inventario</h1>
 
       <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
         <div className="min-w-0 flex-1 space-y-4">
