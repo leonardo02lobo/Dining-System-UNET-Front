@@ -40,13 +40,13 @@ export function SuspendConfirmModal({ open, onClose, onConfirm, student, observa
       />
 
       {/* Panel */}
-      <div className="relative z-10 flex w-full max-w-lg flex-col items-center gap-5 rounded-2xl bg-white px-10 py-10 shadow-xl">
+      <div className="relative z-10 flex w-full max-w-lg flex-col items-center gap-5 rounded-2xl bg-white px-5 py-6 shadow-xl sm:px-10 sm:py-10">
 
         {/* Icon */}
         <AlertCircle size={64} strokeWidth={1.5} className="text-[#03216A]" />
 
         {/* Heading */}
-        <h2 className="text-3xl font-bold text-slate-900">Confirmar suspension</h2>
+        <h2 className="text-2xl font-bold text-slate-900 sm:text-3xl">Confirmar suspension</h2>
 
         {/* Description */}
         <div className="text-center">
@@ -69,14 +69,14 @@ export function SuspendConfirmModal({ open, onClose, onConfirm, student, observa
                 i < arr.length - 1 ? 'border-b border-slate-200' : '',
               ].join(' ')}
             >
-              <span className="w-28 flex-shrink-0 text-sm text-slate-600">{label}:</span>
+              <span className="w-full sm:w-28 sm:flex-shrink-0 text-sm text-slate-600">{label}:</span>
               <span className="text-sm text-slate-500">{value || '—'}</span>
             </div>
           ))}
         </div>
 
         {/* Actions */}
-        <div className="flex w-full justify-center gap-4 pt-2">
+        <div className="flex w-full flex-wrap justify-center gap-4 pt-2">
           <button
             type="button"
             onClick={onClose}

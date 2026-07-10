@@ -165,7 +165,7 @@ export function AccesoDirectoFormModal({ open, onClose, onSave, initial }: Props
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Input
             label="Nombre"
             value={form.first_name}
@@ -182,7 +182,7 @@ export function AccesoDirectoFormModal({ open, onClose, onSave, initial }: Props
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Input
             label="Cédula"
             value={form.document_id}
@@ -223,7 +223,7 @@ export function AccesoDirectoFormModal({ open, onClose, onSave, initial }: Props
           placeholder="https://… o ruta de la foto"
         />
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Select
             label="Tipo de usuario"
             options={USER_TYPE_OPTIONS}

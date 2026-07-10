@@ -91,7 +91,7 @@ export function DatePickerCalendar({
   const isLarge = size === 'lg'
 
   return (
-    <div className={`${isLarge ? 'min-w-[390px] p-5' : 'min-w-[290px] p-4'} select-none rounded-xl border border-slate-200 bg-white shadow-sm`}>
+    <div className={`${isLarge ? 'w-[min(390px,calc(100vw-1rem))] p-5' : 'w-[min(290px,calc(100vw-1rem))] p-4'} select-none rounded-xl border border-slate-200 bg-white shadow-sm`}>
       {label && (
         <p className="mb-2 text-sm font-medium text-slate-700">{label}</p>
       )}

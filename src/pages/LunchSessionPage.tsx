@@ -198,7 +198,7 @@ export function LunchSessionPage() {
                 {openSessions.map((s) => (
                   <div
                     key={s.id}
-                    className="flex items-center justify-between rounded-md border border-slate-200 px-4 py-3"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 px-4 py-3"
                   >
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2">

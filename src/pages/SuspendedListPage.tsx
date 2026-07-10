@@ -102,7 +102,7 @@ export function SuspendedListPage() {
         <SearchInput
           placeholder="Buscar por nombre o cédula..."
           fullWidth={false}
-          className="w-64"
+          className="w-full sm:w-64"
           onSearch={setSearch}
           debounceMs={300}
         />

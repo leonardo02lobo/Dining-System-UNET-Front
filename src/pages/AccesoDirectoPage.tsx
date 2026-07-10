@@ -203,7 +203,7 @@ export function AccesoDirectoPage() {
         <SearchInput
           placeholder="Buscar por nombre o cédula..."
           fullWidth={false}
-          className="w-64"
+          className="w-full sm:w-64"
           onSearch={setSearch}
           debounceMs={300}
         />
@@ -211,19 +211,19 @@ export function AccesoDirectoPage() {
           options={statusOptions}
           value={selectedStatus}
           onChange={(e) => setStatus(e.target.value)}
-          className="w-44"
+          className="w-full sm:w-44"
         />
         <Select
           options={typeOptions}
           value={selectedType}
           onChange={(e) => setType(e.target.value)}
-          className="w-44"
+          className="w-full sm:w-44"
         />
         <Select
           options={reasonOptions}
           value={selectedReason}
           onChange={(e) => setReason(e.target.value)}
-          className="w-44"
+          className="w-full sm:w-44"
         />
       </div>
 

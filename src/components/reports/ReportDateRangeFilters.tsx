@@ -25,10 +25,10 @@ const dateInputClass =
   'flex h-[38px] w-full max-w-[180px] items-center gap-2 rounded-[5px] border border-black bg-white/90 px-3 text-[15px] text-black outline-none focus:ring-2 focus:ring-[#03216a]/20'
 
 const primaryBtn =
-  'inline-flex h-[45px] min-w-[200px] items-center justify-center gap-2.5 rounded-[10px] bg-[#03216a] px-5 text-[15px] font-bold text-white transition hover:bg-[#021a52] disabled:opacity-60'
+  'inline-flex h-[45px] w-full sm:w-auto items-center justify-center gap-2.5 rounded-[10px] bg-[#03216a] px-5 text-[15px] font-bold text-white transition hover:bg-[#021a52] disabled:opacity-60'
 
 const exportBtn =
-  'group flex min-h-[72px] min-w-[240px] flex-1 items-center gap-3 rounded-lg border bg-white px-4 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-60'
+  'group flex min-h-[72px] w-full sm:w-auto flex-1 items-center gap-3 rounded-lg border bg-white px-4 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-60'
 
 export function ReportDateRangeFilters({
   dateFrom,
@@ -57,7 +57,7 @@ export function ReportDateRangeFilters({
             onChange={onDateFromChange}
             maxDate={dateTo || undefined}
             calendarSize="lg"
-            className="w-[180px]"
+            className="w-full sm:w-[180px]"
           />
         </div>
         <div>
@@ -67,7 +67,7 @@ export function ReportDateRangeFilters({
             onChange={onDateToChange}
             minDate={dateFrom || undefined}
             calendarSize="lg"
-            className="w-[180px]"
+            className="w-full sm:w-[180px]"
           />
         </div>
         <div>
