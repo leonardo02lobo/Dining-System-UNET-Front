@@ -67,7 +67,7 @@ export function Table<T extends object>({
               <th
                 key={col.key as string}
                 style={col.width ? { width: col.width } : undefined}
-                className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500"
+                className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:px-4 sm:py-3"
               >
                 {col.sortable ? (
                   <button
@@ -84,7 +84,7 @@ export function Table<T extends object>({
               </th>
             ))}
             {actions && (
-              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:px-4 sm:py-3">
                 Acciones
               </th>
             )}
@@ -110,14 +110,14 @@ export function Table<T extends object>({
                 }`}
               >
                 {columns.map((col) => (
-                  <td key={col.key as string} className="px-4 py-3 text-slate-700">
+                  <td key={col.key as string} className="px-3 py-2 text-slate-700 sm:px-4 sm:py-3">
                     {col.render
                       ? col.render(getValue(row, col.key), row)
                       : String(getValue(row, col.key) ?? '')}
                   </td>
                 ))}
                 {actions && (
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2 sm:px-4 sm:py-3">
                     <div className="flex items-center gap-1">{actions(row)}</div>
                   </td>
                 )}

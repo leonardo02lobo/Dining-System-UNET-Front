@@ -316,12 +316,12 @@ export function ManualRegistrationPage() {
               </div>
             )}
 
-            <div className="flex flex-row items-center gap-14">
-              <p className="w-40 text-xs uppercase tracking-wide text-slate-400">Nombre*</p>
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-6">
+              <p className="w-full sm:w-40 text-xs uppercase tracking-wide text-slate-400">Nombre*</p>
               <Input value={student.name} readOnly fullWidth />
             </div>
-            <div className="flex flex-row items-center gap-14">
-              <p className="w-40 text-xs uppercase tracking-wide text-slate-400">Email*</p>
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-6">
+              <p className="w-full sm:w-40 text-xs uppercase tracking-wide text-slate-400">Email*</p>
               <Input value={student.email ?? '—'} readOnly fullWidth />
             </div>
           </div>
@@ -361,7 +361,7 @@ export function ManualRegistrationPage() {
               options={orderOptions}
               value={`${orderBy}:${orderDir}`}
               onChange={(e) => handleOrderChange(e.target.value)}
-              className="w-52"
+              className="w-full sm:w-52"
             />
             <Button
               variant="secondary"

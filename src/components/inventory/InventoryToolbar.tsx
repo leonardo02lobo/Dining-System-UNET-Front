@@ -64,7 +64,7 @@ export function InventoryToolbar({
           <button
             type="button"
             onClick={() => setFilterOpen((o) => !o)}
-            className="inline-flex h-[45px] w-full min-w-[200px] items-center justify-center gap-2.5 rounded-[10px] bg-[#03216a] px-4 text-[15px] font-bold text-white transition hover:bg-[#021a52] sm:w-[240px]"
+            className="inline-flex h-[45px] w-full items-center justify-center gap-2.5 rounded-[10px] bg-[#03216a] px-4 text-[15px] font-bold text-white transition hover:bg-[#021a52] sm:w-[240px]"
           >
             <Filter size={22} />
             <span className="truncate">{filterLabel}</span>

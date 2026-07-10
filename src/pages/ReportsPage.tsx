@@ -291,14 +291,14 @@ export function ReportsPage() {
             value={dateFrom}
             onChange={setDateFrom}
             maxDate={dateTo || undefined}
-            className="w-48"
+            className="w-full sm:w-48"
           />
           <DateInput
             label="Hasta"
             value={dateTo}
             onChange={setDateTo}
             minDate={dateFrom || undefined}
-            className="w-48"
+            className="w-full sm:w-48"
           />
         </div>
       </Card>
@@ -320,11 +320,11 @@ export function ReportsPage() {
           <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Card variant="outlined" padding="md">
               <p className="text-xs uppercase tracking-wide text-slate-400">Insumos consumidos</p>
-              <p className="mt-1 text-3xl font-bold text-blue-600">{rows.length}</p>
+              <p className="mt-1 text-2xl font-bold text-blue-600 sm:text-3xl">{rows.length}</p>
             </Card>
             <Card variant="outlined" padding="md">
               <p className="text-xs uppercase tracking-wide text-slate-400">Categorias</p>
-              <p className="mt-1 text-3xl font-bold text-slate-800">
+              <p className="mt-1 text-2xl font-bold text-slate-800 sm:text-3xl">
                 {new Set(rows.map((item) => item.categoryName)).size}
               </p>
             </Card>

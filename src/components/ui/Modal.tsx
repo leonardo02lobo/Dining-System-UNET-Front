@@ -30,7 +30,7 @@ export function Modal({ open, onClose, title, size = 'md', children, footer }: M
 
   return ReactDOM.createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4"
       role="dialog"
       aria-modal="true"
     >
@@ -43,7 +43,7 @@ export function Modal({ open, onClose, title, size = 'md', children, footer }: M
 
       {/* Panel */}
       <div
-        className={`relative z-10 flex w-full flex-col rounded-xl border border-slate-200 bg-white shadow-xl ${sizeClasses[size]}`}
+        className={`relative z-10 flex max-h-[90vh] w-full flex-col rounded-xl border border-slate-200 bg-white shadow-xl ${sizeClasses[size]}`}
       >
         {/* Header */}
         {title && (

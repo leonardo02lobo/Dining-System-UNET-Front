@@ -161,7 +161,7 @@ export function LoginAuditPage() {
           options={roleOptions}
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value)}
-          className="w-44"
+          className="w-full sm:w-44"
         />
         {hasFilters && (
           <Button variant="ghost" size="sm" onClick={clearFilters}>

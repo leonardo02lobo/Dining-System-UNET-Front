@@ -52,7 +52,12 @@ const navGroups: NavGroup[] = [
   },
 ]
 
-export function NavBar() {
+interface NavBarProps {
+  /** Se invoca al navegar; usado para cerrar el drawer en móvil. */
+  onNavigate?: () => void
+}
+
+export function NavBar({ onNavigate }: NavBarProps = {}) {
   const { user, logout, permissions } = useAuth()
   const { pathname } = useLocation()
   const currentGroup = navGroups.find((group) => group.items.some((item) => item.to === pathname))?.label ?? null
@@ -80,6 +85,7 @@ export function NavBar() {
       <NavLink
         to="/"
         end
+        onClick={onNavigate}
         className="flex items-center gap-2 px-4 py-3 text-base font-bold text-slate-800 hover:bg-slate-50 transition-colors"
       >
         <RotateCcw size={22} className="text-green-500 flex-shrink-0" />
@@ -117,6 +123,7 @@ export function NavBar() {
                       <NavLink
                         to={item.to}
                         end
+                        onClick={onNavigate}
                         className={({ isActive }) =>
                           `block px-6 py-1.5 text-sm transition-colors ${
                             isActive

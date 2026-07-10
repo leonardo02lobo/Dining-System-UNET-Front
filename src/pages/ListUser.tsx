@@ -189,7 +189,7 @@ export function ListUser() {
         <SearchInput
           placeholder="Buscar por nombre o correo..."
           fullWidth={false}
-          className="w-64"
+          className="w-full sm:w-64"
           onSearch={setSearch}
           debounceMs={200}
         />
@@ -197,13 +197,13 @@ export function ListUser() {
           options={statusOptions}
           value={selectedStatus}
           onChange={(e) => setStatus(e.target.value)}
-          className="w-44"
+          className="w-full sm:w-44"
         />
         <Select
           options={roleOptions}
           value={selectedRole}
           onChange={(e) => setRole(e.target.value)}
-          className="w-44"
+          className="w-full sm:w-44"
         />
       </div>
 

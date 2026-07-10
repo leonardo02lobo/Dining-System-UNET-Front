@@ -323,16 +323,16 @@ export function RegisterDining() {
 
             {/* Campos */}
             <div className="flex flex-1 flex-col gap-4">
-              <div className="flex flex-row items-center gap-14">
-                <p className="w-48 text-xs uppercase tracking-wide text-slate-400">Documento</p>
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-6">
+                <p className="w-full sm:w-48 text-xs uppercase tracking-wide text-slate-400">Documento</p>
                 <Input value={student.cedula}    readOnly fullWidth />
               </div>
-              <div className="flex flex-row items-center gap-14">
-                <p className="w-48 text-xs uppercase tracking-wide text-slate-400">Nombre</p>
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-6">
+                <p className="w-full sm:w-48 text-xs uppercase tracking-wide text-slate-400">Nombre</p>
                 <Input value={student.name}      readOnly fullWidth />
               </div>
-              <div className="flex flex-row items-center gap-14">
-                <p className="w-48 text-xs uppercase tracking-wide text-slate-400">Email</p>
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-6">
+                <p className="w-full sm:w-48 text-xs uppercase tracking-wide text-slate-400">Email</p>
                 <Input value={student.email ?? '—'} readOnly fullWidth />
               </div>
 

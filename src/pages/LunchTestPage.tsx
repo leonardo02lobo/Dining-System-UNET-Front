@@ -316,7 +316,7 @@ export function LunchTestPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-3xl font-bold text-black sm:text-4xl">Pruebas de Almuerzo</h1>
+      <h1 className="text-2xl font-bold text-black sm:text-3xl">Pruebas de Almuerzo</h1>
 
       <PreloadedLunchBar
         options={preloadedTemplates}
@@ -363,7 +363,7 @@ export function LunchTestPage() {
             <button
               type="button"
               onClick={handleDownload}
-              className="inline-flex h-[45px] min-w-[200px] items-center justify-center gap-2.5 rounded-[10px] bg-[#03216a] px-6 text-[15px] font-bold text-white transition hover:bg-[#021a52]"
+              className="inline-flex h-[45px] w-full sm:w-auto items-center justify-center gap-2.5 rounded-[10px] bg-[#03216a] px-6 text-[15px] font-bold text-white transition hover:bg-[#021a52]"
             >
               <Download size={22} />
               Descargar lista
@@ -372,7 +372,7 @@ export function LunchTestPage() {
               type="button"
               onClick={handleClearLunch}
               disabled={ingredients.length === 0}
-              className="inline-flex h-[45px] min-w-[200px] items-center justify-center gap-2.5 rounded-[10px] bg-red-600 px-6 text-[15px] font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-[45px] w-full sm:w-auto items-center justify-center gap-2.5 rounded-[10px] bg-red-600 px-6 text-[15px] font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Trash2 size={22} />
               Limpiar almuerzo

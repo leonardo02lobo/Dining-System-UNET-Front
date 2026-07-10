@@ -14,7 +14,7 @@ const shapeClasses = {
 export function Avatar({ name, src, shape = 'circle', className = '' }: AvatarProps) {
   return (
     <div
-      className={`relative flex flex-shrink-0 items-center justify-center overflow-hidden bg-slate-200 h-80 w-80 text-4xl ${shapeClasses[shape]} ${className}`}
+      className={`relative flex flex-shrink-0 items-center justify-center overflow-hidden bg-slate-200 h-24 w-24 text-2xl sm:h-40 sm:w-40 sm:text-3xl lg:h-80 lg:w-80 lg:text-4xl ${shapeClasses[shape]} ${className}`}
       title={name}
     >
       {src ? (

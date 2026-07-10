@@ -308,7 +308,7 @@ export function ConsumptionReportPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-3xl font-bold text-black sm:text-4xl">Reportes de consumo</h1>
+      <h1 className="text-2xl font-bold text-black sm:text-3xl">Reportes de consumo</h1>
 
       <ReportDateRangeFilters
         dateFrom={dateFrom}

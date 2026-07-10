@@ -8,10 +8,33 @@ body {
   width: 100%;
 }
 
+/*
+ * Escala de fuente responsiva. Todas las utilidades de texto de Tailwind son
+ * relativas a `rem`, por lo que ajustar el tamaño base del <html> escala el
+ * sistema completo de forma proporcional y sincronizada:
+ *   - móvil    (< 768px):  16px
+ *   - tablet   (>= 768px): 18px
+ *   - desktop  (>= 1024px): 20px  (preserva el look original de escritorio)
+ */
+html {
+  font-size: 16px;
+}
+
+@media (min-width: 768px) {
+  html {
+    font-size: 18px;
+  }
+}
+
+@media (min-width: 1024px) {
+  html {
+    font-size: 20px;
+  }
+}
+
 body {
   @apply bg-white text-slate-900 antialiased;
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 20px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
