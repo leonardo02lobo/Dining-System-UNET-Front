@@ -4,6 +4,7 @@ import type { LoginAuditEntry } from '../types/audit'
 import { Table, type ColumnDef } from '../components/ui/Table'
 import { Badge, type BadgeVariant } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
+import { Input } from '../components/ui/Input'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Select } from '../components/ui/Select'
 
@@ -39,9 +40,6 @@ const roleOptions = [
   { value: 'TAQUILLERO', label: 'Taquillero'      },
 ]
 
-const inputClass =
-  'rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-
 export function LoginAuditPage() {
   const [rows,       setRows]       = useState<LoginAuditEntry[]>([])
   const [total,      setTotal]      = useState(0)
@@ -56,20 +54,23 @@ export function LoginAuditPage() {
   useEffect(() => { setPage(0) }, [fromDate, toDate, roleFilter])
 
   useEffect(() => {
-    setLoading(true)
-    auditApi
-      .getLogs(page * PAGE_SIZE, PAGE_SIZE, {
-        from_date: fromDate || undefined,
-        to_date:   toDate   || undefined,
-        role:      roleFilter !== 'all' ? roleFilter : undefined,
-      })
-      .then((data) => {
+    void (async () => {
+      setLoading(true)
+      try {
+        const data = await auditApi.getLogs(page * PAGE_SIZE, PAGE_SIZE, {
+          from_date: fromDate || undefined,
+          to_date:   toDate   || undefined,
+          role:      roleFilter !== 'all' ? roleFilter : undefined,
+        })
         setRows(data.items)
         setTotal(data.total)
         setError(null)
-      })
-      .catch((err: any) => setError(err.message ?? 'Error al cargar los registros'))
-      .finally(() => setLoading(false))
+      } catch (err: any) {
+        setError(err.message ?? 'Error al cargar los registros')
+      } finally {
+        setLoading(false)
+      }
+    })()
   }, [page, fromDate, toDate, roleFilter])
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -139,24 +140,20 @@ export function LoginAuditPage() {
 
       {/* Barra de filtros */}
       <div className="mb-4 flex flex-wrap items-end gap-3">
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-slate-600">Desde</label>
-          <input
-            type="date"
-            value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
-            className={inputClass}
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-slate-600">Hasta</label>
-          <input
-            type="date"
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
-            className={inputClass}
-          />
-        </div>
+        <Input
+          id="audit-from-date"
+          label="Desde"
+          type="date"
+          value={fromDate}
+          onChange={(e) => setFromDate(e.target.value)}
+        />
+        <Input
+          id="audit-to-date"
+          label="Hasta"
+          type="date"
+          value={toDate}
+          onChange={(e) => setToDate(e.target.value)}
+        />
         <Select
           options={roleOptions}
           value={roleFilter}

@@ -23,7 +23,7 @@ export function LunchSessionPage() {
   const canManage = user?.role.name === 'SUPER_ADMIN' || user?.role.name === 'ADMIN'
 
   useEffect(() => {
-    fetchToday()
+    void fetchToday()
     void fetchHistory()
   }, [])
 

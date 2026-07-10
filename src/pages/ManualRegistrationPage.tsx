@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Search, Save, RotateCcw, Printer, Pencil, Trash2 } from 'lucide-react'
-import { studentApi } from '../api/student'
+import { studentApi, studentToIdentity } from '../api/student'
 import { accesoDirectoApi } from '../api/acceso_directo'
 import { consumptionApi } from '../api/consumption'
 import { normalizeCedula } from '../utils/cedula'
@@ -17,13 +17,7 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
 import { Table, type ColumnDef } from '../components/ui/Table'
-
-const USER_TYPE_LABEL: Record<string, string> = {
-  STUDENT:        'Estudiante',
-  TEACHER:        'Docente',
-  ADMINISTRATIVE: 'Administrativo',
-  WORKER:         'Obrero',
-}
+import { userTypeLabel } from '../utils/labels'
 
 /** Fecha local de hoy en formato YYYY-MM-DD (sin desfase de zona horaria). */
 function todayISO(): string {
@@ -99,17 +93,15 @@ export function ManualRegistrationPage() {
 
   async function handleSave() {
     if (!student || !date) return
-    if (!student.is_acceso_directo || !student.acceso_directo_id) {
-      notify.error('Solo los usuarios con acceso directo pueden registrarse manualmente.')
-      return
-    }
     setSaving(true)
     setError(null)
     try {
-      await consumptionApi.registerManual({
-        date,
-        acceso_directo_id: student.acceso_directo_id,
-      })
+      // Si no es acceso directo, se envían sus datos para el alta al vuelo (Issue 2).
+      await consumptionApi.registerManual(
+        student.is_acceso_directo && student.acceso_directo_id
+          ? { date, acceso_directo_id: student.acceso_directo_id }
+          : { date, person: studentToIdentity(student) },
+      )
       notify.success(`Registro manual exitoso para ${student.name}`)
       handleClear()
       await refetchList()
@@ -195,7 +187,7 @@ export function ManualRegistrationPage() {
   }
 
   const isSuspended = student?.is_suspended ?? false
-  const canSave = !!student && !!date && !!student.is_acceso_directo
+  const canSave = !!student && !!date
 
   const orderOptions = [
     { value: 'document_id:asc',   label: 'Cédula (ascendente)'  },
@@ -225,7 +217,7 @@ export function ManualRegistrationPage() {
       key: 'user_type',
       header: 'Tipo',
       render: (_, row) => (
-        <Badge variant="info">{USER_TYPE_LABEL[row.user_type] ?? row.user_type}</Badge>
+        <Badge variant="info">{userTypeLabel(row.user_type)}</Badge>
       ),
     },
     {
@@ -316,7 +308,7 @@ export function ManualRegistrationPage() {
               </div>
             ) : (
               <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700">
-                Este usuario no tiene acceso directo y no puede registrarse manualmente.
+                Este usuario no tiene acceso directo. Se registrará su consumo y se dará de alta automáticamente.
               </div>
             )}
 

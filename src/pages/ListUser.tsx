@@ -17,15 +17,17 @@ import { UserFormModal } from '../components/UserFormModal'
 import type { RoleName } from '../types/user'
 
 const ROLE_LABEL: Record<RoleName, string> = {
-  SUPER_ADMIN: 'Super Admin',
-  ADMIN:       'Admin',
-  TAQUILLERO:  'Taquillero',
+  SUPER_ADMIN:    'Super Admin',
+  ADMIN:          'Admin',
+  TAQUILLERO:     'Taquillero',
+  ACCESO_DIRECTO: 'Acceso Directo',
 }
 
-const ROLE_VARIANT: Record<RoleName, 'info' | 'warning' | 'neutral'> = {
-  SUPER_ADMIN: 'info',
-  ADMIN:       'warning',
-  TAQUILLERO:  'neutral',
+const ROLE_VARIANT: Record<RoleName, 'info' | 'warning' | 'neutral' | 'success'> = {
+  SUPER_ADMIN:    'info',
+  ADMIN:          'warning',
+  TAQUILLERO:     'neutral',
+  ACCESO_DIRECTO: 'success',
 }
 
 export function ListUser() {

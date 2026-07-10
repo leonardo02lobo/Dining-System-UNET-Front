@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Search, ScanLine, CheckCircle2, XCircle } from 'lucide-react'
 import { normalizeCedula } from '../utils/cedula'
+import { useBarcodeScanner } from '../hooks/useBarcodeScanner'
 import { accesoDirectoApi } from '../api/acceso_directo'
 import { externalStudentApi, mapExternalToStudent } from '../api/externalStudent'
 import { consumptionApi } from '../api/consumption'
@@ -25,42 +26,16 @@ export function CheckConsumes() {
   const [error, setError] = useState<string | null>(null)
   const [searched, setSearched] = useState(false)
 
-  const lastKeyAtRef = useRef(0)
-  const bufferRef = useRef('')
-
   useEffect(() => {
     lunchSessionApi.today()
       .then((s) => setSession(s))
       .catch(() => setSession(null))
   }, [])
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.altKey || e.metaKey) return
-      const tag = (e.target as HTMLElement).tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return
-
-      const now = Date.now()
-      if (now - lastKeyAtRef.current > 60) bufferRef.current = ''
-
-      if (e.key === 'Enter') {
-        const scanned = bufferRef.current.trim()
-        if (scanned.length >= 6) {
-          setCedula(scanned)
-          void triggerSearch(scanned)
-        }
-        bufferRef.current = ''
-        lastKeyAtRef.current = now
-        return
-      }
-      if (e.key.length === 1) {
-        bufferRef.current += e.key
-        lastKeyAtRef.current = now
-      }
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
+  useBarcodeScanner((scanned) => {
+    setCedula(scanned)
+    void triggerSearch(scanned)
+  })
 
   async function triggerSearch(value: string) {
     const clean = normalizeCedula(value)
@@ -157,6 +132,7 @@ export function CheckConsumes() {
       {!loading && student && (
         <Card variant="outlined" padding="lg">
           <div className="flex flex-col items-start gap-6 sm:flex-row">
+            <Avatar name={student.name} src={student.avatar_url} shape="square" />
             <div className="flex flex-1 flex-col gap-4 text-sm">
               <div className="flex flex-row items-center gap-14">
                 <p className="w-48 text-xs uppercase tracking-wide text-slate-400">Documento</p>
@@ -195,7 +171,6 @@ export function CheckConsumes() {
                 </div>
               )}
             </div>
-            <Avatar name={student.name} src={student.avatar_url} shape="square" />
           </div>
         </Card>
       )}

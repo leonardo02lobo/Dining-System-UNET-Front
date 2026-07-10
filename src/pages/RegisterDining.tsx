@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Search, ScanLine, Ban } from 'lucide-react'
-import { studentApi } from '../api/student'
+import { studentApi, studentToIdentity } from '../api/student'
 import { lunchSessionApi } from '../api/lunchSession'
 import { consumptionApi } from '../api/consumption'
 import { sanctionApi } from '../api/sanction'
 import { normalizeCedula } from '../utils/cedula'
+import { useBarcodeScanner } from '../hooks/useBarcodeScanner'
 import type { Student } from '../types/user'
 import type { LunchSession } from '../types/lunchSession'
 import type { Sanction } from '../types/sanction'
@@ -18,9 +19,6 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { Avatar } from '../components/ui/Avatar'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
-
-const MIN_SCAN_LENGTH = 6
-const MAX_GAP_MS      = 60
 
 export function RegisterDining() {
   const { user } = useAuth()
@@ -39,9 +37,6 @@ export function RegisterDining() {
   const [suspendError,   setSuspendError]   = useState<string | null>(null)
   const [suspending,     setSuspending]     = useState(false)
 
-  const lastKeyAtRef = useRef(0)
-  const bufferRef    = useRef('')
-
   useEffect(() => {
     lunchSessionApi.today()
       .then((s) => setSession(s))
@@ -49,39 +44,10 @@ export function RegisterDining() {
   }, [])
 
   // ── Scanner USB: captura entrada rápida de teclado ──────────────
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.altKey || e.metaKey) return
-
-      // Si el foco está en un input/textarea, dejamos que escriban manualmente
-      const tag = (e.target as HTMLElement).tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return
-
-      const now     = Date.now()
-      const elapsed = now - lastKeyAtRef.current
-
-      if (elapsed > MAX_GAP_MS) bufferRef.current = ''
-
-      if (e.key === 'Enter') {
-        const scanned = bufferRef.current.trim()
-        if (scanned.length >= MIN_SCAN_LENGTH) {
-          setCedula(scanned)
-          void triggerSearch(scanned)
-        }
-        bufferRef.current    = ''
-        lastKeyAtRef.current = now
-        return
-      }
-
-      if (e.key.length === 1) {
-        bufferRef.current    += e.key
-        lastKeyAtRef.current  = now
-      }
-    }
-
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
+  useBarcodeScanner((scanned) => {
+    setCedula(scanned)
+    void triggerSearch(scanned)
+  })
 
   // ── Búsqueda (manual o por scanner) ─────────────────────────────
   async function triggerSearch(value: string) {
@@ -131,6 +97,8 @@ export function RegisterDining() {
         session_id:       session.id,
         is_manual:        false,
         acceso_directo_id: student.acceso_directo_id,
+        // Si no es acceso directo, se envían sus datos para el alta al vuelo (Issue 2).
+        person:           student.is_acceso_directo ? undefined : studentToIdentity(student),
       })
       notify.success(`Consumo registrado para ${student.name}`)
       setCedula('')
@@ -256,6 +224,14 @@ export function RegisterDining() {
         <Card variant="outlined" padding="lg">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
 
+            {/* Avatar + badge */}
+            <div className="flex flex-col items-center gap-3">
+              <Avatar name={student.name} src={student.avatar_url} shape="square" />
+              <Badge variant={isSuspended ? 'danger' : 'success'}>
+                {isSuspended ? 'Suspendido' : 'Activo'}
+              </Badge>
+            </div>
+
             {/* Campos */}
             <div className="flex flex-1 flex-col gap-4">
               <div className="flex flex-row items-center gap-14">
@@ -277,7 +253,7 @@ export function RegisterDining() {
                 </div>
               ) : (
                 <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700">
-                  Este usuario no tiene acceso directo
+                  Este usuario no tiene acceso directo. Se registrará su consumo y se dará de alta automáticamente.
                 </div>
               )}
 
@@ -305,20 +281,12 @@ export function RegisterDining() {
                 <Button
                   variant="primary"
                   loading={saving}
-                  disabled={isSuspended || noSession || !student.is_acceso_directo}
+                  disabled={isSuspended || noSession}
                   onClick={handleRegister}
                 >
                   Registrar Consumo
                 </Button>
               </div>
-            </div>
-
-            {/* Avatar + badge */}
-            <div className="flex flex-col items-center gap-3">
-              <Avatar name={student.name} src={student.avatar_url} shape="square" />
-              <Badge variant={isSuspended ? 'danger' : 'success'}>
-                {isSuspended ? 'Suspendido' : 'Activo'}
-              </Badge>
             </div>
           </div>
         </Card>

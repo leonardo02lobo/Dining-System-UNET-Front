@@ -12,6 +12,7 @@ import { SearchInput } from '../components/ui/SearchInput'
 import { Select } from '../components/ui/Select'
 import { Modal } from '../components/ui/Modal'
 import { AccesoDirectoFormModal } from '../components/AccesoDirectoFormModal'
+import { USER_TYPE_LABEL } from '../utils/labels'
 
 const STATUS_LABEL: Record<AccesoDirectoStatus, string> = {
   ACTIVE:    'Activo',
@@ -25,12 +26,6 @@ const STATUS_VARIANT: Record<AccesoDirectoStatus, 'success' | 'danger' | 'neutra
   INACTIVE:  'neutral',
 }
 
-const USER_TYPE_LABEL: Record<UserType, string> = {
-  STUDENT:        'Estudiante',
-  TEACHER:        'Docente',
-  ADMINISTRATIVE: 'Administrativo',
-  WORKER:         'Obrero',
-}
 
 const USER_TYPE_VARIANT: Record<UserType, 'info' | 'warning' | 'neutral' | 'success'> = {
   STUDENT:        'info',

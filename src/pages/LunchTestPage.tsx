@@ -15,7 +15,7 @@ import {
   buildIngredientFromTemplate,
   getRecalculationPreview,
   recalculateIngredients,
-} from '../data/mockLunch'
+} from '../utils/lunchRecalculation'
 import { notify } from '../utils/toast'
 import type { InventoryItem } from '../types/inventory'
 import type { LunchFormIngredient, LunchTemplateResponse, PreloadedLunch } from '../types/lunch'
@@ -93,6 +93,7 @@ export function LunchTestPage() {
   const [preloadedId, setPreloadedId] = useState<number | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<LunchFormIngredient | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<LunchFormIngredient | null>(null)
   const [error, setError] = useState('')
   const [pantry, setPantry] = useState<PantryItem[]>([])
   const [pantryLoading, setPantryLoading] = useState(false)
@@ -270,8 +271,13 @@ export function LunchTestPage() {
   }
 
   function handleDelete(item: LunchFormIngredient) {
-    if (!confirm(`¿Quitar "${item.ingredient_name}" del almuerzo?`)) return
-    setIngredients((prev) => prev.filter((i) => i.ingredient_id !== item.ingredient_id))
+    setDeleteTarget(item)
+  }
+
+  function confirmDelete() {
+    if (!deleteTarget) return
+    setIngredients((prev) => prev.filter((i) => i.ingredient_id !== deleteTarget.ingredient_id))
+    setDeleteTarget(null)
   }
 
   function handleApplyRecalculation() {
@@ -490,6 +496,29 @@ export function LunchTestPage() {
             fullWidth
           />
         </div>
+      </Modal>
+
+      <Modal
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="Quitar ingrediente"
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(null)}>
+              Cancelar
+            </Button>
+            <Button variant="danger" size="sm" onClick={confirmDelete}>
+              Quitar
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-600">
+          ¿Estás seguro de que deseas quitar{' '}
+          <span className="font-semibold text-slate-900">{deleteTarget?.ingredient_name}</span>{' '}
+          del almuerzo?
+        </p>
       </Modal>
     </div>
   )

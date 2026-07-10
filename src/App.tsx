@@ -15,6 +15,7 @@ import { LunchTestPage } from './pages/LunchTestPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { ManualRegistrationPage } from './pages/ManualRegistrationPage'
 import { PermissionsPage } from './pages/PermissionsPage'
+import { EmailTemplatePage } from './pages/EmailTemplatePage'
 import { LunchSessionPage } from './pages/LunchSessionPage'
 import { AccesoDirectoPage } from './pages/AccesoDirectoPage'
 import { GeneralInventoryPage } from './pages/GeneralInventoryPage'
@@ -39,6 +40,7 @@ export default function App() {
               <Route path="comedor/reporte" element={<ReportsPage />} />
               <Route path="comedor/registro-manual" element={<ManualRegistrationPage />} />
               <Route path="admin/permisos" element={<PermissionsPage />} />
+              <Route path="admin/plantilla-correo" element={<EmailTemplatePage />} />
               <Route path="inventario" element={<InventoryPage />} />
               <Route path="inventario/general" element={<GeneralInventoryPage />} />
               <Route path="inventario/reportes-consumo" element={<ConsumptionReportPage />} />
