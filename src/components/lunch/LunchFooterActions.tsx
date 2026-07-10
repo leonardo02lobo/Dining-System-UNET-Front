@@ -23,7 +23,7 @@ export function LunchFooterActions({
         type="button"
         onClick={onSave}
         disabled={saving}
-        className="inline-flex h-[45px] min-w-[200px] items-center justify-center gap-2.5 rounded-[10px] bg-[#03216a] px-6 text-[15px] font-bold text-white transition hover:bg-[#021a52] disabled:opacity-60"
+        className="inline-flex h-[45px] w-full sm:w-auto items-center justify-center gap-2.5 rounded-[10px] bg-[#03216a] px-6 text-[15px] font-bold text-white transition hover:bg-[#021a52] disabled:opacity-60"
       >
         <Save size={22} />
         {saving ? 'Guardando...' : 'Guardar'}
@@ -42,7 +42,7 @@ export function LunchFooterActions({
         type="button"
         onClick={onDownload}
         disabled={downloadDisabled}
-        className="inline-flex h-[45px] min-w-[200px] items-center justify-center gap-2.5 rounded-[10px] bg-[#03216a] px-6 text-[15px] font-bold text-white transition hover:bg-[#021a52] disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex h-[45px] w-full sm:w-auto items-center justify-center gap-2.5 rounded-[10px] bg-[#03216a] px-6 text-[15px] font-bold text-white transition hover:bg-[#021a52] disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Download size={22} />
         Descargar lista

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { Header } from '../components/layout/Header'
 import { Footer } from '../components/layout/Footer'
@@ -20,15 +21,30 @@ function HomeWatermark() {
 }
 
 export function Index() {
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-white">
-      <Header isLogin={true}/>
+      <Header isLogin={true} onMenuClick={() => setSidebarOpen((v) => !v)} />
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <aside className="w-52 flex-shrink-0 overflow-y-auto border-r border-slate-300 bg-white">
-          <NavBar />
+        {/* Backdrop del drawer (solo móvil) */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+
+        <aside
+          className={`fixed inset-y-0 left-0 z-40 w-64 transform overflow-y-auto border-r border-slate-300 bg-white transition-transform duration-200 lg:static lg:z-auto lg:w-52 lg:translate-x-0 ${
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
+          <NavBar onNavigate={() => setSidebarOpen(false)} />
         </aside>
 
-        <main className="relative min-h-0 flex-1 overflow-y-auto bg-slate-50 p-6">
+        <main className="relative min-h-0 flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-6">
           <HomeWatermark />
 
           <div className="relative z-10">

@@ -140,7 +140,7 @@ export function VerifyAccesoDirectoPage() {
                     src={popup.data.photo_url}
                     alt={`${popup.data.first_name} ${popup.data.last_name}`}
                     className={[
-                      'mx-auto h-36 w-36 rounded-full border-4 object-cover',
+                      'mx-auto h-24 w-24 sm:h-36 sm:w-36 rounded-full border-4 object-cover',
                       isGranted ? 'border-green-500' : 'border-red-500',
                     ].join(' ')}
                   />
@@ -150,7 +150,7 @@ export function VerifyAccesoDirectoPage() {
                   <XCircle size={88} className="mx-auto text-red-500" />
                 )}
 
-                <p className="mt-4 text-3xl font-bold text-slate-800">
+                <p className="mt-4 text-2xl sm:text-3xl font-bold text-slate-800">
                   {popup.data.first_name} {popup.data.last_name}
                 </p>
                 <p className="mt-1 text-base text-slate-500">
@@ -159,7 +159,7 @@ export function VerifyAccesoDirectoPage() {
 
                 <p
                   className={[
-                    'mt-5 text-2xl font-extrabold uppercase tracking-wide',
+                    'mt-5 text-xl sm:text-2xl font-extrabold uppercase tracking-wide',
                     isGranted ? 'text-green-600' : 'text-red-600',
                   ].join(' ')}
                 >
@@ -192,12 +192,12 @@ export function VerifyAccesoDirectoPage() {
             ) : (
               <>
                 <XCircle size={88} className="mx-auto text-red-500" />
-                <p className="mt-4 text-3xl font-bold text-slate-800">No encontrado</p>
+                <p className="mt-4 text-2xl sm:text-3xl font-bold text-slate-800">No encontrado</p>
                 <p className="mt-2 text-base text-slate-500">
                   La cédula <span className="font-mono">{popup.query}</span> no está
                   registrada como acceso directo.
                 </p>
-                <p className="mt-5 text-2xl font-extrabold uppercase tracking-wide text-red-600">
+                <p className="mt-5 text-xl sm:text-2xl font-extrabold uppercase tracking-wide text-red-600">
                   Acceso denegado
                 </p>
               </>

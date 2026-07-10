@@ -69,7 +69,7 @@ export function LoginPage() {
         <Header />
       </div>
 
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 pt-20">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 pt-24 sm:pt-40 lg:pt-52">
         <div className="w-full max-w-sm">
           <Card variant="elevated" padding="none" className="overflow-hidden">
             <div className="flex flex-col items-center gap-3 border-b border-slate-100 bg-white px-8 py-7">
