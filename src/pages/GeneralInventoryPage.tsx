@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Download } from 'lucide-react'
 import { inventoryApi } from '../api/inventory'
 import { InventoryFilters } from '../components/inventory/InventoryFilters'
 import { InventoryOverviewTable } from '../components/inventory/InventoryOverviewTable'
 import { InventorySummaryPanel } from '../components/inventory/InventorySummaryPanel'
+import { Button } from '../components/ui/Button'
+import { downloadBlob } from '../utils/downloadBlob'
 import type { Ingredient, InventoryItem, StockAlert } from '../types/inventory'
 
 function formatDate(date: Date) {
@@ -47,6 +50,8 @@ export function GeneralInventoryPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [itemsLoading, setItemsLoading] = useState(false)
   const [itemsLoadError, setItemsLoadError] = useState('')
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState('')
 
   const loadItems = useCallback(async () => {
     setItemsLoading(true)
@@ -65,6 +70,22 @@ export function GeneralInventoryPage() {
   useEffect(() => {
     loadItems()
   }, [loadItems])
+
+  const handleDownloadPdf = useCallback(async () => {
+    if (exporting) return
+
+    setExporting(true)
+    setExportError('')
+
+    try {
+      const pdf = await inventoryApi.exportInventoryPdf()
+      downloadBlob(pdf, 'inventario-general.pdf')
+    } catch {
+      setExportError('No se pudo generar el PDF del inventario. Intenta de nuevo.')
+    } finally {
+      setExporting(false)
+    }
+  }, [exporting])
 
   const categories = useMemo(
     () => [...new Set(items.map((item) => item.category))].sort(),
@@ -86,7 +107,23 @@ export function GeneralInventoryPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-bold text-black sm:text-3xl">Inventario</h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-bold text-black sm:text-3xl">Inventario</h1>
+        <Button
+          variant="secondary"
+          leftIcon={<Download className="h-4 w-4" />}
+          loading={exporting}
+          onClick={handleDownloadPdf}
+        >
+          Descargar PDF
+        </Button>
+      </div>
+
+      {exportError && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {exportError}
+        </div>
+      )}
 
       <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
         <div className="min-w-0 flex-1 space-y-4">
