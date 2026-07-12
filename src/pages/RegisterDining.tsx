@@ -23,8 +23,6 @@ import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
 import { SedeSelector } from '../components/SedeSelector'
 
-const MIN_SCAN_LENGTH = 6
-const MAX_GAP_MS      = 60
 // Única clave persistida en localStorage del proyecto: recuerda la sede elegida
 // por el taquillero entre sesiones del navegador (no es información sensible).
 const SEDE_STORAGE_KEY = 'selected_sede_id'
@@ -349,8 +347,7 @@ export function RegisterDining() {
                 <Button
                   variant="primary"
                   loading={saving}
-                  disabled={isSuspended || registrationBlocked || !student.is_acceso_directo}
-                  disabled={isSuspended || noSession}
+                  disabled={isSuspended || registrationBlocked}
                   onClick={handleRegister}
                 >
                   Registrar Consumo
