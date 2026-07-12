@@ -23,4 +23,6 @@ export const inventoryApi = {
   updateItem: (itemId: number, data: InventoryItemUpdatePayload) =>
     apiClient.patch<InventoryItem>(`${ITEM_PATH}/${itemId}`, data),
   deleteItem: (itemId: number) => apiClient.delete<void>(`${ITEM_PATH}/${itemId}`),
+  exportInventoryPdf: () =>
+    apiClient.getBlob('/inventory/export/pdf', 'application/pdf'),
 }
