@@ -11,6 +11,7 @@ export const ROUTE_ACCESS: Record<string, RoleName[]> = {
   '/suspendStudent':           ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'],
   '/suspendidos':              ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'],
   '/accesos_directos':         ['SUPER_ADMIN', 'ADMIN'],
+  '/gente-externa':            ['SUPER_ADMIN', 'ADMIN'],
   '/usuarios':                 ['SUPER_ADMIN', 'ADMIN'],
   '/inventario':               ['SUPER_ADMIN', 'ADMIN'],
   '/inventario/general':       ['SUPER_ADMIN', 'ADMIN'],

@@ -30,6 +30,7 @@ const navGroups: NavGroup[] = [
       { to: '/suspendidos',              label: 'Usuarios Suspendidos' },
       { to: '/verificar-acceso-directo',  label: 'Verificar Acceso Directo' },
       { to: '/accesos_directos',         label: 'Accesos Directos'         },
+      { to: '/gente-externa',            label: 'Gente Externa'            },
       { to: '/usuarios',                 label: 'Lista de Usuario'       },
     ],
   },
