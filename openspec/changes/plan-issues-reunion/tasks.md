@@ -25,7 +25,7 @@
 
 ## 3. Ola 2 — Pantalla "Crear servicio de alimentación"
 
-- [ ] 3.1 Proponer `fe-crear-servicio-tablas-50-50` (#9) tras 2.2 (misma pantalla) — requiere 1.5
+- [x] 3.1 Proponer `fe-crear-servicio-tablas-50-50` (#9) tras 2.2 (misma pantalla) — requiere 1.5 ✅ propuesta e implementada (verificación de recálculo en vivo/responsivo pendiente)
 
 ## 4. Ola 3 — Sesiones / reportes / menú (contrato-primero)
 
