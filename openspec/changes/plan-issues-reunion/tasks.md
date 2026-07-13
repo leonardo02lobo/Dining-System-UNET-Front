@@ -18,10 +18,10 @@
 ## 2. Ola 1 — Quick wins Frontend (sin gate de backend)
 
 - [x] 2.1 Proponer `fe-inventario-general-pdf` (#8) — botón PDF sobre `GET /inventory/export/pdf` en `GeneralInventoryPage` ✅ propuesta y validada
-- [ ] 2.2 Proponer `fe-rename-crear-servicio-alimentacion` (#13) — requiere 1.9
-- [ ] 2.3 Proponer `fe-comedor-vistas-sin-scroll` (#1) — `CheckConsumes`/`RegisterDining`
-- [ ] 2.4 Proponer `fe-inventario-resumen-70-30` (#6) — requiere 1.1
-- [ ] 2.5 Proponer `fe-registro-atajo-arrowdown` (#2) — conviviendo con `useBarcodeScanner`
+- [x] 2.2 Proponer `fe-rename-crear-servicio-alimentacion` (#13) — requiere 1.9 ✅ propuesta e implementada
+- [x] 2.3 Proponer `fe-comedor-vistas-sin-scroll` (#1) — `CheckConsumes`/`RegisterDining` ✅ propuesta e implementada (densificación segura; verificación visual a resolución objetivo pendiente)
+- [x] 2.4 Proponer `fe-inventario-resumen-70-30` (#6) — requiere 1.1 ✅ propuesta e implementada
+- [x] 2.5 Proponer `fe-registro-atajo-arrowdown` (#2) — conviviendo con `useBarcodeScanner` ✅ propuesta e implementada
 
 ## 3. Ola 2 — Pantalla "Crear servicio de alimentación"
 
