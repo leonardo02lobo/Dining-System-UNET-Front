@@ -9,6 +9,7 @@ import type {
   LunchTemplateCreatePayload,
   LunchTemplateResponse,
   LunchTemplateUpdatePayload,
+  LunchUpdatePayload,
 } from '../types/lunch'
 
 const LUNCH_PATH = '/lunches'
@@ -20,7 +21,6 @@ export interface CreateConfirmedLunchParams {
   platesQuantity: number
   basePlatesQuantity: number
   ingredients: LunchIngredientPayload[]
-  saveAsTemplate: boolean
 }
 
 export type CreateConfirmedLunchResult =
@@ -36,6 +36,8 @@ export const lunchApi = {
     apiClient.post<LunchResponse>(LUNCH_PATH, data),
   getLunch: (lunchId: number) =>
     apiClient.get<LunchResponse>(`${LUNCH_PATH}/${lunchId}`),
+  updateLunch: (lunchId: number, data: LunchUpdatePayload) =>
+    apiClient.patch<LunchResponse>(`${LUNCH_PATH}/${lunchId}`, data),
   addLunchIngredient: (lunchId: number, data: LunchIngredientPayload) =>
     apiClient.post<LunchIngredientResponse>(`${LUNCH_PATH}/${lunchId}/ingredients`, data),
   validateStock: (lunchId: number) =>
@@ -91,15 +93,9 @@ export const lunchApi = {
       return { status: 'insufficient_stock', items: stockValidation.items }
     }
 
+    // El backend genera/actualiza SIEMPRE la plantilla al confirmar el almuerzo
+    // (upsert por nombre). El frontend ya no crea la plantilla manualmente (#11).
     await lunchApi.confirmLunch(createdLunch.id, recalculatedLunch)
-
-    if (params.saveAsTemplate) {
-      await lunchApi.createLunchTemplate({
-        ...payload,
-        lunchId: createdLunch.id,
-        ingredients: params.ingredients,
-      })
-    }
 
     return { status: 'confirmed', lunch: createdLunch }
   },
