@@ -39,6 +39,7 @@ const navGroups: NavGroup[] = [
       { to: '/inventario/general',      label: 'Inventario General'    },
       { to: '/inventario/reportes-consumo', label: 'Reportes de Consumo' },
       { to: '/inventario/crear',        label: 'Crear servicio de alimentación' },
+      { to: '/inventario/plantillas',   label: 'Plantillas'            },
       { to: '/inventario/pruebas-almuerzo', label: 'Pruebas de Almuerzo' },
     ],
   },

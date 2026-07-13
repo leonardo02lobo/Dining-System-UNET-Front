@@ -15,6 +15,7 @@ export const ROUTE_ACCESS: Record<string, RoleName[]> = {
   '/inventario/general':       ['SUPER_ADMIN', 'ADMIN'],
   '/inventario/reportes-consumo': ['SUPER_ADMIN', 'ADMIN'],
   '/inventario/crear':         ['SUPER_ADMIN', 'ADMIN'],
+  '/inventario/plantillas':    ['SUPER_ADMIN', 'ADMIN'],
   '/inventario/pruebas-almuerzo': ['SUPER_ADMIN', 'ADMIN'],
   '/auditoria':                ['SUPER_ADMIN', 'ADMIN'],
   '/admin/acceso-estudiantes': ['SUPER_ADMIN', 'ADMIN'],

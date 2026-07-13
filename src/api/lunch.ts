@@ -8,6 +8,7 @@ import type {
   LunchStockValidationResponse,
   LunchTemplateCreatePayload,
   LunchTemplateResponse,
+  LunchTemplateUpdatePayload,
 } from '../types/lunch'
 
 const LUNCH_PATH = '/lunches'
@@ -43,8 +44,14 @@ export const lunchApi = {
     apiClient.post<LunchResponse>(`${LUNCH_PATH}/${lunchId}/confirm`, data),
   listLunchTemplates: () =>
     apiClient.get<LunchTemplateResponse[]>(TEMPLATE_PATH),
+  getLunchTemplate: (templateId: number) =>
+    apiClient.get<LunchTemplateResponse>(`${TEMPLATE_PATH}/${templateId}`),
   createLunchTemplate: (data: LunchTemplateCreatePayload) =>
     apiClient.post<LunchTemplateResponse>(TEMPLATE_PATH, data),
+  updateLunchTemplate: (templateId: number, data: LunchTemplateUpdatePayload) =>
+    apiClient.patch<LunchTemplateResponse>(`${TEMPLATE_PATH}/${templateId}`, data),
+  deleteLunchTemplate: (templateId: number) =>
+    apiClient.delete<void>(`${TEMPLATE_PATH}/${templateId}`),
 
   /**
    * Composed flow to create, recalculate, stock-check and confirm a lunch in a
