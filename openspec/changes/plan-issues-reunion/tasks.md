@@ -29,12 +29,12 @@
 
 ## 4. Ola 3 — Sesiones / reportes / menú (contrato-primero)
 
-- [ ] 4.1 Verificar que la gemela backend `be-consumptions-acceso-directo` (#3) está propuesta y su contrato fijado — requiere 1.2
-- [ ] 4.2 Proponer `fe-entrantes-filtro-acceso-directo` (#3) tras 4.1
-- [ ] 4.3 Verificar que `be-lunch-sessions-rango-y-pdf` (#4) está propuesta y su contrato fijado — requiere 1.3
-- [ ] 4.4 Proponer `fe-reportes-historial-sesiones` (#4) tras 4.3
-- [ ] 4.5 Verificar que `be-lunch-menu-del-dia` (#14) está propuesta y su contrato fijado — requiere 1.4
-- [ ] 4.6 Proponer `fe-sesion-menu-del-dia` (#14) tras 4.4 y 4.5
+- [x] 4.1 Gemela backend `be-consumptions-acceso-directo` (#3) ✅ implementada (auditoría 2026-07-13): `GET /consumptions/?is_priority`
+- [x] 4.2 `fe-entrantes-filtro-acceso-directo` (#3) ✅ propuesta e implementada
+- [x] 4.3 Gemela backend `be-lunch-sessions-rango-y-pdf` (#4) ✅ implementada; PDF de sesión delegado al FE
+- [x] 4.4 `fe-reportes-historial-sesiones` (#4) ✅ propuesta e implementada (nueva SessionHistoryPage)
+- [x] 4.5 Gemela backend `be-lunch-menu-del-dia` (#14) ✅ implementada: `GET /lunches?date=`
+- [x] 4.6 `fe-sesion-menu-del-dia` (#14) ✅ propuesta e implementada (panel Menú del día)
 
 ## 5. Ola 4 — Almuerzos y plantillas
 
