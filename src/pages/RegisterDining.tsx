@@ -198,6 +198,25 @@ export function RegisterDining() {
   const canSuspend = !!student?.is_acceso_directo && activeSanction === null
   const selectedSede = sedes.find((s) => s.id === sedeId) ?? null
 
+  // Atajo de teclado: ArrowDown dispara "Registrar consumo" sin ratón (issue #2).
+  // Convive con useBarcodeScanner (que finaliza con Enter) y respeta la navegación
+  // por flechas de select/textarea.
+  useEffect(() => {
+    const canRegister = !!student && !isSuspended && !registrationBlocked && !saving
+    if (!canRegister || suspendOpen) return
+
+    function onArrowDownRegister(e: KeyboardEvent) {
+      if (e.key !== 'ArrowDown') return
+      const tag = (e.target as HTMLElement | null)?.tagName
+      if (tag === 'SELECT' || tag === 'TEXTAREA') return
+      e.preventDefault()
+      void handleRegister()
+    }
+
+    window.addEventListener('keydown', onArrowDownRegister)
+    return () => window.removeEventListener('keydown', onArrowDownRegister)
+  }, [student, isSuspended, registrationBlocked, saving, suspendOpen])
+
   return (
     <div>
       <PageHeader
@@ -243,7 +262,7 @@ export function RegisterDining() {
       )}
 
       {/* ── Barra de búsqueda ──────────────────────────────────── */}
-      <Card variant="outlined" padding="md" className="mb-6">
+      <Card variant="outlined" padding="md" className="mb-4">
         <div className="flex items-end gap-3">
           <Input
             id="cedula-register"
@@ -287,8 +306,8 @@ export function RegisterDining() {
 
       {/* ── Tarjeta del estudiante ─────────────────────────────── */}
       {!loading && student && (
-        <Card variant="outlined" padding="lg">
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
+        <Card variant="outlined" padding="md">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
 
             {/* Avatar + badge */}
             <div className="flex flex-col items-center gap-3">
@@ -299,18 +318,20 @@ export function RegisterDining() {
             </div>
 
             {/* Campos */}
-            <div className="flex flex-1 flex-col gap-4">
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-6">
-                <p className="w-full sm:w-48 text-xs uppercase tracking-wide text-slate-400">Documento</p>
-                <Input value={student.cedula}    readOnly fullWidth />
-              </div>
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-6">
-                <p className="w-full sm:w-48 text-xs uppercase tracking-wide text-slate-400">Nombre</p>
-                <Input value={student.name}      readOnly fullWidth />
-              </div>
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-6">
-                <p className="w-full sm:w-48 text-xs uppercase tracking-wide text-slate-400">Email</p>
-                <Input value={student.email ?? '—'} readOnly fullWidth />
+            <div className="flex flex-1 flex-col gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="flex flex-col gap-1">
+                  <p className="text-xs uppercase tracking-wide text-slate-400">Documento</p>
+                  <Input value={student.cedula}    readOnly fullWidth />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <p className="text-xs uppercase tracking-wide text-slate-400">Nombre</p>
+                  <Input value={student.name}      readOnly fullWidth />
+                </div>
+                <div className="flex flex-col gap-1 sm:col-span-2">
+                  <p className="text-xs uppercase tracking-wide text-slate-400">Email</p>
+                  <Input value={student.email ?? '—'} readOnly fullWidth />
+                </div>
               </div>
 
               {student.is_acceso_directo ? (

@@ -83,7 +83,7 @@ export function CheckConsumes() {
         </div>
       )}
 
-      <Card variant="outlined" padding="md" className="mb-6">
+      <Card variant="outlined" padding="md" className="mb-4">
         <div className="flex items-end gap-3">
           <Input
             id="cedula"
@@ -129,27 +129,29 @@ export function CheckConsumes() {
       )}
 
       {!loading && student && (
-        <Card variant="outlined" padding="lg">
-          <div className="flex flex-col items-start gap-6 sm:flex-row">
+        <Card variant="outlined" padding="md">
+          <div className="flex flex-col items-start gap-4 sm:flex-row">
             <Avatar name={student.name} src={student.avatar_url} shape="square" />
-            <div className="flex flex-1 flex-col gap-4 text-sm">
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-6">
-                <p className="w-full sm:w-48 text-xs uppercase tracking-wide text-slate-400">Documento</p>
-                <Input value={student.cedula} readOnly fullWidth />
-              </div>
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-6">
-                <p className="w-full sm:w-48 text-xs uppercase tracking-wide text-slate-400">Nombre</p>
-                <Input value={student.name} readOnly fullWidth />
-              </div>
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-6">
-                <p className="w-full sm:w-48 text-xs uppercase tracking-wide text-slate-400">Email</p>
-                <Input value={student.email ?? '—'} readOnly fullWidth />
-              </div>
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-6">
-                <p className="w-full sm:w-48 text-xs uppercase tracking-wide text-slate-400">Estado</p>
-                <Badge variant={student.is_suspended ? 'danger' : 'success'}>
-                  {student.is_suspended ? 'Suspendido' : 'Activo'}
-                </Badge>
+            <div className="flex flex-1 flex-col gap-3 text-sm">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="flex flex-col gap-1">
+                  <p className="text-xs uppercase tracking-wide text-slate-400">Documento</p>
+                  <Input value={student.cedula} readOnly fullWidth />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <p className="text-xs uppercase tracking-wide text-slate-400">Nombre</p>
+                  <Input value={student.name} readOnly fullWidth />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <p className="text-xs uppercase tracking-wide text-slate-400">Email</p>
+                  <Input value={student.email ?? '—'} readOnly fullWidth />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <p className="text-xs uppercase tracking-wide text-slate-400">Estado</p>
+                  <Badge variant={student.is_suspended ? 'danger' : 'success'}>
+                    {student.is_suspended ? 'Suspendido' : 'Activo'}
+                  </Badge>
+                </div>
               </div>
               {checkResult !== null && (
                 <div className={`flex items-center gap-3 rounded-md border px-4 py-3 text-sm ${checkResult.has_consumed_today
