@@ -21,6 +21,7 @@ import { LunchSessionPage } from './pages/LunchSessionPage'
 import { AccesoDirectoPage } from './pages/AccesoDirectoPage'
 import { GeneralInventoryPage } from './pages/GeneralInventoryPage'
 import { ConsumptionReportPage } from './pages/ConsumptionReportPage'
+import { SessionHistoryPage } from './pages/SessionHistoryPage'
 import { VerifyAccesoDirectoPage } from './pages/VerifyAccesoDirectoPage'
 import { SedesPage } from './pages/SedesPage'
 import { SuspendedListPage } from './pages/SuspendedListPage'
@@ -40,6 +41,7 @@ export default function App() {
               <Route path="comedor/consultar" element={<CheckConsumes />} />
               <Route path="comedor/registrar" element={<RegisterDining />} />
               <Route path="comedor/reporte" element={<ReportsPage />} />
+              <Route path="comedor/historial" element={<SessionHistoryPage />} />
               <Route path="comedor/registro-manual" element={<ManualRegistrationPage />} />
               <Route path="admin/permisos" element={<PermissionsPage />} />
               <Route path="admin/acceso-estudiantes" element={<StudentAccessPage />} />

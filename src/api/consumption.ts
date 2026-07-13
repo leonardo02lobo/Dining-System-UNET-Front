@@ -40,10 +40,19 @@ export interface UserConsumptionStats {
 export const consumptionApi = {
   register: (data: ConsumptionCreate)    => apiClient.post<Consumption>('/consumptions/', data),
   check:    (accesoDirectoId: number)    => apiClient.get<ConsumptionCheckResult>(`/consumptions/check/${accesoDirectoId}`),
-  list:     (params?: { acceso_directo_id?: number; session_id?: number }) => {
+  list:     (params?: {
+    acceso_directo_id?: number
+    session_id?: number
+    from_date?: string
+    to_date?: string
+    is_priority?: boolean
+  }) => {
     const p = new URLSearchParams()
     if (params?.acceso_directo_id) p.set('acceso_directo_id', String(params.acceso_directo_id))
     if (params?.session_id)     p.set('session_id', String(params.session_id))
+    if (params?.from_date)      p.set('from_date', params.from_date)
+    if (params?.to_date)        p.set('to_date', params.to_date)
+    if (params?.is_priority)    p.set('is_priority', 'true')
     const qs = p.toString()
     return apiClient.get<PaginatedConsumptions>(`/consumptions/${qs ? `?${qs}` : ''}`)
   },

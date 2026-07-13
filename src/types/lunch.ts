@@ -88,7 +88,7 @@ export interface LunchResponse {
   createdById: number
   createdAt: string
   updatedAt: string
-  ingredients: unknown[]
+  ingredients: LunchIngredientResponse[]
 }
 
 export interface LunchTemplateResponse {

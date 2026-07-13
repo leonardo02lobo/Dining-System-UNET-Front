@@ -5,6 +5,7 @@ export const ROUTE_ACCESS: Record<string, RoleName[]> = {
   '/comedor/consultar':        ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'],
   '/comedor/registrar':        ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'],
   '/comedor/reporte':          ['SUPER_ADMIN', 'ADMIN'],
+  '/comedor/historial':        ['SUPER_ADMIN', 'ADMIN'],
   '/comedor/registro-manual':  ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'],
   '/comedor/sesion':           ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'],
   '/suspendStudent':           ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'],

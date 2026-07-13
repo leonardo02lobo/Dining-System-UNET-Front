@@ -28,8 +28,10 @@ export type CreateConfirmedLunchResult =
   | { status: 'insufficient_stock'; items: LunchStockValidationItem[] }
 
 export const lunchApi = {
-  listLunches: () =>
-    apiClient.get<LunchResponse[]>(LUNCH_PATH),
+  listLunches: (params?: { date?: string }) => {
+    const qs = params?.date ? `?date=${encodeURIComponent(params.date)}` : ''
+    return apiClient.get<LunchResponse[]>(`${LUNCH_PATH}${qs}`)
+  },
   createLunch: (data: LunchCreatePayload) =>
     apiClient.post<LunchResponse>(LUNCH_PATH, data),
   getLunch: (lunchId: number) =>

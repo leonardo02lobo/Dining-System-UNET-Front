@@ -24,6 +24,7 @@ const navGroups: NavGroup[] = [
       { to: '/comedor/consultar',        label: 'Consultar Consumo'   },
       { to: '/comedor/registrar',        label: 'Registro al Comedor' },
       { to: '/comedor/reporte',          label: 'Reporte de Comedor'  },
+      { to: '/comedor/historial',        label: 'Historial de Sesiones' },
       { to: '/comedor/registro-manual',  label: 'Registro Manual'     },
       { to: '/suspendStudent',           label: 'Suspender Usuario'   },
       { to: '/suspendidos',              label: 'Usuarios Suspendidos' },
