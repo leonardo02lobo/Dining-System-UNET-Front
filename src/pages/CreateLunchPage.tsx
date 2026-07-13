@@ -540,7 +540,7 @@ export function CreateLunchPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Crear Almuerzo" />
+      <PageHeader title="Crear servicio de alimentación" />
 
       <PreloadedLunchBar
         options={preloadedTemplates}
