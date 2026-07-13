@@ -125,8 +125,8 @@ export function GeneralInventoryPage() {
         </div>
       )}
 
-      <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
-        <div className="min-w-0 flex-1 space-y-4">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[7fr_3fr] xl:items-start">
+        <div className="min-w-0 space-y-4">
           <InventoryFilters
             search={search}
             onSearchChange={setSearch}

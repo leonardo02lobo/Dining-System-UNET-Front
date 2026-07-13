@@ -38,7 +38,7 @@ export function InventorySummaryPanel({ items, alerts }: InventorySummaryPanelPr
   }, [items])
 
   return (
-    <aside className="w-full flex-shrink-0 xl:w-[267px]">
+    <aside className="w-full">
       <div className="rounded-[10px] bg-[#d9d9d9] p-3">
         <div className="mb-3 flex items-center gap-2 px-1">
           <ClipboardList size={28} className="text-slate-800" />
