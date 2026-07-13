@@ -6,11 +6,14 @@ metadata:
 ---
 
 ## Ubicación del backend
-`/home/frankly-bautista/Documentos/Servicio_Comunitario/Dining-System-UNET-Backend`
+`/home/leonardo/Documentos/Project/Servicio comunitario/Dining-System-UNET-Backend`
+(ruta observada en máquinas distintas entre sesiones; verificar cwd/entorno si no coincide)
 
 ## Stack y versión
 - FastAPI, SQLAlchemy ORM, Pydantic v2, Alembic, PostgreSQL
-- Puerto por defecto: **8000** (config) pero doc externa dice 8001; verificar `.env` activo
+- `app/core/config.py` define `PORT: int = 8000` por defecto, pero el CLAUDE.md del
+  frontend y `.env.example` apuntan a 8001 — confirmar el valor real de `.env` activo
+  antes de asumir cualquiera de los dos.
 
 ## Estructura de capas
 ```
@@ -73,3 +76,32 @@ api/index.py           ← entry point para Vercel (re-exporta app)
 
 ## Roles
 - SUPER_ADMIN, ADMIN, TAQUILLERO, ACCESO_DIRECTO (valor DB: "BENEFICIARIO")
+
+## Módulos adicionales confirmados en auditoría 2026-07-13 (ver [[audit-olas-3-7-issues-reunion]])
+- `app/api/v1/endpoints/`: además de lo listado arriba, existen `email_settings.py`,
+  `email_templates.py`, `external_people.py`, `consumption_reports.py`, `sanctions.py`,
+  `lunches.py` (incluye `templates_router` para `/lunch-templates`).
+- `app/api/v1/router.py` YA NO tiene imports duplicados (contradice hallazgo previo del
+  2026-06-28) — es un único bloque limpio de imports; no reintroducir el patrón duplicado.
+- Persona externa: tabla `external_people` (modelo `ExternalPerson`, enum
+  `ExternalPersonType` JUBILADO/EXTERNO) paralela a `beneficiaries`. `Consumption` tiene
+  `external_person_id` (FK, nullable) además de `beneficiary_id` (ahora nullable), con
+  CHECK `ck_consumption_one_person` (XOR) y UNIQUE por sesión/día para externos.
+- `Lunch` y `LunchSession` NO tienen FK entre sí: se asocian implícitamente por
+  `Lunch.date == LunchSession.date`. `GET /lunches?date=` es el mecanismo de "menú del día".
+- `Lunch.status` (`DRAFT`/`CONFIRMED`): solo `DRAFT` es editable; `_ensure_editable()` en
+  `app/api/v1/endpoints/lunches.py` bloquea con 409 edición/borrado de almuerzo e
+  ingredientes cuando `CONFIRMED`.
+- `confirm_lunch()` en `app/crud/lunch.py` llama `upsert_template_from_lunch()` SIEMPRE
+  (no opcional) dentro de la misma transacción — upsert de `LunchTemplate` por nombre.
+- `StockMovement.entry_date` (Date, nullable) persiste la fecha de ingreso real del
+  insumo; `POST /inventory/items/{id}/stock/increase` la acepta vía `StockChange.entry_date`
+  (default: hoy si se omite; rechaza fechas futuras).
+- `EmailSettings` (fila única, tabla `email_settings`): `from_name`/`from_address`/`cc`.
+  `GET`/`PUT /email-settings` protegidos SUPER_ADMIN. `crud/email_settings.get_or_default()`
+  cae a `settings.EMAIL_FROM_NAME/EMAIL_FROM_ADDRESS/DECANATO_NOTIFY_ADDRESS` si no hay fila.
+  `services/email.py::notify_sanction` ya usa estos valores persistidos.
+- `ConsumptionResponse` embebe datos de persona (nombre/apellido/cédula/carrera) y
+  `is_priority` directamente en cada fila (evita N+1 en el frontend); acepta filtro
+  `is_priority` además de `session_id`/`from_date`/`to_date` en `GET /consumptions/`.
+  Envelope `{total, items}` en todos los listados paginados del proyecto.
