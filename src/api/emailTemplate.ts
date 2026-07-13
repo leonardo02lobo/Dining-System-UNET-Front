@@ -18,3 +18,23 @@ export const emailTemplateApi = {
   updateSanction: (data: EmailTemplateUpdate) =>
     apiClient.put<EmailTemplate>('/email-templates/sanction', data),
 }
+
+/** Configuración del emisor y CC del correo (#5). */
+export interface EmailSettings {
+  from_name: string | null
+  from_address: string | null
+  cc: string | null
+  updated_at?: string | null
+}
+
+export interface EmailSettingsUpdate {
+  from_name: string
+  from_address: string
+  /** Lista de correos en copia separada por comas (opcional). */
+  cc?: string | null
+}
+
+export const emailSettingsApi = {
+  get: () => apiClient.get<EmailSettings>('/email-settings'),
+  update: (data: EmailSettingsUpdate) => apiClient.put<EmailSettings>('/email-settings', data),
+}

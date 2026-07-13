@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Save, Search, Mail } from 'lucide-react'
-import { emailTemplateApi } from '../api/emailTemplate'
+import { emailTemplateApi, emailSettingsApi } from '../api/emailTemplate'
 import { accesoDirectoApi } from '../api/acceso_directo'
 import type { AccesoDirecto } from '../types/acceso_directo'
 import { normalizeCedula } from '../utils/cedula'
@@ -19,6 +19,51 @@ export function EmailTemplatePage() {
   const [placeholders, setPlaceholders] = useState<string[]>([])
   const [loadingTpl,   setLoadingTpl]   = useState(true)
   const [savingTpl,    setSavingTpl]    = useState(false)
+
+  // ── Configuración del emisor y CC del correo (#5) ─────────────────
+  const [fromName,     setFromName]     = useState('')
+  const [fromAddress,  setFromAddress]  = useState('')
+  const [cc,           setCc]           = useState('')
+  const [loadingCfg,   setLoadingCfg]   = useState(true)
+  const [savingCfg,    setSavingCfg]    = useState(false)
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const cfg = await emailSettingsApi.get()
+        setFromName(cfg.from_name ?? '')
+        setFromAddress(cfg.from_address ?? '')
+        setCc(cfg.cc ?? '')
+      } catch (err: any) {
+        notify.error(err.message ?? 'Error al cargar la configuración del correo')
+      } finally {
+        setLoadingCfg(false)
+      }
+    })()
+  }, [])
+
+  async function handleSaveSettings() {
+    if (!fromName.trim() || !fromAddress.trim()) {
+      notify.error('El nombre y el correo del emisor son obligatorios.')
+      return
+    }
+    setSavingCfg(true)
+    try {
+      const saved = await emailSettingsApi.update({
+        from_name: fromName.trim(),
+        from_address: fromAddress.trim(),
+        cc: cc.trim() || null,
+      })
+      setFromName(saved.from_name ?? '')
+      setFromAddress(saved.from_address ?? '')
+      setCc(saved.cc ?? '')
+      notify.success('Configuración del correo guardada correctamente.')
+    } catch (err: any) {
+      notify.error(err.message ?? 'Error al guardar la configuración del correo')
+    } finally {
+      setSavingCfg(false)
+    }
+  }
 
   useEffect(() => {
     void (async () => {
@@ -104,6 +149,48 @@ export function EmailTemplatePage() {
         title="Plantilla de Correo de Sanción"
         subtitle="Edita el correo automático de suspensión y gestiona el correo de la persona a suspender"
       />
+
+      {/* ── Configuración del emisor y CC (#5) ───────────────────── */}
+      <Card variant="outlined" padding="lg" className="mb-6">
+        <p className="mb-4 text-sm font-semibold text-slate-700">Configuración del correo</p>
+
+        {loadingCfg ? (
+          <div className="flex justify-center py-12"><Spinner size="lg" /></div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Input
+                label="Nombre del emisor"
+                value={fromName}
+                onChange={(e) => setFromName(e.target.value)}
+                placeholder="Comedor UNET"
+                fullWidth
+              />
+              <Input
+                label="Correo del emisor"
+                type="email"
+                value={fromAddress}
+                onChange={(e) => setFromAddress(e.target.value)}
+                placeholder="comedor@unet.edu.ve"
+                fullWidth
+              />
+            </div>
+            <Input
+              label="Copias (CC)"
+              value={cc}
+              onChange={(e) => setCc(e.target.value)}
+              placeholder="correo1@unet.edu.ve, correo2@unet.edu.ve"
+              hint="Separa varias direcciones con comas. Déjalo vacío si no quieres copias."
+              fullWidth
+            />
+            <div className="flex justify-end">
+              <Button leftIcon={<Save size={16} />} loading={savingCfg} onClick={handleSaveSettings}>
+                Guardar configuración
+              </Button>
+            </div>
+          </div>
+        )}
+      </Card>
 
       {/* ── Editor de plantilla ──────────────────────────────────── */}
       <Card variant="outlined" padding="lg" className="mb-6">
