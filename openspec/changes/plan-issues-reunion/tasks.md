@@ -42,7 +42,7 @@
 - [ ] 5.2 Proponer `fe-almuerzos-editar-historial` (#10) tras 5.1
 - [ ] 5.3 Verificar que `be-lunch-auto-plantilla` (#11) está propuesta y define la política de nombres
 - [ ] 5.4 Proponer `fe-crear-servicio-quitar-toggle-plantilla` (#11) tras 5.3
-- [ ] 5.5 Proponer `fe-plantillas-crud-inventario` (#12) tras 5.4 — requiere 1.7; completar métodos `/lunch-templates` en `src/api/lunch.ts`
+- [x] 5.5 Proponer `fe-plantillas-crud-inventario` (#12) — requiere 1.7; métodos `/lunch-templates` completados en `src/api/lunch.ts` ✅ propuesta e implementada (R-U-D; crear-desde-cero y edición de ingredientes diferidos; end-to-end con backend pendiente). Adelantada: no depende de backend nuevo
 
 ## 6. Ola 5 — Inventario / fecha de insumo
 

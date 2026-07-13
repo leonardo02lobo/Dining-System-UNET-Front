@@ -11,6 +11,7 @@ import { ListUser } from './pages/ListUser'
 import { LoginAuditPage } from './pages/LoginAuditPage'
 import { InventoryPage } from './pages/InventoryPage'
 import { CreateLunchPage } from './pages/CreateLunchPage'
+import { LunchTemplatesPage } from './pages/LunchTemplatesPage'
 import { LunchTestPage } from './pages/LunchTestPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { ManualRegistrationPage } from './pages/ManualRegistrationPage'
@@ -47,6 +48,7 @@ export default function App() {
               <Route path="inventario/general" element={<GeneralInventoryPage />} />
               <Route path="inventario/reportes-consumo" element={<ConsumptionReportPage />} />
               <Route path="inventario/crear" element={<CreateLunchPage />} />
+              <Route path="inventario/plantillas" element={<LunchTemplatesPage />} />
               <Route path="inventario/pruebas-almuerzo" element={<LunchTestPage />} />
               <Route path="usuarios" element={<ListUser />} />
               <Route path="auditoria" element={<LoginAuditPage />} />

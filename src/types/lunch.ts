@@ -55,6 +55,12 @@ export interface LunchTemplateCreatePayload extends LunchCreatePayload {
   lunchId: number
 }
 
+export interface LunchTemplateUpdatePayload {
+  name?: string
+  basePlatesQuantity?: number
+  platesQuantity?: number
+}
+
 export interface LunchStockValidationItem {
   inventoryItemId: number
   ingredientId: number
