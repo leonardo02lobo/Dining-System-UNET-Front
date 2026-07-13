@@ -46,18 +46,18 @@
 
 ## 6. Ola 5 — Inventario / fecha de insumo
 
-- [ ] 6.1 Verificar que `be-inventario-fecha-movimiento` (#7) está propuesta y su contrato fijado — requiere 1.8
-- [ ] 6.2 Proponer `fe-inventario-modal-fecha-insumo` (#7) tras 6.1
+- [x] 6.1 Gemela backend `be-inventario-fecha-movimiento` (#7) ✅ implementada (`entryDate` en /stock/increase)
+- [x] 6.2 `fe-inventario-modal-fecha-insumo` (#7) ✅ propuesta e implementada (entrada inicial datada vía increase)
 
 ## 7. Ola 6 — Configuración de correo
 
-- [ ] 7.1 Verificar que `be-email-settings-emisor-cc` (#5) está propuesta y su contrato fijado — requiere 1.10
-- [ ] 7.2 Proponer `fe-panel-config-correo` (#5) tras 7.1
+- [x] 7.1 Gemela backend `be-email-settings-emisor-cc` (#5) ✅ implementada (GET/PUT /email-settings)
+- [x] 7.2 `fe-panel-config-correo` (#5) ✅ propuesta e implementada
 
 ## 8. Ola 7 — Gente externa (XL, dos sub-entregas)
 
-- [ ] 8.1 Verificar que `be-gente-externa` (#15) está propuesta (recurso `/external-people` + integración de consumo) — requiere 1.11
-- [ ] 8.2 Proponer `fe-gente-externa` (#15) tras 8.1 — sub-entrega 1 gestión/CRUD, sub-entrega 2 opción en el registro al comedor
+- [x] 8.1 Gemela backend `be-gente-externa` (#15) ✅ implementada (/external-people + integración de consumo)
+- [x] 8.2 `fe-gente-externa` (#15) ✅ propuesta e implementada (gestión/CRUD; sub-entrega 2 registro de consumo pendiente)
 
 ## 9. Cierre del plan
 
