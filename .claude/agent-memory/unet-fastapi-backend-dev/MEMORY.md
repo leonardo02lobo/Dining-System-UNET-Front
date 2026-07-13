@@ -1,2 +1,3 @@
 - [Arquitectura Backend UNET](project_backend_architecture.md) — Estructura real de módulos, tablas, auth, roles y endpoints del backend FastAPI
 - [Feedback Revisión Backend 2026-06-28](feedback_backend_review_2026_06_28.md) — Vulnerabilidades y patrones a evitar descubiertos en la revisión sistemática del backend
+- [Auditoría Olas 3-7 issues reunión 2026-07-13](audit_olas_3_7_issues_reunion.md) — Los 8 contratos backend (#3,#4,#14,#10,#11,#7,#5,#15) están implementados; PDF de sesión se movió a Frontend
