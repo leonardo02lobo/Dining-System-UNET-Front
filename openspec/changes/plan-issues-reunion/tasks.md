@@ -38,10 +38,10 @@
 
 ## 5. Ola 4 — Almuerzos y plantillas
 
-- [ ] 5.1 Verificar que `be-lunches-regla-editabilidad` (#10) está propuesta y documenta estados editables — requiere 1.6
-- [ ] 5.2 Proponer `fe-almuerzos-editar-historial` (#10) tras 5.1
-- [ ] 5.3 Verificar que `be-lunch-auto-plantilla` (#11) está propuesta y define la política de nombres
-- [ ] 5.4 Proponer `fe-crear-servicio-quitar-toggle-plantilla` (#11) tras 5.3
+- [x] 5.1 Gemela backend `be-lunches-regla-editabilidad` (#10) ✅ implementada (solo DRAFT editable, 409 si CONFIRMED)
+- [x] 5.2 `fe-almuerzos-editar-historial` (#10) ✅ propuesta e implementada (editar DRAFT en el detalle; ingredientes diferidos)
+- [x] 5.3 Gemela backend `be-lunch-auto-plantilla` (#11) ✅ implementada (upsert de plantilla al confirmar)
+- [x] 5.4 `fe-crear-servicio-quitar-toggle-plantilla` (#11) ✅ propuesta e implementada (toggle eliminado)
 - [x] 5.5 Proponer `fe-plantillas-crud-inventario` (#12) — requiere 1.7; métodos `/lunch-templates` completados en `src/api/lunch.ts` ✅ propuesta e implementada (R-U-D; crear-desde-cero y edición de ingredientes diferidos; end-to-end con backend pendiente). Adelantada: no depende de backend nuevo
 
 ## 6. Ola 5 — Inventario / fecha de insumo
