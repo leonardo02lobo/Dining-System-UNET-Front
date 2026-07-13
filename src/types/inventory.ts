@@ -56,6 +56,14 @@ export interface InventoryItemUpdatePayload extends InventoryItemCreatePayload {
   stockChangeReason: string
 }
 
+/** Entrada de stock con fecha de ingreso opcional (#7). */
+export interface StockIncreasePayload {
+  quantity: number
+  reason: string
+  /** Fecha de ingreso (YYYY-MM-DD). Si se omite, el backend usa hoy. */
+  entryDate?: string
+}
+
 /** Ingrediente asignado a un almuerzo */
 export interface LunchIngredient {
   ingredient_id: number

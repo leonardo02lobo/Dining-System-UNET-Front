@@ -103,6 +103,8 @@ export function InventoryPage() {
   const [savingItem, setSavingItem] = useState(false)
   const [itemFormError, setItemFormError] = useState('')
   const [stockChangeReason, setStockChangeReason] = useState('')
+  // Fecha de ingreso del insumo (#7); por defecto hoy. No se permite futura.
+  const [entryDate, setEntryDate] = useState('')
   const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null)
   const [deletingItemId, setDeletingItemId] = useState<number | null>(null)
   const [updatingStockId, setUpdatingStockId] = useState<number | null>(null)
@@ -179,6 +181,7 @@ export function InventoryPage() {
     setEditTarget(null)
     setItemFormError('')
     setStockChangeReason('')
+    setEntryDate(new Date().toISOString().split('T')[0])
     setForm({
       ...EMPTY_FORM,
       category: categoryNames[0] ?? EMPTY_FORM.category,
@@ -286,13 +289,22 @@ export function InventoryPage() {
       setItemFormError('')
 
       try {
-        await inventoryApi.createItem({
+        // Se crea el insumo con stock 0 y la entrada inicial se registra como un
+        // movimiento con su fecha de ingreso (#7); si no hay stock inicial, no se registra.
+        const created = await inventoryApi.createItem({
           name: trimmedName,
           categoryId: category.id,
-          currentStock: form.quantity,
+          currentStock: 0,
           unit: form.unit,
           minimumStock: form.min_stock,
         })
+        if (form.quantity > 0) {
+          await inventoryApi.increaseStock(created.id, {
+            quantity: form.quantity,
+            reason: 'Carga inicial de insumo',
+            entryDate: entryDate || undefined,
+          })
+        }
         await loadItems()
         setModalOpen(false)
       } catch {
@@ -551,6 +563,17 @@ export function InventoryPage() {
               fullWidth
             />
           </div>
+          {!editTarget && (
+            <Input
+              label="Fecha de ingreso del insumo"
+              type="date"
+              value={entryDate}
+              max={new Date().toISOString().split('T')[0]}
+              onChange={(e) => setEntryDate(e.target.value)}
+              hint="Fecha en la que ingresó el insumo. Por defecto hoy; no se permiten fechas futuras."
+              fullWidth
+            />
+          )}
           <Input
             label="Fecha de caducidad (opcional)"
             type="date"

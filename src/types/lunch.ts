@@ -34,7 +34,7 @@ export interface RecalculationPreview {
   new_quantity: number
 }
 
-export type LunchStatus = 'DRAFT' | 'PUBLISHED' | 'CANCELLED'
+export type LunchStatus = 'DRAFT' | 'CONFIRMED' | 'CANCELLED'
 
 export interface LunchIngredientPayload {
   inventoryItemId: number
@@ -49,6 +49,12 @@ export interface LunchCreatePayload {
   platesQuantity: number
   basePlatesQuantity: number
   ingredients: LunchIngredientPayload[]
+}
+
+export interface LunchUpdatePayload {
+  name?: string
+  date?: string
+  platesQuantity?: number
 }
 
 export interface LunchTemplateCreatePayload extends LunchCreatePayload {
@@ -88,7 +94,7 @@ export interface LunchResponse {
   createdById: number
   createdAt: string
   updatedAt: string
-  ingredients: unknown[]
+  ingredients: LunchIngredientResponse[]
 }
 
 export interface LunchTemplateResponse {

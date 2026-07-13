@@ -29,35 +29,35 @@
 
 ## 4. Ola 3 — Sesiones / reportes / menú (contrato-primero)
 
-- [ ] 4.1 Verificar que la gemela backend `be-consumptions-acceso-directo` (#3) está propuesta y su contrato fijado — requiere 1.2
-- [ ] 4.2 Proponer `fe-entrantes-filtro-acceso-directo` (#3) tras 4.1
-- [ ] 4.3 Verificar que `be-lunch-sessions-rango-y-pdf` (#4) está propuesta y su contrato fijado — requiere 1.3
-- [ ] 4.4 Proponer `fe-reportes-historial-sesiones` (#4) tras 4.3
-- [ ] 4.5 Verificar que `be-lunch-menu-del-dia` (#14) está propuesta y su contrato fijado — requiere 1.4
-- [ ] 4.6 Proponer `fe-sesion-menu-del-dia` (#14) tras 4.4 y 4.5
+- [x] 4.1 Gemela backend `be-consumptions-acceso-directo` (#3) ✅ implementada (auditoría 2026-07-13): `GET /consumptions/?is_priority`
+- [x] 4.2 `fe-entrantes-filtro-acceso-directo` (#3) ✅ propuesta e implementada
+- [x] 4.3 Gemela backend `be-lunch-sessions-rango-y-pdf` (#4) ✅ implementada; PDF de sesión delegado al FE
+- [x] 4.4 `fe-reportes-historial-sesiones` (#4) ✅ propuesta e implementada (nueva SessionHistoryPage)
+- [x] 4.5 Gemela backend `be-lunch-menu-del-dia` (#14) ✅ implementada: `GET /lunches?date=`
+- [x] 4.6 `fe-sesion-menu-del-dia` (#14) ✅ propuesta e implementada (panel Menú del día)
 
 ## 5. Ola 4 — Almuerzos y plantillas
 
-- [ ] 5.1 Verificar que `be-lunches-regla-editabilidad` (#10) está propuesta y documenta estados editables — requiere 1.6
-- [ ] 5.2 Proponer `fe-almuerzos-editar-historial` (#10) tras 5.1
-- [ ] 5.3 Verificar que `be-lunch-auto-plantilla` (#11) está propuesta y define la política de nombres
-- [ ] 5.4 Proponer `fe-crear-servicio-quitar-toggle-plantilla` (#11) tras 5.3
+- [x] 5.1 Gemela backend `be-lunches-regla-editabilidad` (#10) ✅ implementada (solo DRAFT editable, 409 si CONFIRMED)
+- [x] 5.2 `fe-almuerzos-editar-historial` (#10) ✅ propuesta e implementada (editar DRAFT en el detalle; ingredientes diferidos)
+- [x] 5.3 Gemela backend `be-lunch-auto-plantilla` (#11) ✅ implementada (upsert de plantilla al confirmar)
+- [x] 5.4 `fe-crear-servicio-quitar-toggle-plantilla` (#11) ✅ propuesta e implementada (toggle eliminado)
 - [x] 5.5 Proponer `fe-plantillas-crud-inventario` (#12) — requiere 1.7; métodos `/lunch-templates` completados en `src/api/lunch.ts` ✅ propuesta e implementada (R-U-D; crear-desde-cero y edición de ingredientes diferidos; end-to-end con backend pendiente). Adelantada: no depende de backend nuevo
 
 ## 6. Ola 5 — Inventario / fecha de insumo
 
-- [ ] 6.1 Verificar que `be-inventario-fecha-movimiento` (#7) está propuesta y su contrato fijado — requiere 1.8
-- [ ] 6.2 Proponer `fe-inventario-modal-fecha-insumo` (#7) tras 6.1
+- [x] 6.1 Gemela backend `be-inventario-fecha-movimiento` (#7) ✅ implementada (`entryDate` en /stock/increase)
+- [x] 6.2 `fe-inventario-modal-fecha-insumo` (#7) ✅ propuesta e implementada (entrada inicial datada vía increase)
 
 ## 7. Ola 6 — Configuración de correo
 
-- [ ] 7.1 Verificar que `be-email-settings-emisor-cc` (#5) está propuesta y su contrato fijado — requiere 1.10
-- [ ] 7.2 Proponer `fe-panel-config-correo` (#5) tras 7.1
+- [x] 7.1 Gemela backend `be-email-settings-emisor-cc` (#5) ✅ implementada (GET/PUT /email-settings)
+- [x] 7.2 `fe-panel-config-correo` (#5) ✅ propuesta e implementada
 
 ## 8. Ola 7 — Gente externa (XL, dos sub-entregas)
 
-- [ ] 8.1 Verificar que `be-gente-externa` (#15) está propuesta (recurso `/external-people` + integración de consumo) — requiere 1.11
-- [ ] 8.2 Proponer `fe-gente-externa` (#15) tras 8.1 — sub-entrega 1 gestión/CRUD, sub-entrega 2 opción en el registro al comedor
+- [x] 8.1 Gemela backend `be-gente-externa` (#15) ✅ implementada (/external-people + integración de consumo)
+- [x] 8.2 `fe-gente-externa` (#15) ✅ propuesta e implementada (gestión/CRUD; sub-entrega 2 registro de consumo pendiente)
 
 ## 9. Cierre del plan
 

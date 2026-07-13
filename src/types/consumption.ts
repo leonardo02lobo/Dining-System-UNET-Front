@@ -7,6 +7,12 @@ export interface Consumption {
   registered_by_id: number
   registered_at: string
   is_manual: boolean
+  // Datos de la persona expuestos por el backend para listar entrantes (#3/#4).
+  is_priority?: boolean
+  document_id?: string
+  first_name?: string
+  last_name?: string
+  career?: string | null
 }
 
 /** Datos mínimos para dar de alta al vuelo a quien no es acceso directo (Issue 2). */

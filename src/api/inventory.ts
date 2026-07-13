@@ -5,6 +5,7 @@ import type {
   InventoryItem,
   InventoryItemCreatePayload,
   InventoryItemUpdatePayload,
+  StockIncreasePayload,
 } from '../types/inventory'
 
 const CATEGORY_PATH = '/inventory/categories'
@@ -23,6 +24,8 @@ export const inventoryApi = {
   updateItem: (itemId: number, data: InventoryItemUpdatePayload) =>
     apiClient.patch<InventoryItem>(`${ITEM_PATH}/${itemId}`, data),
   deleteItem: (itemId: number) => apiClient.delete<void>(`${ITEM_PATH}/${itemId}`),
+  increaseStock: (itemId: number, data: StockIncreasePayload) =>
+    apiClient.post<InventoryItem>(`${ITEM_PATH}/${itemId}/stock/increase`, data),
   exportInventoryPdf: () =>
     apiClient.getBlob('/inventory/export/pdf', 'application/pdf'),
 }

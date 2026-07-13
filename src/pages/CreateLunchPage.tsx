@@ -11,6 +11,8 @@ import { Modal } from '../components/ui/Modal'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Table, type ColumnDef } from '../components/ui/Table'
 import { notify } from '../utils/toast'
+import { errorMessage } from '../utils/apiErrors'
+import { Badge } from '../components/ui/Badge'
 import { inventoryApi } from '../api/inventory'
 import { lunchApi } from '../api/lunch'
 import {
@@ -169,7 +171,6 @@ export function CreateLunchPage() {
   const [deleteTarget, setDeleteTarget] = useState<LunchFormIngredient | null>(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
-  const [saveAsTemplate, setSaveAsTemplate] = useState(false)
   const [pantry, setPantry] = useState<PantryItem[]>([])
   const [pantryLoading, setPantryLoading] = useState(false)
   const [pantryError, setPantryError] = useState('')
@@ -181,6 +182,13 @@ export function CreateLunchPage() {
   const [lunchDetail, setLunchDetail] = useState<LunchResponse | null>(null)
   const [lunchDetailLoading, setLunchDetailLoading] = useState(false)
   const [lunchDetailError, setLunchDetailError] = useState('')
+  // Edición de almuerzos creados (#10): solo los DRAFT son editables (backend 409 si CONFIRMED).
+  const [editingLunch, setEditingLunch] = useState(false)
+  const [editLunchName, setEditLunchName] = useState('')
+  const [editLunchDate, setEditLunchDate] = useState('')
+  const [editLunchPlates, setEditLunchPlates] = useState(1)
+  const [savingLunchEdit, setSavingLunchEdit] = useState(false)
+  const [lunchEditError, setLunchEditError] = useState('')
   const [preloadedTemplates, setPreloadedTemplates] = useState<PreloadedLunch[]>([])
   const [templatesLoading, setTemplatesLoading] = useState(false)
   const [templatesError, setTemplatesError] = useState('')
@@ -430,6 +438,8 @@ export function CreateLunchPage() {
     setLunchDetailOpen(true)
     setLunchDetail(null)
     setLunchDetailError('')
+    setEditingLunch(false)
+    setLunchEditError('')
     setLunchDetailLoading(true)
 
     try {
@@ -439,6 +449,47 @@ export function CreateLunchPage() {
       setLunchDetailError('No se pudo cargar el detalle del almuerzo.')
     } finally {
       setLunchDetailLoading(false)
+    }
+  }
+
+  function startEditLunch() {
+    if (!lunchDetail) return
+    setEditLunchName(lunchDetail.name)
+    setEditLunchDate(lunchDetail.date)
+    setEditLunchPlates(lunchDetail.platesQuantity)
+    setLunchEditError('')
+    setEditingLunch(true)
+  }
+
+  async function handleSaveLunchEdit() {
+    if (!lunchDetail) return
+    const name = editLunchName.trim()
+    if (!name) {
+      setLunchEditError('Ingresa el nombre del almuerzo.')
+      return
+    }
+    setSavingLunchEdit(true)
+    setLunchEditError('')
+    try {
+      const updated = await lunchApi.updateLunch(lunchDetail.id, {
+        name,
+        date: editLunchDate,
+        platesQuantity: Math.max(1, editLunchPlates),
+      })
+      setLunchDetail(updated)
+      setEditingLunch(false)
+      notify.success('Almuerzo actualizado.')
+      await loadCreatedLunches()
+    } catch (err) {
+      setLunchEditError(
+        errorMessage(
+          err,
+          { 409: 'Este almuerzo no es editable (solo los borradores pueden editarse).' },
+          'No se pudo actualizar el almuerzo.',
+        ),
+      )
+    } finally {
+      setSavingLunchEdit(false)
     }
   }
 
@@ -479,7 +530,6 @@ export function CreateLunchPage() {
         platesQuantity: desiredPlateCount,
         basePlatesQuantity: plateCount,
         ingredients: lunchIngredientPayloads,
-        saveAsTemplate,
       })
 
       if (result.status === 'insufficient_stock') {
@@ -487,10 +537,9 @@ export function CreateLunchPage() {
         return
       }
 
-      if (saveAsTemplate) {
-        const templates = await lunchApi.listLunchTemplates()
-        setPreloadedTemplates(templates.map(mapTemplateToPreloaded))
-      }
+      // El backend guarda SIEMPRE la plantilla al confirmar (#11); refrescamos la lista.
+      const templates = await lunchApi.listLunchTemplates()
+      setPreloadedTemplates(templates.map(mapTemplateToPreloaded))
 
       if (createdLunchesOpen) {
         await loadCreatedLunches()
@@ -499,13 +548,9 @@ export function CreateLunchPage() {
       const updatedPantry = await inventoryApi.listItems()
       setPantry(updatedPantry.map(mapInventoryItemToPantry))
 
-      notify.success(saveAsTemplate ? 'Almuerzo confirmado y plantilla guardada correctamente.' : 'Almuerzo confirmado correctamente.')
+      notify.success('Servicio confirmado y plantilla guardada correctamente.')
     } catch {
-      setSaveError(
-        saveAsTemplate
-          ? 'No se pudo guardar el almuerzo y la plantilla. Intenta nuevamente.'
-          : 'No se pudo guardar el almuerzo. Intenta nuevamente.',
-      )
+      setSaveError('No se pudo guardar el servicio de alimentación. Intenta nuevamente.')
     } finally {
       setSaving(false)
     }
@@ -620,8 +665,6 @@ export function CreateLunchPage() {
         onDownload={handleDownload}
         saving={saving}
         downloadDisabled={downloadDisabled || saving}
-        saveAsTemplate={saveAsTemplate}
-        onSaveAsTemplateChange={setSaveAsTemplate}
       />
 
       <Modal
@@ -803,32 +846,88 @@ export function CreateLunchPage() {
 
         {!lunchDetailLoading && !lunchDetailError && lunchDetail && (
           <div className="flex flex-col gap-5">
-            <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-              <div>
-                <span className="block text-xs font-semibold uppercase text-slate-500">
-                  Almuerzo
-                </span>
-                <span className="text-slate-900">{lunchDetail.name}</span>
-              </div>
-              <div>
-                <span className="block text-xs font-semibold uppercase text-slate-500">
-                  Fecha de creación
-                </span>
-                <span className="text-slate-900">{formatDisplayDate(lunchDetail.createdAt)}</span>
-              </div>
-              <div>
-                <span className="block text-xs font-semibold uppercase text-slate-500">
-                  Fecha del almuerzo
-                </span>
-                <span className="text-slate-900">{formatDisplayDate(lunchDetail.date)}</span>
-              </div>
-              <div>
-                <span className="block text-xs font-semibold uppercase text-slate-500">
-                  Platos
-                </span>
-                <span className="text-slate-900">{lunchDetail.platesQuantity}</span>
-              </div>
+            {/* Estado + acción de edición (#10) */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Badge variant={lunchDetail.status === 'DRAFT' ? 'warning' : 'neutral'}>
+                {lunchDetail.status === 'DRAFT' ? 'Borrador' : lunchDetail.status === 'CONFIRMED' ? 'Confirmado' : lunchDetail.status}
+              </Badge>
+              {!editingLunch && (
+                lunchDetail.status === 'DRAFT' ? (
+                  <Button variant="secondary" size="sm" onClick={startEditLunch}>
+                    Editar
+                  </Button>
+                ) : (
+                  <span className="text-xs text-slate-500">Solo los borradores son editables</span>
+                )
+              )}
             </div>
+
+            {lunchEditError && (
+              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {lunchEditError}
+              </div>
+            )}
+
+            {editingLunch ? (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Input
+                  label="Nombre del almuerzo"
+                  value={editLunchName}
+                  onChange={(e) => setEditLunchName(e.target.value)}
+                  fullWidth
+                />
+                <Input
+                  label="Fecha del almuerzo"
+                  type="date"
+                  value={editLunchDate}
+                  onChange={(e) => setEditLunchDate(e.target.value)}
+                  fullWidth
+                />
+                <Input
+                  label="Platos"
+                  type="number"
+                  min={1}
+                  value={editLunchPlates}
+                  onChange={(e) => setEditLunchPlates(Math.max(1, Number(e.target.value) || 1))}
+                  fullWidth
+                />
+                <div className="flex items-end gap-2">
+                  <Button size="sm" loading={savingLunchEdit} onClick={handleSaveLunchEdit}>
+                    Guardar cambios
+                  </Button>
+                  <Button variant="ghost" size="sm" disabled={savingLunchEdit} onClick={() => setEditingLunch(false)}>
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                <div>
+                  <span className="block text-xs font-semibold uppercase text-slate-500">
+                    Almuerzo
+                  </span>
+                  <span className="text-slate-900">{lunchDetail.name}</span>
+                </div>
+                <div>
+                  <span className="block text-xs font-semibold uppercase text-slate-500">
+                    Fecha de creación
+                  </span>
+                  <span className="text-slate-900">{formatDisplayDate(lunchDetail.createdAt)}</span>
+                </div>
+                <div>
+                  <span className="block text-xs font-semibold uppercase text-slate-500">
+                    Fecha del almuerzo
+                  </span>
+                  <span className="text-slate-900">{formatDisplayDate(lunchDetail.date)}</span>
+                </div>
+                <div>
+                  <span className="block text-xs font-semibold uppercase text-slate-500">
+                    Platos
+                  </span>
+                  <span className="text-slate-900">{lunchDetail.platesQuantity}</span>
+                </div>
+              </div>
+            )}
 
             <div>
               <h3 className="mb-2 text-sm font-semibold text-slate-900">Ingredientes</h3>
