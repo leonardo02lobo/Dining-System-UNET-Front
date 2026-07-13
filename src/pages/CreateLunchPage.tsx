@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Plus } from 'lucide-react'
 import { LunchDetailsForm } from '../components/lunch/LunchDetailsForm'
 import { LunchFooterActions } from '../components/lunch/LunchFooterActions'
 import { LunchIngredientsTable } from '../components/lunch/LunchIngredientsTable'
-import { LunchRecalculationPanel } from '../components/lunch/LunchRecalculationPanel'
+import { LunchRecalculationTable } from '../components/lunch/LunchRecalculationTable'
 import { PreloadedLunchBar } from '../components/lunch/PreloadedLunchBar'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -570,49 +570,59 @@ export function CreateLunchPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:items-start">
-        <div className="min-w-0 space-y-6">
-          <LunchDetailsForm
-            lunchName={lunchName}
-            date={date}
-            plateCount={plateCount}
-            onLunchNameChange={setLunchName}
-            onDateChange={setDate}
-            onPlateCountChange={setPlateCount}
-          />
+      <LunchDetailsForm
+        lunchName={lunchName}
+        date={date}
+        plateCount={plateCount}
+        onLunchNameChange={setLunchName}
+        onDateChange={setDate}
+        onPlateCountChange={setPlateCount}
+      />
 
+      {/* Dos tablas paralelas 50/50: ingredientes vs. recálculo automático (issue #9) */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:items-start">
+        <div className="min-w-0 space-y-3">
+          <h2 className="text-[15px] font-bold text-black">Ingredientes</h2>
           <LunchIngredientsTable
             items={ingredients}
             plateCount={plateCount}
             onEdit={openEditModal}
             onDelete={handleDelete}
           />
-
-          {saveError && (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {saveError}
-            </div>
-          )}
-
-          <LunchFooterActions
-            onSave={handleSave}
-            onDownload={handleDownload}
-            saving={saving}
-            downloadDisabled={downloadDisabled || saving}
-            saveAsTemplate={saveAsTemplate}
-            onSaveAsTemplateChange={setSaveAsTemplate}
-          />
         </div>
 
-        <LunchRecalculationPanel
-          basePlates={plateCount}
-          desiredPlates={desiredPlateCount}
-          previews={previews}
-          onAddIngredient={openAddModal}
-          onDesiredPlatesChange={setDesiredPlateCount}
-          onApplyRecalculation={handleApplyRecalculation}
-        />
+        <div className="min-w-0">
+          <LunchRecalculationTable
+            basePlates={plateCount}
+            desiredPlates={desiredPlateCount}
+            previews={previews}
+            onDesiredPlatesChange={setDesiredPlateCount}
+            onApplyRecalculation={handleApplyRecalculation}
+          />
+        </div>
       </div>
+
+      {/* Botón central entre/bajo ambas tablas (issue #9) */}
+      <div className="flex justify-center">
+        <Button type="button" onClick={openAddModal} leftIcon={<Plus size={20} />}>
+          Agregar Ingrediente
+        </Button>
+      </div>
+
+      {saveError && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {saveError}
+        </div>
+      )}
+
+      <LunchFooterActions
+        onSave={handleSave}
+        onDownload={handleDownload}
+        saving={saving}
+        downloadDisabled={downloadDisabled || saving}
+        saveAsTemplate={saveAsTemplate}
+        onSaveAsTemplateChange={setSaveAsTemplate}
+      />
 
       <Modal
         open={modalOpen}
