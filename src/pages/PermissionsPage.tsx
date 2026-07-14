@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { Save } from 'lucide-react'
 import { permissionsApi, type Permission } from '../api/permissions'
 import { userApi } from '../api/user'
@@ -11,6 +11,16 @@ import { Badge } from '../components/ui/Badge'
 import { Toggle } from '../components/ui/Toggle'
 import { Spinner } from '../components/ui/Spinner'
 import { Card } from '../components/ui/Card'
+import { SearchInput } from '../components/ui/SearchInput'
+
+/** Agrupa cada ruta en una sección legible (espejo de los grupos del NavBar). */
+function sectionOf(route: string): string {
+  if (route.startsWith('/inventario')) return 'Inventario'
+  if (route.startsWith('/admin') || route === '/auditoria' || route === '/sedes') return 'Administración'
+  return 'Comedor'
+}
+
+const SECTION_ORDER = ['Comedor', 'Inventario', 'Administración']
 
 const ROLE_LABEL: Record<RoleName, string> = {
   SUPER_ADMIN:  'Super Admin',
@@ -35,6 +45,7 @@ export function PermissionsPage() {
   const [saving,       setSaving]       = useState(false)
   const [error,        setError]        = useState<string | null>(null)
   const [success,      setSuccess]      = useState<string | null>(null)
+  const [search,       setSearch]       = useState('')
 
   // Load user list once
   useEffect(() => {
@@ -99,6 +110,20 @@ export function PermissionsPage() {
     label: `${u.name} — ${ROLE_LABEL[u.role.name]}`,
   }))
 
+  // Filtra por texto y agrupa por sección para una lista larga más manejable.
+  const term = search.trim().toLowerCase()
+  const filtered = term
+    ? permissions.filter(
+        (p) => p.label.toLowerCase().includes(term) || p.route.toLowerCase().includes(term),
+      )
+    : permissions
+  const grouped = SECTION_ORDER
+    .map((section) => ({
+      section,
+      items: filtered.filter((p) => sectionOf(p.route) === section),
+    }))
+    .filter((g) => g.items.length > 0)
+
   return (
     <div>
       <PageHeader
@@ -145,6 +170,14 @@ export function PermissionsPage() {
                   </Badge>
                 </div>
               )}
+              <div className="w-full sm:ml-auto sm:w-72">
+                <SearchInput
+                  placeholder="Buscar funcionalidad o ruta…"
+                  debounceMs={200}
+                  onSearch={setSearch}
+                  fullWidth
+                />
+              </div>
             </div>
           </Card>
 
@@ -166,19 +199,41 @@ export function PermissionsPage() {
                 </tr>
               </thead>
               <tbody>
-                {permissions.map((perm) => (
-                  <tr
-                    key={perm.route}
-                    className="border-b border-slate-100 last:border-0 transition-colors hover:bg-slate-50"
-                  >
-                    <td className="px-6 py-4 text-slate-700">{perm.label}</td>
-                    <td className="px-6 py-4 text-right">
-                      <Toggle
-                        checked={perm.enabled}
-                        onChange={() => togglePermission(perm.route)}
-                      />
+                {grouped.length === 0 && !permsLoading && (
+                  <tr>
+                    <td colSpan={2} className="px-6 py-8 text-center text-sm text-slate-400">
+                      No hay funcionalidades que coincidan con la búsqueda.
                     </td>
                   </tr>
+                )}
+                {grouped.map((group) => (
+                  <Fragment key={group.section}>
+                    <tr className="bg-slate-50/70">
+                      <td
+                        colSpan={2}
+                        className="px-6 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      >
+                        {group.section}
+                      </td>
+                    </tr>
+                    {group.items.map((perm) => (
+                      <tr
+                        key={perm.route}
+                        className="border-b border-slate-100 last:border-0 transition-colors hover:bg-slate-50"
+                      >
+                        <td className="px-6 py-4 text-slate-700">
+                          {perm.label}
+                          <span className="ml-2 text-xs text-slate-400">{perm.route}</span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <Toggle
+                            checked={perm.enabled}
+                            onChange={() => togglePermission(perm.route)}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </Fragment>
                 ))}
               </tbody>
             </table>

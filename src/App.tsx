@@ -6,7 +6,6 @@ import { LoginPage } from './pages/LoginPage'
 import { Index } from './pages/Index'
 import { CheckConsumes } from './pages/CheckConsumes'
 import { RegisterDining } from './pages/RegisterDining'
-import { SuspendStudent } from './pages/SuspendStudent'
 import { ListUser } from './pages/ListUser'
 import { LoginAuditPage } from './pages/LoginAuditPage'
 import { InventoryPage } from './pages/InventoryPage'
@@ -55,7 +54,6 @@ export default function App() {
               <Route path="inventario/pruebas-almuerzo" element={<LunchTestPage />} />
               <Route path="usuarios" element={<ListUser />} />
               <Route path="auditoria" element={<LoginAuditPage />} />
-              <Route path="suspendStudent" element={<SuspendStudent />} />
               <Route path="suspendidos" element={<SuspendedListPage />} />
               <Route path="comedor/sesion" element={<LunchSessionPage />} />
               <Route path="accesos_directos" element={<AccesoDirectoPage />} />
