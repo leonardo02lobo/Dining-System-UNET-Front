@@ -1,14 +1,25 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import { lunchApi } from '../api/lunch'
+import { inventoryApi } from '../api/inventory'
 import { errorMessage } from '../utils/apiErrors'
 import { notify } from '../utils/toast'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { PageHeader } from '../components/ui/PageHeader'
+import { Select } from '../components/ui/Select'
 import { Table, type ColumnDef } from '../components/ui/Table'
+import type { InventoryItem } from '../types/inventory'
 import type { LunchTemplateResponse } from '../types/lunch'
+
+/** Fila editable de ingrediente dentro del modal de edición de plantilla. */
+interface EditIngredientRow {
+  inventoryItemId: number
+  name: string
+  unit: string
+  baseQuantity: number
+}
 
 function formatTemplateDate(value: string): string {
   const parsed = new Date(`${value}T00:00:00`)
@@ -21,9 +32,12 @@ export function LunchTemplatesPage() {
   const [loading, setLoading] = useState(false)
   const [loadError, setLoadError] = useState('')
 
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([])
+
   const [editTarget, setEditTarget] = useState<LunchTemplateResponse | null>(null)
   const [editName, setEditName] = useState('')
   const [editBasePlates, setEditBasePlates] = useState(1)
+  const [editIngredients, setEditIngredients] = useState<EditIngredientRow[]>([])
   const [editError, setEditError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -48,11 +62,55 @@ export function LunchTemplatesPage() {
     void loadTemplates()
   }, [loadTemplates])
 
+  useEffect(() => {
+    void (async () => {
+      try {
+        setInventoryItems(await inventoryApi.listItems())
+      } catch {
+        // Silencioso: sin inventario sólo se limita agregar nuevos ingredientes.
+      }
+    })()
+  }, [])
+
+  const availableItems = useMemo(
+    () => inventoryItems.filter((item) => !editIngredients.some((row) => row.inventoryItemId === item.id)),
+    [inventoryItems, editIngredients],
+  )
+
   function openEdit(template: LunchTemplateResponse) {
     setEditTarget(template)
     setEditName(template.name)
     setEditBasePlates(template.basePlatesQuantity)
+    setEditIngredients(
+      (template.ingredients ?? []).map((ingredient) => ({
+        inventoryItemId: ingredient.inventoryItemId,
+        name: ingredient.inventoryItem?.name ?? `Insumo ${ingredient.inventoryItemId}`,
+        unit: ingredient.unit,
+        baseQuantity: ingredient.baseQuantity,
+      })),
+    )
     setEditError('')
+  }
+
+  function handleAddIngredient(itemId: string) {
+    const id = Number(itemId)
+    if (!id || editIngredients.some((row) => row.inventoryItemId === id)) return
+    const item = inventoryItems.find((candidate) => candidate.id === id)
+    if (!item) return
+    setEditIngredients((rows) => [
+      ...rows,
+      { inventoryItemId: item.id, name: item.name, unit: item.unit, baseQuantity: 1 },
+    ])
+  }
+
+  function handleIngredientQuantityChange(itemId: number, value: number) {
+    setEditIngredients((rows) =>
+      rows.map((row) => (row.inventoryItemId === itemId ? { ...row, baseQuantity: value } : row)),
+    )
+  }
+
+  function handleRemoveIngredient(itemId: number) {
+    setEditIngredients((rows) => rows.filter((row) => row.inventoryItemId !== itemId))
   }
 
   async function handleSaveEdit() {
@@ -62,12 +120,22 @@ export function LunchTemplatesPage() {
       setEditError('Ingresa el nombre de la plantilla.')
       return
     }
+    const invalidIngredient = editIngredients.find((row) => !(row.baseQuantity > 0))
+    if (invalidIngredient) {
+      setEditError(`La cantidad de "${invalidIngredient.name}" debe ser mayor a 0.`)
+      return
+    }
     setSaving(true)
     setEditError('')
     try {
       await lunchApi.updateLunchTemplate(editTarget.id, {
         name,
         basePlatesQuantity: Math.max(1, editBasePlates),
+        ingredients: editIngredients.map((row) => ({
+          inventoryItemId: row.inventoryItemId,
+          baseQuantity: row.baseQuantity,
+          unit: row.unit,
+        })),
       })
       notify.success('Plantilla actualizada.')
       setEditTarget(null)
@@ -171,7 +239,7 @@ export function LunchTemplatesPage() {
         open={editTarget !== null}
         onClose={() => setEditTarget(null)}
         title="Editar plantilla"
-        size="md"
+        size="lg"
         footer={
           <>
             <Button variant="ghost" size="sm" disabled={saving} onClick={() => setEditTarget(null)}>
@@ -203,6 +271,65 @@ export function LunchTemplatesPage() {
             onChange={(e) => setEditBasePlates(Math.max(1, Number(e.target.value) || 1))}
             fullWidth
           />
+
+          <div className="flex flex-col gap-2">
+            <div className="flex items-baseline justify-between">
+              <span className="text-[13px] font-semibold text-slate-900">Ingredientes</span>
+              <span className="text-xs text-slate-500">
+                Cantidades para la base de {Math.max(1, editBasePlates)} plato(s)
+              </span>
+            </div>
+
+            {editIngredients.length === 0 ? (
+              <p className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-center text-sm text-slate-500">
+                Esta plantilla no tiene ingredientes. Agrega al menos uno abajo.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {editIngredients.map((row) => (
+                  <div key={row.inventoryItemId} className="flex items-center gap-2">
+                    <span className="min-w-0 flex-1 truncate text-sm text-slate-700" title={row.name}>
+                      {row.name}
+                    </span>
+                    <div className="w-28 shrink-0">
+                      <Input
+                        type="number"
+                        min={0}
+                        step="any"
+                        value={row.baseQuantity}
+                        onChange={(e) =>
+                          handleIngredientQuantityChange(row.inventoryItemId, Number(e.target.value))
+                        }
+                        fullWidth
+                      />
+                    </div>
+                    <span className="w-14 shrink-0 truncate text-sm text-slate-500">{row.unit}</span>
+                    <button
+                      type="button"
+                      title="Quitar ingrediente"
+                      className="shrink-0 rounded p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                      onClick={() => handleRemoveIngredient(row.inventoryItemId)}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {availableItems.length > 0 && (
+              <Select
+                placeholder="Agregar ingrediente..."
+                value=""
+                options={availableItems.map((item) => ({
+                  value: String(item.id),
+                  label: `${item.name} (${item.unit})`,
+                }))}
+                onChange={(e) => handleAddIngredient(e.target.value)}
+                fullWidth
+              />
+            )}
+          </div>
         </div>
       </Modal>
 

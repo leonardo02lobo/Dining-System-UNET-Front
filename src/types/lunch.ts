@@ -61,10 +61,18 @@ export interface LunchTemplateCreatePayload extends LunchCreatePayload {
   lunchId: number
 }
 
+/** Ingrediente enviado al crear/editar una plantilla */
+export interface LunchTemplateIngredientPayload {
+  inventoryItemId: number
+  baseQuantity: number
+  unit?: string
+}
+
 export interface LunchTemplateUpdatePayload {
   name?: string
   basePlatesQuantity?: number
   platesQuantity?: number
+  ingredients?: LunchTemplateIngredientPayload[]
 }
 
 export interface LunchStockValidationItem {
@@ -97,6 +105,15 @@ export interface LunchResponse {
   ingredients: LunchIngredientResponse[]
 }
 
+export interface LunchTemplateIngredientResponse {
+  id: number
+  templateId: number
+  inventoryItemId: number
+  inventoryItem: InventoryItem
+  baseQuantity: number
+  unit: string
+}
+
 export interface LunchTemplateResponse {
   id: number
   name: string
@@ -106,7 +123,7 @@ export interface LunchTemplateResponse {
   createdById: number
   createdAt: string
   updatedAt: string
-  ingredients: unknown[]
+  ingredients: LunchTemplateIngredientResponse[]
 }
 
 export interface LunchIngredientResponse {
