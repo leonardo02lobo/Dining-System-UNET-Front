@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Search, ScanLine, Ban } from 'lucide-react'
+import { Search, ScanLine, Ban, AlertTriangle } from 'lucide-react'
 import { studentApi, studentToIdentity } from '../api/student'
 import { lunchSessionApi } from '../api/lunchSession'
 import { consumptionApi } from '../api/consumption'
@@ -12,13 +12,14 @@ import type { LunchSession } from '../types/lunchSession'
 import type { Sanction } from '../types/sanction'
 import type { Sede } from '../types/sede'
 import { notify } from '../utils/toast'
+import { playSound, DUPLICATE_ALERT_SOUND } from '../utils/sound'
 import { useAuth } from '../context/AuthContext'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { PageHeader } from '../components/ui/PageHeader'
-import { Avatar } from '../components/ui/Avatar'
+import { StudentResultCard } from '../components/StudentResultCard'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
 import { SedeSelector } from '../components/SedeSelector'
@@ -44,6 +45,9 @@ export function RegisterDining() {
   const [saving,     setSaving]     = useState(false)
   const [error,      setError]      = useState<string | null>(null)
   const [searched,   setSearched]   = useState(false)
+
+  // Aviso de consumo duplicado (ya consumió hoy)
+  const [duplicateOpen, setDuplicateOpen] = useState(false)
 
   // Suspensión rápida (problemáticas 29 y 30)
   const [activeSanction, setActiveSanction] = useState<Sanction | null>(null)
@@ -101,6 +105,7 @@ export function RegisterDining() {
     setSearched(true)
     setStudent(null)
     setActiveSanction(null)
+    setDuplicateOpen(false)  // una nueva consulta cierra el aviso de duplicado anterior
     try {
       const data = await studentApi.lookup(clean)
       setStudent(data)
@@ -148,13 +153,29 @@ export function RegisterDining() {
       setSearched(false)
       setActiveSanction(null)
     } catch (err: any) {
-      // 403 = sanción activa — el mensaje ya viene limpio del apiClient
-      const msg = errorMessage(err, { 409: CONFLICT.consumptionToday }, 'Error al registrar el consumo')
-      notify.error(msg)
-      setError(msg)
+      if (err?.status === 409) {
+        // Consumo duplicado: aviso con los datos del usuario + sonido de alerta.
+        // Al terminar el sonido el aviso se cierra solo (y limpia para el siguiente).
+        setDuplicateOpen(true)
+        playSound(DUPLICATE_ALERT_SOUND, 0.6, closeDuplicate)
+      } else {
+        // 403 = sanción activa — el mensaje ya viene limpio del apiClient
+        const msg = errorMessage(err, { 409: CONFLICT.consumptionToday }, 'Error al registrar el consumo')
+        notify.error(msg)
+        setError(msg)
+      }
     } finally {
       setSaving(false)
     }
+  }
+
+  // Cierra el aviso de duplicado y limpia para atender al siguiente (flujo de escaneo).
+  function closeDuplicate() {
+    setDuplicateOpen(false)
+    setCedula('')
+    setStudent(null)
+    setSearched(false)
+    setActiveSanction(null)
   }
 
   // ── Suspensión rápida desde el registro (problemáticas 29 y 30) ──
@@ -224,73 +245,80 @@ export function RegisterDining() {
         subtitle="Escanea el carnet o búsqueda por cédula para registrar el consumo"
       />
 
-      <Card variant="outlined" padding="md" className="mb-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="max-w-xs flex-1">
-            <SedeSelector value={sedeId} onChange={handleSedeChange} onLoaded={handleSedesLoaded} />
-          </div>
-          {selectedSede && !sessionLoading && (
-            <Badge variant={session ? 'success' : 'warning'}>
-              {session ? `Sesión abierta en ${selectedSede.name}` : `Sin sesión activa en ${selectedSede.name}`}
-            </Badge>
-          )}
-        </div>
-      </Card>
-
-      {sedes.length === 0 && !sessionLoading && (
-        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-          No hay sedes activas registradas. Contacta a un administrador.
-        </div>
-      )}
-
-      {sedes.length > 0 && noSedeSelected && (
-        <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-          Selecciona la sede donde estás registrando para comenzar.
-        </div>
-      )}
-
-      {noSession && (
-        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-          No hay una sesión de almuerzo activa en esta sede. Un administrador debe abrirla antes de registrar consumos.
-        </div>
-      )}
-
       {error && (
         <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
           {error}
         </div>
       )}
 
-      {/* ── Barra de búsqueda ──────────────────────────────────── */}
-      <Card variant="outlined" padding="md" className="mb-4">
-        <div className="flex items-end gap-3">
-          <Input
-            id="cedula-register"
-            label="Cédula o Carnet"
-            placeholder="Escanea el carnet o escribe la cédula"
-            value={cedula}
-            onChange={(e) => setCedula(e.target.value)}
-            onKeyDown={handleKeyDown}
-            leftIcon={<Search size={16} />}
-            fullWidth
-            disabled={registrationBlocked}
-          />
-          <Button
-            variant="primary"
-            onClick={handleSearch}
-            loading={loading}
-            disabled={registrationBlocked}
-            className="flex-shrink-0"
-          >
-            Consultar
-          </Button>
-        </div>
+      {/* Sede y búsqueda de cédula: se ocultan mientras hay un estudiante
+          consultado y reaparecen al guardar/limpiar. La sede seleccionada y el
+          estado de la sesión se conservan en el estado del componente. */}
+      {!student && (
+        <>
+          <Card variant="outlined" padding="md" className="mb-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div className="max-w-xs flex-1">
+                <SedeSelector value={sedeId} onChange={handleSedeChange} onLoaded={handleSedesLoaded} />
+              </div>
+              {selectedSede && !sessionLoading && (
+                <Badge variant={session ? 'success' : 'warning'}>
+                  {session ? `Sesión abierta en ${selectedSede.name}` : `Sin sesión activa en ${selectedSede.name}`}
+                </Badge>
+              )}
+            </div>
+          </Card>
 
-        <p className="mt-3 flex items-center gap-1.5 text-xs text-slate-400">
-          <ScanLine size={13} />
-          El lector de código de barras enviará el código automáticamente al pasar el carnet.
-        </p>
-      </Card>
+          {sedes.length === 0 && !sessionLoading && (
+            <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+              No hay sedes activas registradas. Contacta a un administrador.
+            </div>
+          )}
+
+          {sedes.length > 0 && noSedeSelected && (
+            <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+              Selecciona la sede donde estás registrando para comenzar.
+            </div>
+          )}
+
+          {noSession && (
+            <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+              No hay una sesión de almuerzo activa en esta sede. Un administrador debe abrirla antes de registrar consumos.
+            </div>
+          )}
+
+          {/* ── Barra de búsqueda ──────────────────────────────────── */}
+          <Card variant="outlined" padding="md" className="mb-4">
+            <div className="flex items-end gap-3">
+              <Input
+                id="cedula-register"
+                label="Cédula o Carnet"
+                placeholder="Escanea el carnet o escribe la cédula"
+                value={cedula}
+                onChange={(e) => setCedula(e.target.value)}
+                onKeyDown={handleKeyDown}
+                leftIcon={<Search size={16} />}
+                fullWidth
+                disabled={registrationBlocked}
+              />
+              <Button
+                variant="primary"
+                onClick={handleSearch}
+                loading={loading}
+                disabled={registrationBlocked}
+                className="flex-shrink-0"
+              >
+                Consultar
+              </Button>
+            </div>
+
+            <p className="mt-3 flex items-center gap-1.5 text-xs text-slate-400">
+              <ScanLine size={13} />
+              El lector de código de barras enviará el código automáticamente al pasar el carnet.
+            </p>
+          </Card>
+        </>
+      )}
 
       {loading && (
         <div className="flex justify-center py-12">
@@ -306,78 +334,69 @@ export function RegisterDining() {
 
       {/* ── Tarjeta del estudiante ─────────────────────────────── */}
       {!loading && student && (
-        <Card variant="outlined" padding="md">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-
-            {/* Avatar + badge */}
-            <div className="flex flex-col items-center gap-3">
-              <Avatar name={student.name} src={student.avatar_url} shape="square" />
-              <Badge variant={isSuspended ? 'danger' : 'success'}>
-                {isSuspended ? 'Suspendido' : 'Activo'}
-              </Badge>
-            </div>
-
-            {/* Campos */}
-            <div className="flex flex-1 flex-col gap-3">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="flex flex-col gap-1">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Documento</p>
-                  <Input value={student.cedula}    readOnly fullWidth />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Nombre</p>
-                  <Input value={student.name}      readOnly fullWidth />
-                </div>
-                <div className="flex flex-col gap-1 sm:col-span-2">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Email</p>
-                  <Input value={student.email ?? '—'} readOnly fullWidth />
-                </div>
+        <StudentResultCard
+          student={student}
+          suspended={isSuspended}
+          notice={
+            activeSanction ? (
+              <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                Usuario suspendido y no puede registrar consumo.
+                <span className="mt-0.5 block text-xs text-red-600">Motivo: {activeSanction.reason}</span>
               </div>
-
-              {student.is_acceso_directo ? (
-                <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
-                  Usuario con acceso directo
-                </div>
-              ) : (
-                <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700">
-                  Este usuario no tiene acceso directo. Se registrará su consumo y se dará de alta automáticamente.
-                </div>
-              )}
-
-              {activeSanction ? (
-                <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  Usuario suspendido y no puede registrar consumo.
-                  <span className="mt-0.5 block text-xs text-red-600">Motivo: {activeSanction.reason}</span>
-                </div>
-              ) : student.is_suspended && (
-                <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                  Este estudiante está suspendido y no puede registrar consumo.
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
-                {canSuspend && (
-                  <Button
-                    variant="danger"
-                    leftIcon={<Ban size={15} />}
-                    onClick={openSuspend}
-                  >
-                    Suspender
-                  </Button>
-                )}
-                <Button
-                  variant="primary"
-                  loading={saving}
-                  disabled={isSuspended || registrationBlocked}
-                  onClick={handleRegister}
-                >
-                  Registrar Consumo
+            ) : student.is_suspended ? (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                Este estudiante está suspendido y no puede registrar consumo.
+              </div>
+            ) : null
+          }
+          actions={
+            <>
+              {canSuspend && (
+                <Button variant="danger" leftIcon={<Ban size={15} />} onClick={openSuspend}>
+                  Suspender
                 </Button>
-              </div>
+              )}
+              <Button
+                variant="primary"
+                loading={saving}
+                disabled={isSuspended || registrationBlocked}
+                onClick={handleRegister}
+              >
+                Registrar Consumo
+              </Button>
+            </>
+          }
+        />
+      )}
+
+      {/* Aviso de consumo duplicado: datos del usuario + sonido de alerta */}
+      <Modal
+        open={duplicateOpen}
+        onClose={closeDuplicate}
+        title="Este usuario ya consumió hoy"
+        size="lg"
+        footer={
+          <Button variant="primary" onClick={closeDuplicate}>
+            Entendido
+          </Button>
+        }
+      >
+        {student && (
+          <div className="flex flex-col gap-4">
+            {/* Datos completos del usuario */}
+            <StudentResultCard student={student} showAccesoDirectoNotice={false} bare />
+
+            {/* Aviso "ya comió" a lo ancho, debajo de los datos */}
+            <div className="flex items-center gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <AlertTriangle size={18} className="flex-shrink-0" />
+              <span>
+                <strong>Ya registró su consumo hoy.</strong> No se registró un nuevo consumo para
+                este usuario.
+              </span>
             </div>
           </div>
-        </Card>
-      )}
+        )}
+      </Modal>
 
       {/* Modal de suspensión rápida (problemáticas 29 y 30) */}
       <Modal

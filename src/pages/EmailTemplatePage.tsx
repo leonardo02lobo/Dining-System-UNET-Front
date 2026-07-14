@@ -12,6 +12,34 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { Spinner } from '../components/ui/Spinner'
 import { Badge } from '../components/ui/Badge'
 
+// Valores de ejemplo para la previsualización (aproxima el render del backend).
+const PREVIEW_VALUES: Record<string, string> = {
+  '{nombre}':       'Juan Pérez',
+  '{cedula}':       'V-12345678',
+  '{motivo}':       'Uso indebido del comedor',
+  '{descripcion}':  'Se coló en la fila reiteradamente',
+  '{fecha_inicio}': '01/07/2026',
+  '{fecha_fin}':    '15/07/2026',
+}
+
+/** Sustituye los marcadores soportados por valores de ejemplo (réplica aproximada
+ *  del render del backend: reemplazo literal, tolerante a llaves sueltas). */
+function renderPreview(text: string, placeholders: string[]): string {
+  let out = text
+  for (const token of placeholders) {
+    const value = PREVIEW_VALUES[token] ?? `«${token.slice(1, -1)}»`
+    out = out.split(token).join(value)
+  }
+  return out
+}
+
+/** Marcadores con forma {...} presentes en el texto que no son soportados. */
+function unsupportedMarkers(text: string, placeholders: string[]): string[] {
+  const found = text.match(/\{[^}]+\}/g) ?? []
+  const supported = new Set(placeholders)
+  return [...new Set(found.filter((m) => !supported.has(m)))]
+}
+
 export function EmailTemplatePage() {
   // ── Plantilla del correo ──────────────────────────────────────────
   const [subject,      setSubject]      = useState('')
@@ -83,6 +111,8 @@ export function EmailTemplatePage() {
   function insertPlaceholder(token: string) {
     setBody((prev) => (prev.endsWith(' ') || prev === '' ? prev : prev + ' ') + token)
   }
+
+  const unknownMarkers = unsupportedMarkers(`${subject}\n${body}`, placeholders)
 
   async function handleSaveTemplate() {
     if (!subject.trim() || !body.trim()) {
@@ -240,6 +270,31 @@ export function EmailTemplatePage() {
                 ))}
               </div>
             )}
+
+            {unknownMarkers.length > 0 && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                Marcadores no soportados (se enviarán tal cual, sin sustituir):{' '}
+                <span className="font-mono">{unknownMarkers.join(', ')}</span>
+              </div>
+            )}
+
+            {/* Previsualización con valores de ejemplo (aproximada). */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[13px] font-semibold text-slate-900">Previsualización</span>
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+                <p className="mb-2 text-xs uppercase tracking-wide text-slate-400">Asunto</p>
+                <p className="mb-4 text-sm font-medium text-slate-800">
+                  {renderPreview(subject, placeholders) || '—'}
+                </p>
+                <p className="mb-2 text-xs uppercase tracking-wide text-slate-400">Cuerpo</p>
+                <div className="whitespace-pre-wrap text-sm text-slate-700">
+                  {renderPreview(body, placeholders) || '—'}
+                </div>
+              </div>
+              <span className="text-xs text-slate-400">
+                Aproximación con datos de ejemplo; el envío real usa los datos de la sanción.
+              </span>
+            </div>
 
             <div className="flex justify-end border-t border-slate-100 pt-4">
               <Button

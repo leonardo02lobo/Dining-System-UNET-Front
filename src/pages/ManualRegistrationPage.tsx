@@ -18,6 +18,7 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
 import { Table, type ColumnDef } from '../components/ui/Table'
+import { StudentResultCard } from '../components/StudentResultCard'
 import { userTypeLabel } from '../utils/labels'
 
 /** Fecha local de hoy en formato YYYY-MM-DD (sin desfase de zona horaria). */
@@ -290,33 +291,7 @@ export function ManualRegistrationPage() {
         )}
 
         {!loading && student && (
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-slate-500">Estado:</span>
-              <Badge variant={isSuspended ? 'danger' : 'success'}>
-                {isSuspended ? 'Suspendido' : 'Activo'}
-              </Badge>
-            </div>
-
-            {student.is_acceso_directo ? (
-              <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
-                Usuario con acceso directo
-              </div>
-            ) : (
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700">
-                Este usuario no tiene acceso directo. Se registrará su consumo y se dará de alta automáticamente.
-              </div>
-            )}
-
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-6">
-              <p className="w-full sm:w-40 text-xs uppercase tracking-wide text-slate-400">Nombre*</p>
-              <Input value={student.name} readOnly fullWidth />
-            </div>
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-6">
-              <p className="w-full sm:w-40 text-xs uppercase tracking-wide text-slate-400">Email*</p>
-              <Input value={student.email ?? '—'} readOnly fullWidth />
-            </div>
-          </div>
+          <StudentResultCard student={student} suspended={isSuspended} bare />
         )}
 
         <div className="mt-5 flex gap-3">

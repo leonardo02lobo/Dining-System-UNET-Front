@@ -8,7 +8,6 @@ export const ROUTE_ACCESS: Record<string, RoleName[]> = {
   '/comedor/historial':        ['SUPER_ADMIN', 'ADMIN'],
   '/comedor/registro-manual':  ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'],
   '/comedor/sesion':           ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'],
-  '/suspendStudent':           ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'],
   '/suspendidos':              ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'],
   '/accesos_directos':         ['SUPER_ADMIN', 'ADMIN'],
   '/gente-externa':            ['SUPER_ADMIN', 'ADMIN'],

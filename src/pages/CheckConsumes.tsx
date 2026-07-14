@@ -10,8 +10,7 @@ import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { PageHeader } from '../components/ui/PageHeader'
-import { Avatar } from '../components/ui/Avatar'
-import { Badge } from '../components/ui/Badge'
+import { StudentResultCard } from '../components/StudentResultCard'
 import { Spinner } from '../components/ui/Spinner'
 import type { Student } from '../types/user'
 import type { ConsumptionCheckResult } from '../types/consumption'
@@ -129,30 +128,11 @@ export function CheckConsumes() {
       )}
 
       {!loading && student && (
-        <Card variant="outlined" padding="md">
-          <div className="flex flex-col items-start gap-4 sm:flex-row">
-            <Avatar name={student.name} src={student.avatar_url} shape="square" />
-            <div className="flex flex-1 flex-col gap-3 text-sm">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="flex flex-col gap-1">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Documento</p>
-                  <Input value={student.cedula} readOnly fullWidth />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Nombre</p>
-                  <Input value={student.name} readOnly fullWidth />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Email</p>
-                  <Input value={student.email ?? '—'} readOnly fullWidth />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Estado</p>
-                  <Badge variant={student.is_suspended ? 'danger' : 'success'}>
-                    {student.is_suspended ? 'Suspendido' : 'Activo'}
-                  </Badge>
-                </div>
-              </div>
+        <StudentResultCard
+          student={student}
+          showAccesoDirectoNotice={false}
+          notice={
+            <>
               {checkResult !== null && (
                 <div className={`flex items-center gap-3 rounded-md border px-4 py-3 text-sm ${checkResult.has_consumed_today
                     ? 'border-amber-200 bg-amber-50 text-amber-700'
@@ -171,9 +151,9 @@ export function CheckConsumes() {
                   Sanción activa: {checkResult.active_sanction.reason}
                 </div>
               )}
-            </div>
-          </div>
-        </Card>
+            </>
+          }
+        />
       )}
     </div>
   )
