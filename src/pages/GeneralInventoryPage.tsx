@@ -5,7 +5,7 @@ import { InventoryFilters } from '../components/inventory/InventoryFilters'
 import { InventoryOverviewTable } from '../components/inventory/InventoryOverviewTable'
 import { InventorySummaryPanel } from '../components/inventory/InventorySummaryPanel'
 import { Button } from '../components/ui/Button'
-import { downloadBlob } from '../utils/downloadBlob'
+import { generateInventoryPdf } from '../utils/pdfInventory'
 import type { Ingredient, InventoryItem, StockAlert } from '../types/inventory'
 
 function formatDate(date: Date) {
@@ -78,14 +78,13 @@ export function GeneralInventoryPage() {
     setExportError('')
 
     try {
-      const pdf = await inventoryApi.exportInventoryPdf()
-      downloadBlob(pdf, 'inventario-general.pdf')
+      await generateInventoryPdf({ items })
     } catch {
       setExportError('No se pudo generar el PDF del inventario. Intenta de nuevo.')
     } finally {
       setExporting(false)
     }
-  }, [exporting])
+  }, [exporting, items])
 
   const categories = useMemo(
     () => [...new Set(items.map((item) => item.category))].sort(),
