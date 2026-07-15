@@ -17,6 +17,11 @@ interface StudentResultCardProps {
   actions?: ReactNode
   /** Si es true, no envuelve en <Card> (para insertarlo dentro de otra tarjeta). */
   bare?: boolean
+  /**
+   * Número de veces que la persona ha sido suspendida (histórico, #8). Solo aplica
+   * a personas con acceso directo; si es `null`/`undefined` no se muestra el contador.
+   */
+  suspensionCount?: number | null
 }
 
 function ReadOnlyField({ label, value }: { label: string; value: string }) {
@@ -40,6 +45,7 @@ export function StudentResultCard({
   notice,
   actions,
   bare = false,
+  suspensionCount,
 }: StudentResultCardProps) {
   const isSuspended = suspended ?? student.is_suspended ?? false
 
@@ -50,6 +56,11 @@ export function StudentResultCard({
         <Badge variant={isSuspended ? 'danger' : 'success'}>
           {isSuspended ? 'Suspendido' : 'Activo'}
         </Badge>
+        {suspensionCount != null && (
+          <Badge variant={suspensionCount > 0 ? 'warning' : 'neutral'}>
+            {suspensionCount > 0 ? `Suspendido ${suspensionCount} ${suspensionCount === 1 ? 'vez' : 'veces'}` : 'Sin suspensiones'}
+          </Badge>
+        )}
       </div>
 
       <div className="flex flex-1 flex-col gap-3">

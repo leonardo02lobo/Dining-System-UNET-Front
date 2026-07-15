@@ -3,6 +3,7 @@ import { Search, Save, RotateCcw, Printer, Pencil, Trash2 } from 'lucide-react'
 import { studentApi, studentToIdentity } from '../api/student'
 import { accesoDirectoApi } from '../api/acceso_directo'
 import { consumptionApi } from '../api/consumption'
+import { sanctionApi } from '../api/sanction'
 import { normalizeCedula } from '../utils/cedula'
 import { errorMessage, CONFLICT } from '../utils/apiErrors'
 import { printManualList } from '../utils/printManual'
@@ -43,6 +44,7 @@ export function ManualRegistrationPage() {
   const [saving,   setSaving]   = useState(false)
   const [searched, setSearched] = useState(false)
   const [error,    setError]    = useState<string | null>(null)
+  const [suspensionCount, setSuspensionCount] = useState<number | null>(null)
 
   // Listado de registros manuales (problemáticas 24 y 28)
   const [rows,        setRows]      = useState<ManualConsumption[]>([])
@@ -75,6 +77,25 @@ export function ManualRegistrationPage() {
 
   useEffect(() => { void refetchList() }, [refetchList])
 
+  // Atajo de teclado: ArrowDown guarda el registro sin ratón, igual que en Registro
+  // al Comedor (#10). Respeta SELECT/TEXTAREA y no dispara con modales abiertos.
+  useEffect(() => {
+    const canSaveNow = !!student && !!date && !saving
+    if (!canSaveNow || editTarget || deleteTarget) return
+
+    function onArrowDownSave(e: KeyboardEvent) {
+      if (e.key !== 'ArrowDown') return
+      const tag = (e.target as HTMLElement | null)?.tagName
+      if (tag === 'SELECT' || tag === 'TEXTAREA') return
+      e.preventDefault()
+      void handleSave()
+    }
+
+    window.addEventListener('keydown', onArrowDownSave)
+    return () => window.removeEventListener('keydown', onArrowDownSave)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [student, date, saving, editTarget, deleteTarget])
+
   async function handleSearch() {
     const clean = normalizeCedula(cedula)
     if (!clean) return
@@ -83,9 +104,19 @@ export function ManualRegistrationPage() {
     setError(null)
     setSearched(true)
     setStudent(null)
+    setSuspensionCount(null)
     try {
       const data = await studentApi.lookup(clean)
       setStudent(data)
+      // Conteo de suspensiones (#8) para acceso directo; informativo, no bloquea.
+      if (data.acceso_directo_id) {
+        try {
+          const history = await sanctionApi.history(data.acceso_directo_id)
+          setSuspensionCount(history.total)
+        } catch {
+          /* si falla, se omite el contador */
+        }
+      }
     } catch (err: any) {
       setError(err.message ?? 'Error al consultar el estudiante')
     } finally {
@@ -121,6 +152,7 @@ export function ManualRegistrationPage() {
     setStudent(null)
     setSearched(false)
     setError(null)
+    setSuspensionCount(null)
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -230,7 +262,7 @@ export function ManualRegistrationPage() {
   ]
 
   return (
-    <div>
+    <div className="flex min-h-0 flex-col">
       <PageHeader
         title="Registro Manual de Estudiantes"
         subtitle="Registra manualmente el consumo de comedor asociado a una fecha"
@@ -242,7 +274,10 @@ export function ManualRegistrationPage() {
         </div>
       )}
 
-      <Card variant="outlined" padding="lg" className="mb-6">
+      {/* Vista única (#10): formulario y listado en columnas; el listado tiene su
+          propio scroll interno para evitar el scroll de la página completa. */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start">
+      <Card variant="outlined" padding="md">
         <p className="mb-4 text-sm font-semibold text-blue-600">Datos del Registro</p>
 
         <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -291,7 +326,7 @@ export function ManualRegistrationPage() {
         )}
 
         {!loading && student && (
-          <StudentResultCard student={student} suspended={isSuspended} bare />
+          <StudentResultCard student={student} suspended={isSuspended} suspensionCount={suspensionCount} bare />
         )}
 
         <div className="mt-5 flex gap-3">
@@ -312,10 +347,13 @@ export function ManualRegistrationPage() {
             Limpiar campos
           </Button>
         </div>
+        <p className="mt-3 text-xs text-slate-400">
+          Consejo: con una persona consultada, presiona la flecha ↓ para guardar sin usar el ratón.
+        </p>
       </Card>
 
       {/* Listado de registros manuales de la fecha seleccionada */}
-      <Card variant="outlined" padding="lg">
+      <Card variant="outlined" padding="md">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-blue-600">Registros manuales de la fecha</p>
@@ -341,34 +379,37 @@ export function ManualRegistrationPage() {
           </div>
         </div>
 
-        <Table<ManualConsumption>
-          columns={columns}
-          rows={rows}
-          keyField="id"
-          loading={listLoading}
-          emptyMessage="No hay registros manuales para la fecha seleccionada."
-          actions={(row) => (
-            <>
-              <button
-                type="button"
-                title="Editar"
-                className="rounded p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
-                onClick={() => openEdit(row)}
-              >
-                <Pencil size={14} />
-              </button>
-              <button
-                type="button"
-                title="Eliminar"
-                className="rounded p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
-                onClick={() => setDeleteTarget(row)}
-              >
-                <Trash2 size={14} />
-              </button>
-            </>
-          )}
-        />
+        <div className="max-h-[52vh] overflow-y-auto">
+          <Table<ManualConsumption>
+            columns={columns}
+            rows={rows}
+            keyField="id"
+            loading={listLoading}
+            emptyMessage="No hay registros manuales para la fecha seleccionada."
+            actions={(row) => (
+              <>
+                <button
+                  type="button"
+                  title="Editar"
+                  className="rounded p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
+                  onClick={() => openEdit(row)}
+                >
+                  <Pencil size={14} />
+                </button>
+                <button
+                  type="button"
+                  title="Eliminar"
+                  className="rounded p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                  onClick={() => setDeleteTarget(row)}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </>
+            )}
+          />
+        </div>
       </Card>
+      </div>
 
       {/* Modal de edición */}
       <Modal

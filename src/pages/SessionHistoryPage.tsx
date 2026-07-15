@@ -1,16 +1,20 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Download, RefreshCw, Utensils } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { BarChart3, Download, RefreshCw, Utensils } from 'lucide-react'
 import { lunchSessionApi } from '../api/lunchSession'
 import { consumptionApi } from '../api/consumption'
 import { lunchApi } from '../api/lunch'
 import { errorMessage } from '../utils/apiErrors'
 import { notify } from '../utils/toast'
 import { generateSessionEntrantsPdf } from '../utils/pdfSessionEntrants'
+import { genderStats, careerStats, roleStats } from '../utils/sessionStats'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { DateInput } from '../components/ui/DateInput'
+import { Modal } from '../components/ui/Modal'
 import { PageHeader } from '../components/ui/PageHeader'
+import { Select } from '../components/ui/Select'
+import { BarChart, PieChart } from '../components/ui/Chart'
 import { Table, type ColumnDef } from '../components/ui/Table'
 import type { Consumption } from '../types/consumption'
 import type { LunchSession } from '../types/lunchSession'
@@ -28,6 +32,42 @@ function formatDate(value: string) {
   return date.toLocaleDateString('es-VE')
 }
 
+/** Formatea una marca de tiempo ISO como hora local HH:mm (es-VE). */
+function formatTime(value: string | null) {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return date.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })
+}
+
+const ROLE_FILTER_OPTIONS = [
+  { value: 'ALL',            label: 'Todos los roles' },
+  { value: 'STUDENT',        label: 'Estudiante' },
+  { value: 'ADMINISTRATIVE', label: 'Administrativo' },
+  { value: 'TEACHER',        label: 'Docente' },
+  { value: 'WORKER',         label: 'Obrero' },
+]
+
+/** Paleta reutilizable para las gráficas del modal. */
+const CHART_PALETTE = [
+  '#2563eb', '#f472b6', '#10b981', '#f59e0b', '#8b5cf6',
+  '#ef4444', '#14b8a6', '#eab308', '#6366f1', '#64748b',
+]
+
+function pieData(labels: string[], data: number[]) {
+  return {
+    labels,
+    datasets: [
+      {
+        data,
+        backgroundColor: labels.map((_, i) => `${CHART_PALETTE[i % CHART_PALETTE.length]}b3`),
+        borderColor: labels.map((_, i) => CHART_PALETTE[i % CHART_PALETTE.length]),
+        borderWidth: 1,
+      },
+    ],
+  }
+}
+
 export function SessionHistoryPage() {
   const [dateFrom, setDateFrom] = useState(toIsoDate(30))
   const [dateTo, setDateTo] = useState(toIsoDate(0))
@@ -41,10 +81,12 @@ export function SessionHistoryPage() {
   const [entrantsLoading, setEntrantsLoading] = useState(false)
   const [entrantsError, setEntrantsError] = useState('')
   const [onlyAccesoDirecto, setOnlyAccesoDirecto] = useState(false)
+  const [roleFilter, setRoleFilter] = useState('ALL')
 
   const [menu, setMenu] = useState<LunchResponse | null>(null)
   const [menuLoading, setMenuLoading] = useState(false)
   const [downloading, setDownloading] = useState(false)
+  const [chartsOpen, setChartsOpen] = useState(false)
 
   const loadSessions = useCallback(async () => {
     setSessionsLoading(true)
@@ -97,9 +139,16 @@ export function SessionHistoryPage() {
   function selectSession(session: LunchSession) {
     setSelected(session)
     setOnlyAccesoDirecto(false)
+    setRoleFilter('ALL')
     void loadEntrants(session, false)
     void loadMenu(session)
   }
+
+  // Filtro por rol client-side (#4): convive con "Solo acceso directo" (server-side).
+  const filteredEntrants = useMemo(() => {
+    if (roleFilter === 'ALL') return entrants
+    return entrants.filter((e) => (e.user_type ?? '').toUpperCase() === roleFilter)
+  }, [entrants, roleFilter])
 
   function toggleOnlyAccesoDirecto(next: boolean) {
     setOnlyAccesoDirecto(next)
@@ -110,7 +159,7 @@ export function SessionHistoryPage() {
     if (!selected || downloading) return
     setDownloading(true)
     try {
-      await generateSessionEntrantsPdf({ session: selected, entrants, onlyAccesoDirecto })
+      await generateSessionEntrantsPdf({ session: selected, entrants: filteredEntrants, onlyAccesoDirecto, menu })
     } catch {
       notify.error('No se pudo generar el PDF de la sesión.')
     } finally {
@@ -121,6 +170,15 @@ export function SessionHistoryPage() {
   const sessionColumns: ColumnDef<LunchSession>[] = [
     { key: 'date', header: 'Fecha', sortable: true, render: (_, s) => formatDate(s.date) },
     { key: 'sede', header: 'Sede', render: (_, s) => s.sede?.name ?? '—' },
+    { key: 'opened_at', header: 'Apertura', render: (_, s) => formatTime(s.opened_at) ?? '—' },
+    {
+      key: 'closed_at',
+      header: 'Cierre',
+      render: (_, s) =>
+        s.closed_at
+          ? formatTime(s.closed_at) ?? '—'
+          : <span className="text-slate-400">En curso</span>,
+    },
     {
       key: 'status',
       header: 'Estado',
@@ -205,7 +263,13 @@ export function SessionHistoryPage() {
                 <h2 className="text-[15px] font-bold text-black">
                   Entrantes · {formatDate(selected.date)}
                 </h2>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <Select
+                    options={ROLE_FILTER_OPTIONS}
+                    value={roleFilter}
+                    onChange={(e) => setRoleFilter(e.target.value)}
+                    className="w-full sm:w-44"
+                  />
                   <label className="flex items-center gap-2 text-sm text-slate-600">
                     <input
                       type="checkbox"
@@ -218,9 +282,18 @@ export function SessionHistoryPage() {
                   <Button
                     variant="secondary"
                     size="sm"
+                    leftIcon={<BarChart3 size={14} />}
+                    disabled={entrants.length === 0}
+                    onClick={() => setChartsOpen(true)}
+                  >
+                    Ver gráficas
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     leftIcon={<Download size={14} />}
                     loading={downloading}
-                    disabled={entrants.length === 0}
+                    disabled={filteredEntrants.length === 0}
                     onClick={handleDownloadPdf}
                   >
                     Descargar PDF
@@ -239,9 +312,15 @@ export function SessionHistoryPage() {
               ) : (
                 <Table<Consumption>
                   columns={entrantColumns}
-                  rows={entrants}
+                  rows={filteredEntrants}
                   keyField="id"
-                  emptyMessage={onlyAccesoDirecto ? 'No hay entrantes de acceso directo en esta sesión.' : 'No hay entrantes en esta sesión.'}
+                  emptyMessage={
+                    roleFilter !== 'ALL'
+                      ? 'No hay entrantes con el rol seleccionado en esta sesión.'
+                      : onlyAccesoDirecto
+                        ? 'No hay entrantes de acceso directo en esta sesión.'
+                        : 'No hay entrantes en esta sesión.'
+                  }
                 />
               )}
 
@@ -279,6 +358,77 @@ export function SessionHistoryPage() {
           )}
         </div>
       </div>
+
+      {/* Modal de gráficas de la sesión (#3) */}
+      <Modal
+        open={chartsOpen}
+        onClose={() => setChartsOpen(false)}
+        title={selected ? `Gráficas · ${formatDate(selected.date)}` : 'Gráficas de la sesión'}
+        size="lg"
+        footer={
+          <Button variant="primary" onClick={() => setChartsOpen(false)}>
+            Cerrar
+          </Button>
+        }
+      >
+        <div className="flex flex-col gap-8">
+          <p className="text-sm text-slate-500">
+            Distribución de los {entrants.length} entrantes de la sesión.
+          </p>
+
+          <div>
+            <PieChart
+              data={pieData(genderStats(entrants).labels, genderStats(entrants).data)}
+              options={{
+                responsive: true,
+                plugins: {
+                  legend: { position: 'bottom' },
+                  title: { display: true, text: 'Por género', color: '#1e293b', font: { weight: 'bold' } },
+                },
+              }}
+            />
+          </div>
+
+          <div>
+            <BarChart
+              data={{
+                labels: careerStats(entrants).labels,
+                datasets: [
+                  {
+                    label: 'Estudiantes',
+                    data: careerStats(entrants).data,
+                    backgroundColor: 'rgba(37, 99, 235, 0.7)',
+                    borderColor: 'rgba(37, 99, 235, 1)',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                plugins: {
+                  legend: { display: false },
+                  title: { display: true, text: 'Por carrera (solo estudiantes)', color: '#1e293b', font: { weight: 'bold' } },
+                },
+                scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+              }}
+            />
+          </div>
+
+          <div>
+            <PieChart
+              data={pieData(roleStats(entrants).labels, roleStats(entrants).data)}
+              options={{
+                responsive: true,
+                plugins: {
+                  legend: { position: 'bottom' },
+                  title: { display: true, text: 'Por rol', color: '#1e293b', font: { weight: 'bold' } },
+                },
+              }}
+            />
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }
