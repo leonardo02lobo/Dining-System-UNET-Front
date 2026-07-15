@@ -5,6 +5,7 @@ import { useBarcodeScanner } from '../hooks/useBarcodeScanner'
 import { accesoDirectoApi } from '../api/acceso_directo'
 import { externalStudentApi, mapExternalToStudent } from '../api/externalStudent'
 import { consumptionApi } from '../api/consumption'
+import { sanctionApi } from '../api/sanction'
 import { lunchSessionApi } from '../api/lunchSession'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
@@ -20,6 +21,7 @@ export function CheckConsumes() {
   const [cedula,      setCedula]      = useState('')
   const [student,     setStudent]     = useState<Student | null>(null)
   const [checkResult, setCheckResult] = useState<ConsumptionCheckResult | null>(null)
+  const [suspensionCount, setSuspensionCount] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [searched, setSearched] = useState(false)
@@ -44,6 +46,7 @@ export function CheckConsumes() {
     setSearched(true)
     setStudent(null)
     setCheckResult(null)
+    setSuspensionCount(null)
     try {
       const ext = await externalStudentApi.lookup(clean)
       setStudent(mapExternalToStudent(ext))
@@ -51,6 +54,12 @@ export function CheckConsumes() {
         const b = await accesoDirectoApi.lookup(clean)
         const check = await consumptionApi.check(b.id)
         setCheckResult(check)
+        try {
+          const history = await sanctionApi.history(b.id)
+          setSuspensionCount(history.total)
+        } catch {
+          // El conteo de suspensiones es informativo: si falla, no bloquea la consulta.
+        }
       } catch {
         // Student not in internal system — consumption check unavailable
       }
@@ -131,6 +140,7 @@ export function CheckConsumes() {
         <StudentResultCard
           student={student}
           showAccesoDirectoNotice={false}
+          suspensionCount={suspensionCount}
           notice={
             <>
               {checkResult !== null && (

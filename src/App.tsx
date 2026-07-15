@@ -25,7 +25,7 @@ import { ExternalPeoplePage } from './pages/ExternalPeoplePage'
 import { VerifyAccesoDirectoPage } from './pages/VerifyAccesoDirectoPage'
 import { SedesPage } from './pages/SedesPage'
 import { SuspendedListPage } from './pages/SuspendedListPage'
-import { StudentAccessPage } from './pages/StudentAccessPage'
+import { SuspendStudent } from './pages/SuspendStudent'
 
 export default function App() {
   return (
@@ -44,7 +44,6 @@ export default function App() {
               <Route path="comedor/historial" element={<SessionHistoryPage />} />
               <Route path="comedor/registro-manual" element={<ManualRegistrationPage />} />
               <Route path="admin/permisos" element={<PermissionsPage />} />
-              <Route path="admin/acceso-estudiantes" element={<StudentAccessPage />} />
               <Route path="admin/plantilla-correo" element={<EmailTemplatePage />} />
               <Route path="inventario" element={<InventoryPage />} />
               <Route path="inventario/general" element={<GeneralInventoryPage />} />
@@ -54,6 +53,7 @@ export default function App() {
               <Route path="inventario/pruebas-almuerzo" element={<LunchTestPage />} />
               <Route path="usuarios" element={<ListUser />} />
               <Route path="auditoria" element={<LoginAuditPage />} />
+              <Route path="comedor/suspender" element={<SuspendStudent />} />
               <Route path="suspendidos" element={<SuspendedListPage />} />
               <Route path="comedor/sesion" element={<LunchSessionPage />} />
               <Route path="accesos_directos" element={<AccesoDirectoPage />} />

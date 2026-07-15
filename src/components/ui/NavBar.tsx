@@ -26,6 +26,7 @@ const navGroups: NavGroup[] = [
       { to: '/comedor/reporte',          label: 'Reporte de Comedor'  },
       { to: '/comedor/historial',        label: 'Historial de Sesiones' },
       { to: '/comedor/registro-manual',  label: 'Registro Manual'     },
+      { to: '/comedor/suspender',        label: 'Suspender Usuario'   },
       { to: '/suspendidos',              label: 'Usuarios Suspendidos' },
       { to: '/verificar-acceso-directo',  label: 'Verificar Acceso Directo' },
       { to: '/accesos_directos',         label: 'Accesos Directos'         },
@@ -48,7 +49,6 @@ const navGroups: NavGroup[] = [
     label: 'Administración',
     items: [
       { to: '/auditoria',            label: 'Auditoría de Acceso'  },
-      { to: '/admin/acceso-estudiantes', label: 'Acceso Estudiantes' },
       { to: '/admin/permisos',       label: 'Gestión de Permisos'  },
       { to: '/admin/plantilla-correo', label: 'Plantilla de Correo' },
       { to: '/sedes',                label: 'Sedes'                 },
