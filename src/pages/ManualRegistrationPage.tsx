@@ -218,6 +218,24 @@ export function ManualRegistrationPage() {
   const isSuspended = student?.is_suspended ?? false
   const canSave = !!student && !!date
 
+  // Atajo de teclado: ArrowDown guarda el registro sin ratón, igual que en Registro
+  // al Comedor (issue #10). Respeta SELECT/TEXTAREA y no dispara con un modal abierto.
+  useEffect(() => {
+    const modalOpen = editTarget !== null || deleteTarget !== null
+    if (!canSave || saving || modalOpen) return
+
+    function onArrowDownSave(e: KeyboardEvent) {
+      if (e.key !== 'ArrowDown') return
+      const tag = (e.target as HTMLElement | null)?.tagName
+      if (tag === 'SELECT' || tag === 'TEXTAREA') return
+      e.preventDefault()
+      void handleSave()
+    }
+
+    window.addEventListener('keydown', onArrowDownSave)
+    return () => window.removeEventListener('keydown', onArrowDownSave)
+  }, [canSave, saving, editTarget, deleteTarget])
+
   const orderOptions = [
     { value: 'document_id:asc',   label: 'Cédula (ascendente)'  },
     { value: 'document_id:desc',  label: 'Cédula (descendente)' },
@@ -262,7 +280,7 @@ export function ManualRegistrationPage() {
   ]
 
   return (
-    <div className="flex min-h-0 flex-col">
+    <div className="flex flex-col gap-4">
       <PageHeader
         title="Registro Manual de Estudiantes"
         subtitle="Registra manualmente el consumo de comedor asociado a una fecha"
@@ -274,8 +292,8 @@ export function ManualRegistrationPage() {
         </div>
       )}
 
-      {/* Vista única (#10): formulario y listado en columnas; el listado tiene su
-          propio scroll interno para evitar el scroll de la página completa. */}
+      {/* Vista única sin scroll de página (issue #10): formulario y listado en
+          dos columnas; el listado tiene su propio scroll interno. */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start">
       <Card variant="outlined" padding="md">
         <p className="mb-4 text-sm font-semibold text-blue-600">Datos del Registro</p>
@@ -348,7 +366,7 @@ export function ManualRegistrationPage() {
           </Button>
         </div>
         <p className="mt-3 text-xs text-slate-400">
-          Consejo: con una persona consultada, presiona la flecha ↓ para guardar sin usar el ratón.
+          Sugerencia: presiona la tecla <kbd className="rounded border border-slate-300 px-1">↓</kbd> para guardar el registro.
         </p>
       </Card>
 
@@ -379,7 +397,7 @@ export function ManualRegistrationPage() {
           </div>
         </div>
 
-        <div className="max-h-[52vh] overflow-y-auto">
+        <div className="max-h-[55vh] overflow-auto">
           <Table<ManualConsumption>
             columns={columns}
             rows={rows}

@@ -26,41 +26,53 @@ export interface PlaySoundOptions {
  * bloquea el autoplay, el archivo falta o `Audio` no está disponible, no lanza
  * ninguna excepción (no debe interrumpir el flujo de registro).
  *
- * `onEnded` se invoca cuando el sonido **termina** (evento `ended`, tope de
- * `durationMs`, o error de carga). No se invoca cuando el autoplay queda
- * bloqueado (no hay reproducción que "termine"), de modo que en ese caso el
- * cierre queda manual.
+ * `onEnded` se invoca cuando el sonido **termina** (evento `ended`), cuando se
+ * alcanza `durationMs` o si el archivo da error de carga. No se invoca cuando el
+ * autoplay queda bloqueado (no hay reproducción que "termine"), de modo que en ese
+ * caso el cierre queda manual.
  *
- * Devuelve una función para **cancelar** la reproducción en curso (detiene el
- * audio y libera timers) sin disparar `onEnded`; útil para no acumular
- * instancias de `Audio` si se lanza otra alerta antes de que termine.
+ * Si se pasa `durationMs`, el audio se reproduce en bucle hasta alcanzar esa
+ * duración total (útil para alertas más largas que el propio archivo) y luego se
+ * detiene disparando `onEnded`.
+ *
+ * Devuelve un cancelador que detiene la reproducción sin invocar `onEnded`; sirve
+ * para cortar una alerta en curso antes de tiempo (p. ej. al atender al siguiente).
  */
-export function playSound(src: string, options: PlaySoundOptions = {}): () => void {
-  const { volume = 0.6, onEnded, durationMs } = options
-  let stopTimer: ReturnType<typeof setTimeout> | null = null
-  let cancelled = false
+export function playSound(
+  src: string,
+  volume = 0.6,
+  onEnded?: () => void,
+  durationMs?: number,
+): () => void {
+  let done = false
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let audio: HTMLAudioElement | undefined
+
+  const stop = () => {
+    if (done) return
+    done = true
+    if (timer) clearTimeout(timer)
+    if (audio) {
+      try { audio.pause() } catch { /* ignore */ }
+    }
+  }
+
+  // Fin natural / por duración: detiene y notifica una única vez.
+  const finish = () => {
+    if (done) return
+    stop()
+    onEnded?.()
+  }
 
   try {
-    const audio = new Audio(src)
+    audio = new Audio(src)
     audio.volume = Math.max(0, Math.min(1, volume))
-    if (durationMs && durationMs > 0) audio.loop = true
-
-    const finish = () => {
-      if (cancelled) return
-      cancelled = true
-      if (stopTimer) { clearTimeout(stopTimer); stopTimer = null }
-      audio.loop = false
-      audio.pause()
-      onEnded?.()
-    }
-
+    audio.addEventListener('error', finish, { once: true })
     if (durationMs && durationMs > 0) {
-      // En modo bucle no se emite `ended`; el fin lo marca el temporizador.
-      stopTimer = setTimeout(finish, durationMs)
-      audio.addEventListener('error', finish, { once: true })
+      audio.loop = true
+      timer = setTimeout(finish, durationMs)
     } else if (onEnded) {
-      audio.addEventListener('ended', onEnded, { once: true })
-      audio.addEventListener('error', onEnded, { once: true })
+      audio.addEventListener('ended', finish, { once: true })
     }
 
     void audio.play().catch(() => {
@@ -78,4 +90,9 @@ export function playSound(src: string, options: PlaySoundOptions = {}): () => vo
     /* entorno sin Audio: se ignora */
     return () => {}
   }
+
+  return stop
 }
+
+/** Duración objetivo (ms) de la alerta de consumo duplicado (issue #5). */
+export const DUPLICATE_ALERT_DURATION_MS = 10_000

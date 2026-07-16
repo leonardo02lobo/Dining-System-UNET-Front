@@ -1,99 +1,92 @@
-/**
- * Agregaciones para el modal de gráficas del historial de sesiones (#3).
- *
- * Todo se calcula en el frontend sobre los entrantes ya cargados (`Consumption[]`),
- * evitando llamadas adicionales al backend. Los valores de `gender`, `career` y
- * `user_type` se normalizan (acentos y mayúsculas) para tolerar variaciones de la BD.
- */
 import type { Consumption } from '../types/consumption'
+import { USER_TYPE_LABEL } from './labels'
 
-export interface ChartCount {
-  labels: string[]
-  data: number[]
+/** Un segmento de una gráfica: etiqueta legible + conteo. */
+export interface StatBucket {
+  label: string
+  count: number
 }
 
-function stripAccents(value: string): string {
-  return value.normalize('NFD').replace(/[̀-ͯ]/g, '')
+/** Normaliza texto para comparar: sin acentos, sin espacios sobrantes, minúsculas. */
+function normalize(value: string | null | undefined): string {
+  return (value ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .trim()
+    .toLowerCase()
 }
 
-/** Minúsculas, sin acentos ni espacios sobrantes. */
-function norm(value: string | null | undefined): string {
-  return stripAccents(value ?? '').toLowerCase().trim()
-}
-
-/** Conteo por género (hombre/mujer/no especificado). */
-export function genderStats(entrants: Consumption[]): ChartCount {
+/**
+ * Conteo por género (issue #3). Los valores almacenados son texto libre (p. ej.
+ * "M"/"F", "Masculino"/"Femenino"); se normalizan a Hombres/Mujeres y el resto a
+ * "No especificado" (solo si aparece).
+ */
+export function genderStats(entrants: Consumption[]): StatBucket[] {
   let male = 0
   let female = 0
   let other = 0
   for (const e of entrants) {
-    const g = norm(e.gender)
-    if (['m', 'masculino', 'hombre', 'male'].includes(g)) male++
-    else if (['f', 'femenino', 'mujer', 'female'].includes(g)) female++
+    const g = normalize(e.gender)
+    if (g === 'm' || g === 'masculino' || g === 'hombre') male++
+    else if (g === 'f' || g === 'femenino' || g === 'mujer') female++
     else other++
   }
-  const labels = ['Hombres', 'Mujeres']
-  const data = [male, female]
-  if (other > 0) {
-    labels.push('No especificado')
-    data.push(other)
-  }
-  return { labels, data }
+  const buckets: StatBucket[] = [
+    { label: 'Hombres', count: male },
+    { label: 'Mujeres', count: female },
+  ]
+  if (other > 0) buckets.push({ label: 'No especificado', count: other })
+  return buckets
 }
 
-/** Carreras contempladas por el requisito (#3), en orden fijo, más "Otras". */
-const CAREER_SET: Array<{ label: string; match: string[] }> = [
-  { label: 'Informática',       match: ['informatica'] },
-  { label: 'Civil',             match: ['civil'] },
-  { label: 'Mecánica',          match: ['mecanica'] },
-  { label: 'Psicología',        match: ['psicologia'] },
-  { label: 'Electrónica',       match: ['electronica'] },
-  { label: 'Arquitectura',      match: ['arquitectura'] },
-  { label: 'Música',            match: ['musica'] },
-  { label: 'Producción Animal', match: ['produccion animal', 'produccion pecuaria', 'produccion'] },
+/** Set fijo de carreras pedido en el issue #3 (clave normalizada + etiqueta). */
+const CAREER_SET: { key: string; label: string }[] = [
+  { key: 'informatica', label: 'Informática' },
+  { key: 'civil', label: 'Civil' },
+  { key: 'mecanica', label: 'Mecánica' },
+  { key: 'psicologia', label: 'Psicología' },
+  { key: 'electronica', label: 'Electrónica' },
+  { key: 'arquitectura', label: 'Arquitectura' },
+  { key: 'musica', label: 'Música' },
+  { key: 'produccion animal', label: 'Producción Animal' },
 ]
 
-/** Conteo por carrera, SOLO estudiantes; fuera del set fijo → "Otras". */
-export function careerStats(entrants: Consumption[]): ChartCount {
-  const counts = new Map<string, number>(CAREER_SET.map((c) => [c.label, 0]))
+/**
+ * Conteo por carrera (issue #3) considerando **solo estudiantes**. La carrera es
+ * texto libre, así que se normaliza y se intenta casar por inclusión contra el set
+ * fijo; lo que no casa (o carrera vacía) se agrupa en "Otras" (solo si aparece).
+ */
+export function careerStats(entrants: Consumption[]): StatBucket[] {
+  const counts = new Map<string, number>(CAREER_SET.map((c) => [c.key, 0]))
   let otras = 0
   for (const e of entrants) {
-    if (norm(e.user_type) !== 'student') continue
-    const career = norm(e.career)
-    const found = career
-      ? CAREER_SET.find((c) => c.match.some((m) => career.includes(m)))
-      : undefined
-    if (found) counts.set(found.label, (counts.get(found.label) ?? 0) + 1)
+    if (normalize(e.user_type) !== 'student') continue
+    const career = normalize(e.career)
+    const match = career ? CAREER_SET.find((c) => career.includes(c.key)) : undefined
+    if (match) counts.set(match.key, (counts.get(match.key) ?? 0) + 1)
     else otras++
   }
-  const labels = CAREER_SET.map((c) => c.label)
-  const data = labels.map((l) => counts.get(l) ?? 0)
-  labels.push('Otras')
-  data.push(otras)
-  return { labels, data }
+  const buckets = CAREER_SET.map((c) => ({ label: c.label, count: counts.get(c.key) ?? 0 }))
+  if (otras > 0) buckets.push({ label: 'Otras', count: otras })
+  return buckets
 }
 
-const ROLE_ORDER: Array<{ key: string; label: string }> = [
-  { key: 'student',        label: 'Estudiantes' },
-  { key: 'teacher',        label: 'Docentes' },
-  { key: 'administrative', label: 'Administrativos' },
-  { key: 'worker',         label: 'Obreros' },
-]
+const ROLE_ORDER = ['STUDENT', 'TEACHER', 'ADMINISTRATIVE', 'WORKER'] as const
 
-/** Conteo por rol (los 4 tipos); tipos ajenos (externos) van a "Externos". */
-export function roleStats(entrants: Consumption[]): ChartCount {
-  const counts: Record<string, number> = { student: 0, teacher: 0, administrative: 0, worker: 0 }
-  let externos = 0
+/**
+ * Conteo por rol (issue #3). Los 4 roles pedidos usan las etiquetas de `labels.ts`;
+ * las personas sin rol (externos/jubilados, `user_type` nulo) se agrupan como
+ * "Externo" (solo si aparecen), según la decisión de producto.
+ */
+export function roleStats(entrants: Consumption[]): StatBucket[] {
+  const counts: Record<string, number> = { STUDENT: 0, TEACHER: 0, ADMINISTRATIVE: 0, WORKER: 0 }
+  let externo = 0
   for (const e of entrants) {
-    const t = norm(e.user_type)
-    if (t in counts) counts[t] += 1
-    else externos += 1
+    const ut = (e.user_type ?? '').toUpperCase()
+    if (ut in counts) counts[ut]++
+    else externo++
   }
-  const labels = ROLE_ORDER.map((r) => r.label)
-  const data = ROLE_ORDER.map((r) => counts[r.key])
-  if (externos > 0) {
-    labels.push('Externos')
-    data.push(externos)
-  }
-  return { labels, data }
+  const buckets: StatBucket[] = ROLE_ORDER.map((r) => ({ label: USER_TYPE_LABEL[r], count: counts[r] }))
+  if (externo > 0) buckets.push({ label: 'Externo', count: externo })
+  return buckets
 }
