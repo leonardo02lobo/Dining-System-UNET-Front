@@ -16,9 +16,78 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { Select } from '../components/ui/Select'
 import { BarChart, PieChart } from '../components/ui/Chart'
 import { Table, type ColumnDef } from '../components/ui/Table'
+import { BarChart, PieChart } from '../components/ui/Chart'
+import { USER_TYPE_LABEL } from '../utils/labels'
+import { careerStats, genderStats, roleStats, type StatBucket } from '../utils/sessionStats'
 import type { Consumption } from '../types/consumption'
 import type { LunchSession } from '../types/lunchSession'
 import type { LunchResponse } from '../types/lunch'
+
+// Paleta de colores para las gráficas de la sesión (issue #3).
+const CHART_COLORS = [
+  'rgba(37, 99, 235, 0.7)',   // azul
+  'rgba(244, 114, 182, 0.7)', // rosa
+  'rgba(16, 185, 129, 0.7)',  // verde
+  'rgba(245, 158, 11, 0.7)',  // ámbar
+  'rgba(139, 92, 246, 0.7)',  // violeta
+  'rgba(239, 68, 68, 0.7)',   // rojo
+  'rgba(14, 165, 233, 0.7)',  // celeste
+  'rgba(132, 204, 22, 0.7)',  // lima
+  'rgba(100, 116, 139, 0.7)', // pizarra
+]
+
+function colorsFor(count: number): string[] {
+  return Array.from({ length: count }, (_, i) => CHART_COLORS[i % CHART_COLORS.length])
+}
+
+/** Construye datos de PieChart a partir de segmentos etiqueta/conteo. */
+function toPieData(buckets: StatBucket[]) {
+  return {
+    labels: buckets.map((b) => b.label),
+    datasets: [
+      {
+        data: buckets.map((b) => b.count),
+        backgroundColor: colorsFor(buckets.length),
+        borderColor: '#fff',
+        borderWidth: 1,
+      },
+    ],
+  }
+}
+
+/** Construye datos de BarChart a partir de segmentos etiqueta/conteo. */
+function toBarData(buckets: StatBucket[], label: string) {
+  return {
+    labels: buckets.map((b) => b.label),
+    datasets: [
+      {
+        label,
+        data: buckets.map((b) => b.count),
+        backgroundColor: colorsFor(buckets.length),
+        borderRadius: 4,
+      },
+    ],
+  }
+}
+
+function chartTitleOptions(title: string, legendPosition: 'bottom' | 'top' = 'bottom') {
+  return {
+    responsive: true,
+    plugins: {
+      legend: { position: legendPosition },
+      title: { display: true, text: title, color: '#1e293b', font: { weight: 'bold' as const } },
+    },
+  }
+}
+
+// Opciones del filtro por rol del detalle de entrantes (issue #4).
+const ROLE_FILTER_OPTIONS = [
+  { value: '', label: 'Todos los roles' },
+  { value: 'STUDENT', label: USER_TYPE_LABEL.STUDENT },
+  { value: 'TEACHER', label: USER_TYPE_LABEL.TEACHER },
+  { value: 'ADMINISTRATIVE', label: USER_TYPE_LABEL.ADMINISTRATIVE },
+  { value: 'WORKER', label: USER_TYPE_LABEL.WORKER },
+]
 
 function toIsoDate(daysAgo = 0) {
   const date = new Date()
@@ -202,6 +271,11 @@ export function SessionHistoryPage() {
         e.is_priority ? <Badge variant="info">Acceso directo</Badge> : <span className="text-slate-400">—</span>,
     },
   ]
+
+  // Datos de las gráficas de la sesión (issue #3), recalculados con los entrantes.
+  const genderData = useMemo(() => toPieData(genderStats(entrants)), [entrants])
+  const roleData = useMemo(() => toPieData(roleStats(entrants)), [entrants])
+  const careerData = useMemo(() => toBarData(careerStats(entrants), 'Estudiantes'), [entrants])
 
   return (
     <div className="flex flex-col gap-6">

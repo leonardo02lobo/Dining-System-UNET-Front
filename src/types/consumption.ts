@@ -13,10 +13,10 @@ export interface Consumption {
   first_name?: string
   last_name?: string
   career?: string | null
-  /** Género de la persona (para las gráficas de sesión, #3). */
+  /** Rol de la persona (STUDENT/TEACHER/ADMINISTRATIVE/WORKER). Filtro por rol (#4) y gráficas (#3). */
+  user_type?: string | null
+  /** Género de la persona (p. ej. "M"/"F"). Gráfica de género (#3). */
   gender?: string | null
-  /** Rol/tipo de la persona: STUDENT/TEACHER/ADMINISTRATIVE/WORKER (#3/#4). */
-  user_type?: string
 }
 
 /** Datos mínimos para dar de alta al vuelo a quien no es acceso directo (Issue 2). */

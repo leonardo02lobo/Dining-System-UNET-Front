@@ -58,6 +58,14 @@ export const consumptionApi = {
     const qs = p.toString()
     return apiClient.get<PaginatedConsumptions>(`/consumptions/${qs ? `?${qs}` : ''}`)
   },
+  /**
+   * Últimos consumos de una sesión + total de registros de la sesión.
+   * Alimenta el contador (#6) y la ventana de "últimas N personas" (#7) de Registro
+   * al Comedor. Endpoint acotado a la sesión, accesible también a taquilleros.
+   */
+  sessionRecent: (sessionId: number, limit = 10) =>
+    apiClient.get<PaginatedConsumptions>(`/consumptions/session/${sessionId}/recent?limit=${limit}`),
+
   userStats: (params?: { from?: string; to?: string }) => {
     const p = new URLSearchParams()
     if (params?.from) p.set('from', params.from)

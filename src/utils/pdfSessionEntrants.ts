@@ -5,6 +5,11 @@ import type { LunchSession } from '../types/lunchSession'
 import type { LunchResponse } from '../types/lunch'
 import { logoUnetDataUri, logoDecanatoDataUri } from './pdfLogos'
 
+/** Posición vertical (mm) tras la última tabla generada por jspdf-autotable. */
+function lastTableFinalY(doc: jsPDF, fallback: number): number {
+  return (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? fallback
+}
+
 async function loadPdfImage(src: string, maxWidth: number, maxHeight: number): Promise<string> {
   const image = new Image()
   image.src = src
@@ -29,13 +34,15 @@ interface SessionEntrantsPdfParams {
   session: LunchSession
   entrants: Consumption[]
   onlyAccesoDirecto?: boolean
-  /** Menú del día de la sesión; si es null/undefined se imprime "Sin menú registrado" (#2). */
+  /** Menú del día de la sesión (issue #2). Si falta, se omite la sección. */
   menu?: LunchResponse | null
 }
 
 /**
  * Genera y descarga el PDF de entrantes de una sesión (#4). El backend delega este
- * PDF al frontend (usa branding institucional). Columnas: cédula, apellido, nombre, carrera.
+ * PDF al frontend (usa branding institucional). Incluye el menú del día (issue #2):
+ * nombre del platillo, cantidad de platos e ingredientes usados; luego la tabla de
+ * entrantes (cédula, apellido, nombre, carrera).
  */
 export async function generateSessionEntrantsPdf({
   session,
@@ -68,28 +75,22 @@ export async function generateSessionEntrantsPdf({
   doc.text(`Fecha de la sesión: ${formatSessionDate(session.date)}${sede}${filtro}`, 14, 34)
   doc.text(`Total de entrantes: ${entrants.length}`, 14, 40)
 
-  // ── Sección "Menú del día" (#2) ────────────────────────────────
-  doc.setTextColor(3, 33, 106)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(11)
-  doc.text('Menú del día', 14, 50)
+  let cursorY = 47
 
-  let entrantsStartY = 56
-  doc.setTextColor(60)
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(10)
+  // Sección de menú del día (issue #2): nombre, platos e ingredientes usados.
+  if (menu) {
+    doc.setTextColor(3, 33, 106)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.text('Menú del día', 14, cursorY)
+    doc.setTextColor(60)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`${menu.name} · ${menu.platesQuantity} platos`, 14, cursorY + 5)
+    cursorY += 9
 
-  if (!menu) {
-    doc.text('Sin menú registrado.', 14, 56)
-    entrantsStartY = 63
-  } else {
-    doc.text(`Platillo: ${menu.name}  ·  Platos: ${menu.platesQuantity}`, 14, 56)
-    if (menu.ingredients.length === 0) {
-      doc.text('Sin ingredientes registrados.', 14, 62)
-      entrantsStartY = 69
-    } else {
+    if (menu.ingredients.length > 0) {
       autoTable(doc, {
-        startY: 60,
+        startY: cursorY,
         head: [['Ingrediente', 'Cantidad', 'Unidad']],
         body: menu.ingredients.map((ing) => [
           ing.inventoryItem?.name ?? `Insumo #${ing.inventoryItemId}`,
@@ -99,19 +100,22 @@ export async function generateSessionEntrantsPdf({
         headStyles: { fillColor: [3, 33, 106] },
         styles: { fontSize: 9 },
       })
-      const afterMenu = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable
-      entrantsStartY = (afterMenu?.finalY ?? 60) + 8
+      cursorY = lastTableFinalY(doc, cursorY) + 8
+    } else {
+      doc.text('Sin ingredientes registrados.', 14, cursorY)
+      cursorY += 8
     }
   }
 
-  // ── Sección "Entrantes" ────────────────────────────────────────
+  // Rótulo de la tabla de entrantes.
   doc.setTextColor(3, 33, 106)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(11)
-  doc.text('Entrantes', 14, entrantsStartY)
+  doc.setFontSize(10)
+  doc.text('Entrantes', 14, cursorY)
+  cursorY += 3
 
   autoTable(doc, {
-    startY: entrantsStartY + 4,
+    startY: cursorY,
     head: [['Cédula', 'Apellido', 'Nombre', 'Carrera']],
     body: entrants.map((e) => [
       e.document_id ?? '—',
