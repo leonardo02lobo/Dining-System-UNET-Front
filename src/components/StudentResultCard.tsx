@@ -1,8 +1,9 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Avatar } from './ui/Avatar'
 import { Badge } from './ui/Badge'
 import { Card } from './ui/Card'
 import { Input } from './ui/Input'
+import { sanctionApi } from '../api/sanction'
 import type { Student } from '../types/user'
 
 interface StudentResultCardProps {
@@ -11,6 +12,11 @@ interface StudentResultCardProps {
   suspended?: boolean
   /** Muestra el aviso de "acceso directo" vs. "alta al vuelo". Por defecto true. */
   showAccesoDirectoNotice?: boolean
+  /**
+   * Muestra cuántas veces ha sido suspendida la persona (issue #8). Por defecto true.
+   * Solo aplica a personas con acceso directo (los externos no tienen historial).
+   */
+  showSuspensionCount?: boolean
   /** Contenido adicional bajo los datos (avisos de sanción, consumo del día, etc.). */
   notice?: ReactNode
   /** Botones de acción específicos de cada pantalla (Registrar, Guardar, Suspender…). */
@@ -37,11 +43,27 @@ export function StudentResultCard({
   student,
   suspended,
   showAccesoDirectoNotice = true,
+  showSuspensionCount = true,
   notice,
   actions,
   bare = false,
 }: StudentResultCardProps) {
   const isSuspended = suspended ?? student.is_suspended ?? false
+
+  // Conteo de veces suspendido (issue #8): total histórico de sanciones de la persona.
+  const [suspensionCount, setSuspensionCount] = useState<number | null>(null)
+  useEffect(() => {
+    const id = student.acceso_directo_id
+    if (!showSuspensionCount || !id) {
+      setSuspensionCount(null)
+      return
+    }
+    let active = true
+    sanctionApi.history(id)
+      .then((res) => { if (active) setSuspensionCount(res.total) })
+      .catch(() => { if (active) setSuspensionCount(null) })
+    return () => { active = false }
+  }, [student.acceso_directo_id, showSuspensionCount])
 
   const content = (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
@@ -50,6 +72,13 @@ export function StudentResultCard({
         <Badge variant={isSuspended ? 'danger' : 'success'}>
           {isSuspended ? 'Suspendido' : 'Activo'}
         </Badge>
+        {suspensionCount !== null && (
+          <Badge variant={suspensionCount > 0 ? 'warning' : 'neutral'}>
+            {suspensionCount > 0
+              ? `Suspendido ${suspensionCount} ${suspensionCount === 1 ? 'vez' : 'veces'}`
+              : 'Sin suspensiones'}
+          </Badge>
+        )}
       </div>
 
       <div className="flex flex-1 flex-col gap-3">

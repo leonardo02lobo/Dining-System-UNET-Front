@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Download, RefreshCw, Utensils } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { BarChart3, Download, RefreshCw, Utensils } from 'lucide-react'
 import { lunchSessionApi } from '../api/lunchSession'
 import { consumptionApi } from '../api/consumption'
 import { lunchApi } from '../api/lunch'
@@ -10,11 +10,82 @@ import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { DateInput } from '../components/ui/DateInput'
+import { Modal } from '../components/ui/Modal'
 import { PageHeader } from '../components/ui/PageHeader'
+import { Select } from '../components/ui/Select'
 import { Table, type ColumnDef } from '../components/ui/Table'
+import { BarChart, PieChart } from '../components/ui/Chart'
+import { USER_TYPE_LABEL } from '../utils/labels'
+import { careerStats, genderStats, roleStats, type StatBucket } from '../utils/sessionStats'
 import type { Consumption } from '../types/consumption'
 import type { LunchSession } from '../types/lunchSession'
 import type { LunchResponse } from '../types/lunch'
+
+// Paleta de colores para las gráficas de la sesión (issue #3).
+const CHART_COLORS = [
+  'rgba(37, 99, 235, 0.7)',   // azul
+  'rgba(244, 114, 182, 0.7)', // rosa
+  'rgba(16, 185, 129, 0.7)',  // verde
+  'rgba(245, 158, 11, 0.7)',  // ámbar
+  'rgba(139, 92, 246, 0.7)',  // violeta
+  'rgba(239, 68, 68, 0.7)',   // rojo
+  'rgba(14, 165, 233, 0.7)',  // celeste
+  'rgba(132, 204, 22, 0.7)',  // lima
+  'rgba(100, 116, 139, 0.7)', // pizarra
+]
+
+function colorsFor(count: number): string[] {
+  return Array.from({ length: count }, (_, i) => CHART_COLORS[i % CHART_COLORS.length])
+}
+
+/** Construye datos de PieChart a partir de segmentos etiqueta/conteo. */
+function toPieData(buckets: StatBucket[]) {
+  return {
+    labels: buckets.map((b) => b.label),
+    datasets: [
+      {
+        data: buckets.map((b) => b.count),
+        backgroundColor: colorsFor(buckets.length),
+        borderColor: '#fff',
+        borderWidth: 1,
+      },
+    ],
+  }
+}
+
+/** Construye datos de BarChart a partir de segmentos etiqueta/conteo. */
+function toBarData(buckets: StatBucket[], label: string) {
+  return {
+    labels: buckets.map((b) => b.label),
+    datasets: [
+      {
+        label,
+        data: buckets.map((b) => b.count),
+        backgroundColor: colorsFor(buckets.length),
+        borderRadius: 4,
+      },
+    ],
+  }
+}
+
+function chartTitleOptions(title: string, legendPosition: 'bottom' | 'top' = 'bottom') {
+  return {
+    responsive: true,
+    plugins: {
+      legend: { position: legendPosition },
+      title: { display: true, text: title, color: '#1e293b', font: { weight: 'bold' as const } },
+    },
+  }
+}
+
+// Opciones del filtro por rol del detalle de entrantes (issue #4).
+const ROLE_FILTER_OPTIONS = [
+  { value: '', label: 'Todos los roles' },
+  { value: 'STUDENT', label: USER_TYPE_LABEL.STUDENT },
+  { value: 'TEACHER', label: USER_TYPE_LABEL.TEACHER },
+  { value: 'ADMINISTRATIVE', label: USER_TYPE_LABEL.ADMINISTRATIVE },
+  { value: 'WORKER', label: USER_TYPE_LABEL.WORKER },
+]
 
 function toIsoDate(daysAgo = 0) {
   const date = new Date()
@@ -26,6 +97,14 @@ function formatDate(value: string) {
   const date = new Date(`${value}T00:00:00`)
   if (Number.isNaN(date.getTime())) return value || 'Sin fecha'
   return date.toLocaleDateString('es-VE')
+}
+
+/** Formatea un instante ISO como hora local HH:mm; devuelve null si no aplica. */
+function formatTime(value: string | null): string | null {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return date.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })
 }
 
 export function SessionHistoryPage() {
@@ -41,6 +120,8 @@ export function SessionHistoryPage() {
   const [entrantsLoading, setEntrantsLoading] = useState(false)
   const [entrantsError, setEntrantsError] = useState('')
   const [onlyAccesoDirecto, setOnlyAccesoDirecto] = useState(false)
+  const [roleFilter, setRoleFilter] = useState('') // '' = todos los roles (issue #4)
+  const [chartsOpen, setChartsOpen] = useState(false) // modal de gráficas (issue #3)
 
   const [menu, setMenu] = useState<LunchResponse | null>(null)
   const [menuLoading, setMenuLoading] = useState(false)
@@ -97,6 +178,7 @@ export function SessionHistoryPage() {
   function selectSession(session: LunchSession) {
     setSelected(session)
     setOnlyAccesoDirecto(false)
+    setRoleFilter('')
     void loadEntrants(session, false)
     void loadMenu(session)
   }
@@ -110,7 +192,7 @@ export function SessionHistoryPage() {
     if (!selected || downloading) return
     setDownloading(true)
     try {
-      await generateSessionEntrantsPdf({ session: selected, entrants, onlyAccesoDirecto })
+      await generateSessionEntrantsPdf({ session: selected, entrants, onlyAccesoDirecto, menu })
     } catch {
       notify.error('No se pudo generar el PDF de la sesión.')
     } finally {
@@ -121,6 +203,12 @@ export function SessionHistoryPage() {
   const sessionColumns: ColumnDef<LunchSession>[] = [
     { key: 'date', header: 'Fecha', sortable: true, render: (_, s) => formatDate(s.date) },
     { key: 'sede', header: 'Sede', render: (_, s) => s.sede?.name ?? '—' },
+    { key: 'opened_at', header: 'Apertura', render: (_, s) => formatTime(s.opened_at) ?? '—' },
+    {
+      key: 'closed_at',
+      header: 'Cierre',
+      render: (_, s) => formatTime(s.closed_at) ?? (s.status === 'OPEN' ? 'En curso' : '—'),
+    },
     {
       key: 'status',
       header: 'Estado',
@@ -144,6 +232,11 @@ export function SessionHistoryPage() {
         e.is_priority ? <Badge variant="info">Acceso directo</Badge> : <span className="text-slate-400">—</span>,
     },
   ]
+
+  // Datos de las gráficas de la sesión (issue #3), recalculados con los entrantes.
+  const genderData = useMemo(() => toPieData(genderStats(entrants)), [entrants])
+  const roleData = useMemo(() => toPieData(roleStats(entrants)), [entrants])
+  const careerData = useMemo(() => toBarData(careerStats(entrants), 'Estudiantes'), [entrants])
 
   return (
     <div className="flex flex-col gap-6">
@@ -206,6 +299,13 @@ export function SessionHistoryPage() {
                   Entrantes · {formatDate(selected.date)}
                 </h2>
                 <div className="flex items-center gap-3">
+                  <Select
+                    aria-label="Filtrar por rol"
+                    options={ROLE_FILTER_OPTIONS}
+                    value={roleFilter}
+                    onChange={(e) => setRoleFilter(e.target.value)}
+                    className="h-9 w-44"
+                  />
                   <label className="flex items-center gap-2 text-sm text-slate-600">
                     <input
                       type="checkbox"
@@ -215,6 +315,15 @@ export function SessionHistoryPage() {
                     />
                     Solo acceso directo
                   </label>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<BarChart3 size={14} />}
+                    disabled={entrants.length === 0}
+                    onClick={() => setChartsOpen(true)}
+                  >
+                    Ver gráficas
+                  </Button>
                   <Button
                     variant="secondary"
                     size="sm"
@@ -239,9 +348,15 @@ export function SessionHistoryPage() {
               ) : (
                 <Table<Consumption>
                   columns={entrantColumns}
-                  rows={entrants}
+                  rows={roleFilter ? entrants.filter((e) => e.user_type === roleFilter) : entrants}
                   keyField="id"
-                  emptyMessage={onlyAccesoDirecto ? 'No hay entrantes de acceso directo en esta sesión.' : 'No hay entrantes en esta sesión.'}
+                  emptyMessage={
+                    roleFilter
+                      ? 'No hay entrantes con el rol seleccionado en esta sesión.'
+                      : onlyAccesoDirecto
+                        ? 'No hay entrantes de acceso directo en esta sesión.'
+                        : 'No hay entrantes en esta sesión.'
+                  }
                 />
               )}
 
@@ -279,6 +394,37 @@ export function SessionHistoryPage() {
           )}
         </div>
       </div>
+
+      {/* Modal de gráficas de la sesión (issue #3): género, rol y carreras */}
+      <Modal
+        open={chartsOpen}
+        onClose={() => setChartsOpen(false)}
+        title={selected ? `Gráficas de la sesión · ${formatDate(selected.date)}` : 'Gráficas de la sesión'}
+        size="lg"
+        footer={
+          <Button variant="primary" onClick={() => setChartsOpen(false)}>
+            Cerrar
+          </Button>
+        }
+      >
+        <p className="mb-4 text-sm text-slate-500">
+          Basado en {entrants.length} entrante{entrants.length !== 1 ? 's' : ''} de la sesión.
+          Las carreras corresponden únicamente a estudiantes.
+        </p>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <PieChart data={genderData} options={chartTitleOptions('Distribución por género')} />
+          <PieChart data={roleData} options={chartTitleOptions('Distribución por rol')} />
+          <div className="md:col-span-2">
+            <BarChart
+              data={careerData}
+              options={{
+                ...chartTitleOptions('Estudiantes por carrera', 'top'),
+                scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+              }}
+            />
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

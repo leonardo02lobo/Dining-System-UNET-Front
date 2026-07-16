@@ -13,17 +13,53 @@ export const DUPLICATE_ALERT_SOUND = '/sounds/Alerta.mp3'
  * bloquea el autoplay, el archivo falta o `Audio` no está disponible, no lanza
  * ninguna excepción (no debe interrumpir el flujo de registro).
  *
- * `onEnded` se invoca cuando el sonido **termina** (evento `ended`) o si el archivo
- * da error de carga. No se invoca cuando el autoplay queda bloqueado (no hay
- * reproducción que "termine"), de modo que en ese caso el cierre queda manual.
+ * `onEnded` se invoca cuando el sonido **termina** (evento `ended`), cuando se
+ * alcanza `durationMs` o si el archivo da error de carga. No se invoca cuando el
+ * autoplay queda bloqueado (no hay reproducción que "termine"), de modo que en ese
+ * caso el cierre queda manual.
+ *
+ * Si se pasa `durationMs`, el audio se reproduce en bucle hasta alcanzar esa
+ * duración total (útil para alertas más largas que el propio archivo) y luego se
+ * detiene disparando `onEnded`.
+ *
+ * Devuelve un cancelador que detiene la reproducción sin invocar `onEnded`; sirve
+ * para cortar una alerta en curso antes de tiempo (p. ej. al atender al siguiente).
  */
-export function playSound(src: string, volume = 0.6, onEnded?: () => void): void {
+export function playSound(
+  src: string,
+  volume = 0.6,
+  onEnded?: () => void,
+  durationMs?: number,
+): () => void {
+  let done = false
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let audio: HTMLAudioElement | undefined
+
+  const stop = () => {
+    if (done) return
+    done = true
+    if (timer) clearTimeout(timer)
+    if (audio) {
+      try { audio.pause() } catch { /* ignore */ }
+    }
+  }
+
+  // Fin natural / por duración: detiene y notifica una única vez.
+  const finish = () => {
+    if (done) return
+    stop()
+    onEnded?.()
+  }
+
   try {
-    const audio = new Audio(src)
+    audio = new Audio(src)
     audio.volume = Math.max(0, Math.min(1, volume))
-    if (onEnded) {
-      audio.addEventListener('ended', onEnded, { once: true })
-      audio.addEventListener('error', onEnded, { once: true })
+    audio.addEventListener('error', finish, { once: true })
+    if (durationMs && durationMs > 0) {
+      audio.loop = true
+      timer = setTimeout(finish, durationMs)
+    } else if (onEnded) {
+      audio.addEventListener('ended', finish, { once: true })
     }
     void audio.play().catch(() => {
       /* autoplay bloqueado o error de reproducción: se ignora (cierre manual) */
@@ -31,4 +67,9 @@ export function playSound(src: string, volume = 0.6, onEnded?: () => void): void
   } catch {
     /* entorno sin Audio: se ignora */
   }
+
+  return stop
 }
+
+/** Duración objetivo (ms) de la alerta de consumo duplicado (issue #5). */
+export const DUPLICATE_ALERT_DURATION_MS = 10_000

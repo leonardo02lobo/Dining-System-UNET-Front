@@ -186,6 +186,24 @@ export function ManualRegistrationPage() {
   const isSuspended = student?.is_suspended ?? false
   const canSave = !!student && !!date
 
+  // Atajo de teclado: ArrowDown guarda el registro sin ratón, igual que en Registro
+  // al Comedor (issue #10). Respeta SELECT/TEXTAREA y no dispara con un modal abierto.
+  useEffect(() => {
+    const modalOpen = editTarget !== null || deleteTarget !== null
+    if (!canSave || saving || modalOpen) return
+
+    function onArrowDownSave(e: KeyboardEvent) {
+      if (e.key !== 'ArrowDown') return
+      const tag = (e.target as HTMLElement | null)?.tagName
+      if (tag === 'SELECT' || tag === 'TEXTAREA') return
+      e.preventDefault()
+      void handleSave()
+    }
+
+    window.addEventListener('keydown', onArrowDownSave)
+    return () => window.removeEventListener('keydown', onArrowDownSave)
+  }, [canSave, saving, editTarget, deleteTarget])
+
   const orderOptions = [
     { value: 'document_id:asc',   label: 'Cédula (ascendente)'  },
     { value: 'document_id:desc',  label: 'Cédula (descendente)' },
@@ -230,7 +248,7 @@ export function ManualRegistrationPage() {
   ]
 
   return (
-    <div>
+    <div className="flex flex-col gap-4">
       <PageHeader
         title="Registro Manual de Estudiantes"
         subtitle="Registra manualmente el consumo de comedor asociado a una fecha"
@@ -242,7 +260,10 @@ export function ManualRegistrationPage() {
         </div>
       )}
 
-      <Card variant="outlined" padding="lg" className="mb-6">
+      {/* Vista única sin scroll de página (issue #10): formulario y listado en
+          dos columnas; el listado tiene su propio scroll interno. */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start">
+      <Card variant="outlined" padding="md">
         <p className="mb-4 text-sm font-semibold text-blue-600">Datos del Registro</p>
 
         <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -312,10 +333,13 @@ export function ManualRegistrationPage() {
             Limpiar campos
           </Button>
         </div>
+        <p className="mt-3 text-xs text-slate-400">
+          Sugerencia: presiona la tecla <kbd className="rounded border border-slate-300 px-1">↓</kbd> para guardar el registro.
+        </p>
       </Card>
 
       {/* Listado de registros manuales de la fecha seleccionada */}
-      <Card variant="outlined" padding="lg">
+      <Card variant="outlined" padding="md">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-blue-600">Registros manuales de la fecha</p>
@@ -341,34 +365,37 @@ export function ManualRegistrationPage() {
           </div>
         </div>
 
-        <Table<ManualConsumption>
-          columns={columns}
-          rows={rows}
-          keyField="id"
-          loading={listLoading}
-          emptyMessage="No hay registros manuales para la fecha seleccionada."
-          actions={(row) => (
-            <>
-              <button
-                type="button"
-                title="Editar"
-                className="rounded p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
-                onClick={() => openEdit(row)}
-              >
-                <Pencil size={14} />
-              </button>
-              <button
-                type="button"
-                title="Eliminar"
-                className="rounded p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
-                onClick={() => setDeleteTarget(row)}
-              >
-                <Trash2 size={14} />
-              </button>
-            </>
-          )}
-        />
+        <div className="max-h-[55vh] overflow-auto">
+          <Table<ManualConsumption>
+            columns={columns}
+            rows={rows}
+            keyField="id"
+            loading={listLoading}
+            emptyMessage="No hay registros manuales para la fecha seleccionada."
+            actions={(row) => (
+              <>
+                <button
+                  type="button"
+                  title="Editar"
+                  className="rounded p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
+                  onClick={() => openEdit(row)}
+                >
+                  <Pencil size={14} />
+                </button>
+                <button
+                  type="button"
+                  title="Eliminar"
+                  className="rounded p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                  onClick={() => setDeleteTarget(row)}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </>
+            )}
+          />
+        </div>
       </Card>
+      </div>
 
       {/* Modal de edición */}
       <Modal

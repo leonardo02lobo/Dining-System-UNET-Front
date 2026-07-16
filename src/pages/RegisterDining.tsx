@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Search, ScanLine, Ban, AlertTriangle } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Search, ScanLine, Ban, AlertTriangle, Users, History } from 'lucide-react'
 import { studentApi, studentToIdentity } from '../api/student'
 import { lunchSessionApi } from '../api/lunchSession'
 import { consumptionApi } from '../api/consumption'
@@ -12,13 +12,15 @@ import type { LunchSession } from '../types/lunchSession'
 import type { Sanction } from '../types/sanction'
 import type { Sede } from '../types/sede'
 import { notify } from '../utils/toast'
-import { playSound, DUPLICATE_ALERT_SOUND } from '../utils/sound'
+import { playSound, DUPLICATE_ALERT_SOUND, DUPLICATE_ALERT_DURATION_MS } from '../utils/sound'
 import { useAuth } from '../context/AuthContext'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
+import { Table, type ColumnDef } from '../components/ui/Table'
 import { PageHeader } from '../components/ui/PageHeader'
+import type { Consumption } from '../types/consumption'
 import { StudentResultCard } from '../components/StudentResultCard'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
@@ -28,10 +30,23 @@ import { SedeSelector } from '../components/SedeSelector'
 // por el taquillero entre sesiones del navegador (no es información sensible).
 const SEDE_STORAGE_KEY = 'selected_sede_id'
 
+// Cantidad de personas recientes mostradas en la ventana emergente (issue #7).
+const RECENT_LIMIT = 10
+// Intervalo de refresco del contador y de las últimas personas (issues #6/#7):
+// mantiene la exactitud entre varios taquilleros de la misma sede.
+const SESSION_POLL_MS = 15_000
+
 function readStoredSedeId(): number | null {
   const raw = localStorage.getItem(SEDE_STORAGE_KEY)
   const parsed = raw ? Number(raw) : NaN
   return Number.isFinite(parsed) ? parsed : null
+}
+
+/** Formatea la hora de registro (ISO) como HH:mm local para la ventana de últimos. */
+function formatRegisteredTime(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+  return date.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })
 }
 
 export function RegisterDining() {
@@ -48,6 +63,13 @@ export function RegisterDining() {
 
   // Aviso de consumo duplicado (ya consumió hoy)
   const [duplicateOpen, setDuplicateOpen] = useState(false)
+  // Cancelador del sonido de alerta en curso (issue #5): permite cortarlo antes de los 10 s.
+  const duplicateSoundStop = useRef<(() => void) | null>(null)
+
+  // Contador de registros de la sesión (issue #6) y ventana de últimas personas (issue #7).
+  const [sessionCount, setSessionCount] = useState<number | null>(null)
+  const [recentEntrants, setRecentEntrants] = useState<Consumption[]>([])
+  const [recentOpen, setRecentOpen] = useState(false)
 
   // Suspensión rápida (problemáticas 29 y 30)
   const [activeSanction, setActiveSanction] = useState<Sanction | null>(null)
@@ -55,6 +77,9 @@ export function RegisterDining() {
   const [suspendReason,  setSuspendReason]  = useState('')
   const [suspendError,   setSuspendError]   = useState<string | null>(null)
   const [suspending,     setSuspending]     = useState(false)
+
+  // Detiene cualquier alerta de duplicado en curso al desmontar la pantalla.
+  useEffect(() => () => duplicateSoundStop.current?.(), [])
 
   useEffect(() => {
     if (sedeId == null) {
@@ -66,6 +91,36 @@ export function RegisterDining() {
       .then((s) => setSession(s))
       .catch(() => setSession(null))
   }, [sedeId])
+
+  // Carga el total de registros de la sesión (#6) y las últimas personas (#7).
+  // Silenciosa: son datos informativos y no deben interrumpir el flujo de registro.
+  const loadSessionData = useCallback(async () => {
+    if (!session) return
+    try {
+      const res = await consumptionApi.sessionRecent(session.id, RECENT_LIMIT)
+      setSessionCount(res.total)
+      setRecentEntrants(res.items)
+    } catch {
+      /* ignore: contador/últimas son best-effort */
+    }
+  }, [session])
+
+  // Al cambiar de sede/sesión: recarga o resetea el contador y las últimas personas.
+  useEffect(() => {
+    if (!session) {
+      setSessionCount(null)
+      setRecentEntrants([])
+      return
+    }
+    void loadSessionData()
+  }, [session, loadSessionData])
+
+  // Polling periódico para reflejar registros de otros taquilleros de la misma sede.
+  useEffect(() => {
+    if (!session) return
+    const id = window.setInterval(() => { void loadSessionData() }, SESSION_POLL_MS)
+    return () => window.clearInterval(id)
+  }, [session, loadSessionData])
 
   function handleSedeChange(id: number | null) {
     setSedeId(id)
@@ -148,16 +203,25 @@ export function RegisterDining() {
         person:           student.is_acceso_directo ? undefined : studentToIdentity(student),
       })
       notify.success(`Consumo registrado para ${student.name}`)
+      // Contador (#6): incremento optimista + refresco de últimas personas (#7).
+      setSessionCount((c) => (c == null ? c : c + 1))
+      void loadSessionData()
       setCedula('')
       setStudent(null)
       setSearched(false)
       setActiveSanction(null)
     } catch (err: any) {
       if (err?.status === 409) {
-        // Consumo duplicado: aviso con los datos del usuario + sonido de alerta.
+        // Consumo duplicado: aviso con los datos del usuario + sonido de alerta ~10 s.
         // Al terminar el sonido el aviso se cierra solo (y limpia para el siguiente).
         setDuplicateOpen(true)
-        playSound(DUPLICATE_ALERT_SOUND, 0.6, closeDuplicate)
+        duplicateSoundStop.current?.() // corta una alerta previa si aún sonaba
+        duplicateSoundStop.current = playSound(
+          DUPLICATE_ALERT_SOUND,
+          0.6,
+          closeDuplicate,
+          DUPLICATE_ALERT_DURATION_MS,
+        )
       } else {
         // 403 = sanción activa — el mensaje ya viene limpio del apiClient
         const msg = errorMessage(err, { 409: CONFLICT.consumptionToday }, 'Error al registrar el consumo')
@@ -171,6 +235,8 @@ export function RegisterDining() {
 
   // Cierra el aviso de duplicado y limpia para atender al siguiente (flujo de escaneo).
   function closeDuplicate() {
+    duplicateSoundStop.current?.() // detiene el sonido si se cierra antes de los 10 s
+    duplicateSoundStop.current = null
     setDuplicateOpen(false)
     setCedula('')
     setStudent(null)
@@ -238,11 +304,42 @@ export function RegisterDining() {
     return () => window.removeEventListener('keydown', onArrowDownRegister)
   }, [student, isSuspended, registrationBlocked, saving, suspendOpen])
 
+  // Columnas de la ventana "últimas N personas" (issue #7).
+  const recentColumns: ColumnDef<Consumption>[] = [
+    { key: 'document_id', header: 'Cédula', render: (_, e) => e.document_id ?? '—' },
+    {
+      key: 'name',
+      header: 'Nombre',
+      render: (_, e) => `${e.first_name ?? ''} ${e.last_name ?? ''}`.trim() || '—',
+    },
+    { key: 'registered_at', header: 'Hora', render: (_, e) => formatRegisteredTime(e.registered_at) },
+  ]
+
   return (
     <div>
       <PageHeader
         title="Registro al Comedor"
         subtitle="Escanea el carnet o búsqueda por cédula para registrar el consumo"
+        actions={
+          session ? (
+            <div className="flex items-center gap-3">
+              {/* Contador de registros de la sede + sesión actual (issue #6). */}
+              <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700">
+                <Users size={16} className="text-blue-600" />
+                <span>Registros:</span>
+                <span className="tabular-nums text-blue-700">{sessionCount ?? '—'}</span>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon={<History size={14} />}
+                onClick={() => { void loadSessionData(); setRecentOpen(true) }}
+              >
+                Últimos registros
+              </Button>
+            </div>
+          ) : undefined
+        }
       />
 
       {error && (
@@ -384,7 +481,7 @@ export function RegisterDining() {
         {student && (
           <div className="flex flex-col gap-4">
             {/* Datos completos del usuario */}
-            <StudentResultCard student={student} showAccesoDirectoNotice={false} bare />
+            <StudentResultCard student={student} showAccesoDirectoNotice={false} showSuspensionCount={false} bare />
 
             {/* Aviso "ya comió" a lo ancho, debajo de los datos */}
             <div className="flex items-center gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -445,6 +542,26 @@ export function RegisterDining() {
             )}
           </div>
         </div>
+      </Modal>
+
+      {/* Ventana emergente: últimas N personas registradas en la sesión (issue #7) */}
+      <Modal
+        open={recentOpen}
+        onClose={() => setRecentOpen(false)}
+        title={`Últimas ${RECENT_LIMIT} personas registradas`}
+        size="lg"
+        footer={
+          <Button variant="primary" onClick={() => setRecentOpen(false)}>
+            Cerrar
+          </Button>
+        }
+      >
+        <Table<Consumption>
+          columns={recentColumns}
+          rows={recentEntrants}
+          keyField="id"
+          emptyMessage="Aún no hay registros en esta sesión."
+        />
       </Modal>
     </div>
   )
