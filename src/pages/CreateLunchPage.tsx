@@ -147,7 +147,7 @@ function buildInsufficientStockMessage(items: LunchStockValidationItem[]) {
   const insufficientItems = items.filter((item) => !item.isSufficient)
 
   if (insufficientItems.length === 0) {
-    return 'No hay suficiente stock para confirmar el almuerzo.'
+    return 'No hay suficiente stock para confirmar el servicio de alimentación.'
   }
 
   const details = insufficientItems
@@ -156,7 +156,7 @@ function buildInsufficientStockMessage(items: LunchStockValidationItem[]) {
     )
     .join('; ')
 
-  return `No hay suficiente stock para confirmar el almuerzo. ${details}.`
+  return `No hay suficiente stock para confirmar el servicio de alimentación. ${details}.`
 }
 
 export function CreateLunchPage() {
@@ -287,7 +287,7 @@ export function CreateLunchPage() {
         setPreloadedTemplates(templates.map(mapTemplateToPreloaded))
       } catch {
         if (!mounted) return
-        setTemplatesError('No se pudieron cargar las plantillas de almuerzo.')
+        setTemplatesError('No se pudieron cargar las plantillas de servicio de alimentación.')
       } finally {
         if (mounted) setTemplatesLoading(false)
       }
@@ -423,7 +423,7 @@ export function CreateLunchPage() {
       const data = await lunchApi.listLunches()
       setCreatedLunches(data)
     } catch {
-      setCreatedLunchesError('No se pudieron cargar los almuerzos del servidor.')
+      setCreatedLunchesError('No se pudieron cargar los servicios de alimentación del servidor.')
     } finally {
       setCreatedLunchesLoading(false)
     }
@@ -446,7 +446,7 @@ export function CreateLunchPage() {
       const data = await lunchApi.getLunch(lunchId)
       setLunchDetail(data)
     } catch {
-      setLunchDetailError('No se pudo cargar el detalle del almuerzo.')
+      setLunchDetailError('No se pudo cargar el detalle del servicio de alimentación.')
     } finally {
       setLunchDetailLoading(false)
     }
@@ -465,7 +465,7 @@ export function CreateLunchPage() {
     if (!lunchDetail) return
     const name = editLunchName.trim()
     if (!name) {
-      setLunchEditError('Ingresa el nombre del almuerzo.')
+      setLunchEditError('Ingresa el nombre del servicio de alimentación.')
       return
     }
     setSavingLunchEdit(true)
@@ -478,14 +478,14 @@ export function CreateLunchPage() {
       })
       setLunchDetail(updated)
       setEditingLunch(false)
-      notify.success('Almuerzo actualizado.')
+      notify.success('Servicio de alimentación actualizado.')
       await loadCreatedLunches()
     } catch (err) {
       setLunchEditError(
         errorMessage(
           err,
-          { 409: 'Este almuerzo no es editable (solo los borradores pueden editarse).' },
-          'No se pudo actualizar el almuerzo.',
+          { 409: 'Este servicio de alimentación no es editable (solo los borradores pueden editarse).' },
+          'No se pudo actualizar el servicio de alimentación.',
         ),
       )
     } finally {
@@ -497,19 +497,19 @@ export function CreateLunchPage() {
     const trimmedName = lunchName.trim()
 
     if (!trimmedName) {
-      setSaveError('Ingresa el nombre del almuerzo.')
+      setSaveError('Ingresa el nombre del servicio de alimentación.')
       return
     }
 
     if (ingredients.length === 0) {
-      setSaveError('Agrega al menos un ingrediente al almuerzo.')
+      setSaveError('Agrega al menos un ingrediente al servicio de alimentación.')
       return
     }
 
     const localInsufficientItems = ingredients.filter((item) => item.quantity_per_plate * desiredPlateCount > item.available_quantity)
     if (localInsufficientItems.length > 0) {
       setSaveError(
-        `No hay suficiente stock para guardar el almuerzo. ${
+        `No hay suficiente stock para guardar el servicio de alimentación. ${
           localInsufficientItems
             .map((item) =>
               `${item.ingredient_name}: requiere ${formatQuantity(item.quantity_per_plate * desiredPlateCount, item.unit)}, disponible ${formatQuantity(item.available_quantity, item.unit)}`
@@ -560,7 +560,7 @@ export function CreateLunchPage() {
     const trimmedName = lunchName.trim()
 
     if (!trimmedName) {
-      setSaveError('Ingresa el nombre del almuerzo antes de descargar la lista.')
+      setSaveError('Ingresa el nombre del servicio de alimentación antes de descargar la lista.')
       return
     }
 
@@ -611,7 +611,7 @@ export function CreateLunchPage() {
           size="sm"
           onClick={openCreatedLunchesModal}
         >
-          Ver almuerzos creados
+          Ver servicios de alimentación creados
         </Button>
       </div>
 
@@ -772,7 +772,7 @@ export function CreateLunchPage() {
       <Modal
         open={createdLunchesOpen}
         onClose={() => setCreatedLunchesOpen(false)}
-        title="Almuerzos creados"
+        title="Servicios de alimentación creados"
         size="md"
         footer={
           <Button variant="ghost" size="sm" onClick={() => setCreatedLunchesOpen(false)}>
@@ -789,11 +789,11 @@ export function CreateLunchPage() {
 
           {createdLunchesLoading ? (
             <div className="rounded-md border border-slate-200 bg-white px-3 py-8 text-center text-sm text-slate-500">
-              Cargando almuerzos...
+              Cargando servicios de alimentación...
             </div>
           ) : createdLunches.length === 0 ? (
             <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-8 text-center text-sm text-slate-500">
-              No hay almuerzos creados.
+              No hay servicios de alimentación creados.
             </div>
           ) : (
             <ul className="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200">
@@ -809,7 +809,7 @@ export function CreateLunchPage() {
                         {lunch.name}
                       </span>
                       <span className="text-xs text-slate-500">
-                        Fecha del almuerzo: {formatDisplayDate(lunch.date)}
+                        Fecha del servicio de alimentación: {formatDisplayDate(lunch.date)}
                       </span>
                     </span>
                     <span className="text-xs font-semibold text-[#03216a]">Ver detalle</span>
@@ -824,7 +824,7 @@ export function CreateLunchPage() {
       <Modal
         open={lunchDetailOpen}
         onClose={() => setLunchDetailOpen(false)}
-        title="Detalle del almuerzo"
+        title="Detalle del servicio de alimentación"
         size="lg"
         footer={
           <Button variant="ghost" size="sm" onClick={() => setLunchDetailOpen(false)}>
@@ -871,13 +871,13 @@ export function CreateLunchPage() {
             {editingLunch ? (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Input
-                  label="Nombre del almuerzo"
+                  label="Nombre del servicio de alimentación"
                   value={editLunchName}
                   onChange={(e) => setEditLunchName(e.target.value)}
                   fullWidth
                 />
                 <Input
-                  label="Fecha del almuerzo"
+                  label="Fecha del servicio de alimentación"
                   type="date"
                   value={editLunchDate}
                   onChange={(e) => setEditLunchDate(e.target.value)}
@@ -904,7 +904,7 @@ export function CreateLunchPage() {
               <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                 <div>
                   <span className="block text-xs font-semibold uppercase text-slate-500">
-                    Almuerzo
+                    Servicio de alimentación
                   </span>
                   <span className="text-slate-900">{lunchDetail.name}</span>
                 </div>
@@ -916,7 +916,7 @@ export function CreateLunchPage() {
                 </div>
                 <div>
                   <span className="block text-xs font-semibold uppercase text-slate-500">
-                    Fecha del almuerzo
+                    Fecha del servicio de alimentación
                   </span>
                   <span className="text-slate-900">{formatDisplayDate(lunchDetail.date)}</span>
                 </div>
@@ -933,7 +933,7 @@ export function CreateLunchPage() {
               <h3 className="mb-2 text-sm font-semibold text-slate-900">Ingredientes</h3>
               {lunchIngredientDetails.length === 0 ? (
                 <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                  El detalle del almuerzo no trae ingredientes con nombre y cantidad en la respuesta.
+                  El detalle del servicio de alimentación no trae ingredientes con nombre y cantidad en la respuesta.
                 </div>
               ) : (
                 <Table<LunchIngredientDetail>
@@ -966,7 +966,7 @@ export function CreateLunchPage() {
         <p className="text-sm text-slate-600">
           ¿Estás seguro de que deseas quitar{' '}
           <span className="font-semibold text-slate-900">{deleteTarget?.ingredient_name}</span>{' '}
-          del almuerzo?
+          del servicio de alimentación?
         </p>
       </Modal>
     </div>

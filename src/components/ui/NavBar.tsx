@@ -20,7 +20,7 @@ const navGroups: NavGroup[] = [
   {
     label: 'Comedor',
     items: [
-      { to: '/comedor/sesion',           label: 'Sesión de Almuerzo'  },
+      { to: '/comedor/sesion',           label: 'Sesión de Servicio de alimentación'  },
       { to: '/comedor/consultar',        label: 'Consultar Consumo'   },
       { to: '/comedor/registrar',        label: 'Registro al Comedor' },
       { to: '/comedor/reporte',          label: 'Reporte de Comedor'  },
@@ -42,7 +42,7 @@ const navGroups: NavGroup[] = [
       { to: '/inventario/reportes-consumo', label: 'Reportes de Consumo' },
       { to: '/inventario/crear',        label: 'Crear servicio de alimentación' },
       { to: '/inventario/plantillas',   label: 'Plantillas'            },
-      { to: '/inventario/pruebas-almuerzo', label: 'Pruebas de Almuerzo' },
+      { to: '/inventario/pruebas-almuerzo', label: 'Pruebas de Servicio de alimentación' },
     ],
   },
   {
@@ -51,6 +51,7 @@ const navGroups: NavGroup[] = [
       { to: '/auditoria',            label: 'Auditoría de Acceso'  },
       { to: '/admin/permisos',       label: 'Gestión de Permisos'  },
       { to: '/admin/plantilla-correo', label: 'Plantilla de Correo' },
+      { to: '/accesos_directos/importar', label: 'Importar Accesos (CSV)'   },
       { to: '/sedes',                label: 'Sedes'                 },
     ],
   },

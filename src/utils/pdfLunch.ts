@@ -83,7 +83,7 @@ export async function generateLunchListPdf({
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(8)
     doc.setTextColor(100, 116, 139)
-    doc.text('Sistema de Comedor Universitario - Lista de preparación de almuerzo', 14, pageHeight - 8)
+    doc.text('Sistema de Comedor Universitario - Lista de preparación de servicio de alimentación', 14, pageHeight - 8)
     doc.text(`Página ${pageNumber}`, pageWidth - 14, pageHeight - 8, { align: 'right' })
   }
 

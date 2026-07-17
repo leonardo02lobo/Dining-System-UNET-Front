@@ -84,6 +84,43 @@ export interface AccesoDirectoFilters {
 
 export type AccesoDirectoLookupResult = AccesoDirecto
 
+/** Un registro del payload de importación masiva (`POST /accesos_directos/bulk`). */
+export interface AccesoDirectoBulkItem {
+  full_name: string
+  email: string | null
+  career: string | null
+  document_id: string
+  is_active: boolean
+}
+
+/** Cuerpo de la petición de importación masiva. */
+export interface AccesoDirectoBulkRequest {
+  items: AccesoDirectoBulkItem[]
+}
+
+/** Resultado por fila devuelto por el backend en la importación masiva. */
+export interface AccesoDirectoBulkRowResult {
+  row: number
+  document_id: string
+  // created   -> alta nueva
+  // updated   -> ya existía y se actualizó (algún campo cambió)
+  // unchanged -> ya existía idéntico, no se tocó
+  // error     -> fila inválida (p. ej. cédula repetida en el archivo)
+  status: 'created' | 'updated' | 'unchanged' | 'error'
+  id: number | null
+  error: string | null
+}
+
+/** Respuesta (HTTP 200) de la importación masiva (upsert por cédula). */
+export interface AccesoDirectoBulkResult {
+  total: number
+  created: number
+  updated: number
+  unchanged: number
+  failed: number
+  results: AccesoDirectoBulkRowResult[]
+}
+
 export interface PaginatedAccesosDirectos {
   items: AccesoDirecto[]
   total: number

@@ -6,6 +6,8 @@ import type {
   AccesoDirectoFilters,
   AccesoDirectoVerifyResult,
   PaginatedAccesosDirectos,
+  AccesoDirectoBulkItem,
+  AccesoDirectoBulkResult,
 } from '../types/acceso_directo'
 
 function buildParams(filters?: AccesoDirectoFilters): string {
@@ -29,4 +31,5 @@ export const accesoDirectoApi = {
   remove: (id: number)                                    => apiClient.delete<void>(`/accesos_directos/${id}`),
   lookup: (q: string)                                     => apiClient.get<AccesoDirecto>(`/accesos_directos/lookup?q=${encodeURIComponent(q)}`),
   verify: (document_id: string)                           => apiClient.get<AccesoDirectoVerifyResult>(`/accesos_directos/verify/${encodeURIComponent(document_id)}`),
+  bulkCreate: (items: AccesoDirectoBulkItem[])            => apiClient.post<AccesoDirectoBulkResult>('/accesos_directos/bulk', { items }),
 }

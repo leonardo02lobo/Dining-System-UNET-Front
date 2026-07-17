@@ -160,7 +160,7 @@ export function LunchTemplatesPage() {
       setDeleteError(
         errorMessage(
           err,
-          { 409: 'No se puede eliminar: la plantilla está en uso por almuerzos creados.' },
+          { 409: 'No se puede eliminar: la plantilla está en uso por servicios de alimentación creados.' },
           'No se pudo eliminar la plantilla.',
         ),
       )
@@ -188,7 +188,7 @@ export function LunchTemplatesPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Plantillas de almuerzo"
+        title="Plantillas de servicio de alimentación"
         subtitle="Gestiona las plantillas creadas: edítalas o elimínalas"
       />
 

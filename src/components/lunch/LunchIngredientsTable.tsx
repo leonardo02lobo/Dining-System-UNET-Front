@@ -37,7 +37,7 @@ export function LunchIngredientsTable({
       columns={columns}
       rows={items}
       keyField="ingredient_id"
-      emptyMessage="Agrega ingredientes al almuerzo."
+      emptyMessage="Agrega ingredientes al servicio de alimentación."
       actions={(item) => (
         <>
           <button

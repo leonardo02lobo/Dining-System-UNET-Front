@@ -176,7 +176,7 @@ export function LunchTestPage() {
         setPreloadedTemplates(templates.map(mapTemplateToPreloaded))
       } catch {
         if (!mounted) return
-        setTemplatesError('No se pudieron cargar las plantillas de almuerzo.')
+        setTemplatesError('No se pudieron cargar las plantillas de servicio de alimentación.')
       } finally {
         if (mounted) setTemplatesLoading(false)
       }
@@ -295,9 +295,9 @@ export function LunchTestPage() {
     }
 
     const doc = new jsPDF()
-    doc.text('Prueba de almuerzo', 14, 15)
+    doc.text('Prueba de servicio de alimentación', 14, 15)
     doc.setFontSize(11)
-    doc.text(`Almuerzo: ${lunchName.trim() || 'Sin nombre'}`, 14, 23)
+    doc.text(`Servicio de alimentación: ${lunchName.trim() || 'Sin nombre'}`, 14, 23)
     doc.text(`Fecha: ${date || 'Sin fecha'}`, 14, 30)
     doc.text(`Platos base: ${plateCount} | Platos deseados: ${desiredPlateCount}`, 14, 37)
 
@@ -322,7 +322,7 @@ export function LunchTestPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-bold text-black sm:text-3xl">Pruebas de Almuerzo</h1>
+      <h1 className="text-2xl font-bold text-black sm:text-3xl">Pruebas de Servicio de alimentación</h1>
 
       <PreloadedLunchBar
         options={preloadedTemplates}
@@ -381,7 +381,7 @@ export function LunchTestPage() {
               className="inline-flex h-[45px] w-full sm:w-auto items-center justify-center gap-2.5 rounded-[10px] bg-red-600 px-6 text-[15px] font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Trash2 size={22} />
-              Limpiar almuerzo
+              Limpiar servicio de alimentación
             </button>
           </div>
         </div>
@@ -483,7 +483,7 @@ export function LunchTestPage() {
           )}
           {selectedIngredientAlreadyAdded && (
             <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              El ingrediente seleccionado ya fue agregado al almuerzo.
+              El ingrediente seleccionado ya fue agregado al servicio de alimentación.
             </div>
           )}
           <Input
@@ -517,7 +517,7 @@ export function LunchTestPage() {
         <p className="text-sm text-slate-600">
           ¿Estás seguro de que deseas quitar{' '}
           <span className="font-semibold text-slate-900">{deleteTarget?.ingredient_name}</span>{' '}
-          del almuerzo?
+          del servicio de alimentación?
         </p>
       </Modal>
     </div>
