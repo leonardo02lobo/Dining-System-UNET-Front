@@ -1,16 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Save, Search, Mail } from 'lucide-react'
+import { Save } from 'lucide-react'
 import { emailTemplateApi, emailSettingsApi } from '../api/emailTemplate'
-import { accesoDirectoApi } from '../api/acceso_directo'
-import type { AccesoDirecto } from '../types/acceso_directo'
-import { normalizeCedula } from '../utils/cedula'
 import { notify } from '../utils/toast'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Spinner } from '../components/ui/Spinner'
-import { Badge } from '../components/ui/Badge'
 
 // Valores de ejemplo para la previsualización (aproxima el render del backend).
 const PREVIEW_VALUES: Record<string, string> = {
@@ -130,54 +126,11 @@ export function EmailTemplatePage() {
     }
   }
 
-  // ── Correo del beneficiario a suspender ───────────────────────────
-  const [cedula,      setCedula]      = useState('')
-  const [searching,   setSearching]   = useState(false)
-  const [person,      setPerson]      = useState<AccesoDirecto | null>(null)
-  const [email,       setEmail]       = useState('')
-  const [savingEmail, setSavingEmail] = useState(false)
-
-  async function handleSearchPerson() {
-    const clean = normalizeCedula(cedula)
-    if (!clean) return
-    setSearching(true)
-    setPerson(null)
-    try {
-      const ad = await accesoDirectoApi.lookup(clean)
-      setPerson(ad)
-      setEmail(ad.email ?? '')
-    } catch (err: any) {
-      const msg = err?.status === 404
-        ? 'No se encontró un acceso directo con esa cédula.'
-        : (err?.message ?? 'Error al buscar la persona')
-      notify.error(msg)
-    } finally {
-      setSearching(false)
-    }
-  }
-
-  async function handleSaveEmail() {
-    if (!person) return
-    setSavingEmail(true)
-    try {
-      const updated = await accesoDirectoApi.update(person.id, { email: email.trim() || undefined })
-      setPerson(updated)
-      notify.success(`Correo actualizado para ${updated.first_name} ${updated.last_name}.`)
-    } catch (err: any) {
-      const msg = err?.status === 422
-        ? 'El correo no tiene un formato válido.'
-        : (err?.message ?? 'Error al guardar el correo')
-      notify.error(msg)
-    } finally {
-      setSavingEmail(false)
-    }
-  }
-
   return (
     <div>
       <PageHeader
         title="Plantilla de Correo de Sanción"
-        subtitle="Edita el correo automático de suspensión y gestiona el correo de la persona a suspender"
+        subtitle="Edita el correo automático que se envía al usuario al suspenderlo"
       />
 
       {/* ── Configuración del emisor y CC (#5) ───────────────────── */}
@@ -304,72 +257,6 @@ export function EmailTemplatePage() {
                 onClick={handleSaveTemplate}
               >
                 Guardar plantilla
-              </Button>
-            </div>
-          </div>
-        )}
-      </Card>
-
-      {/* ── Correo del beneficiario a suspender ──────────────────── */}
-      <Card variant="outlined" padding="lg">
-        <p className="mb-1 text-sm font-semibold text-slate-700">Correo de la persona a suspender</p>
-        <p className="mb-4 text-xs text-slate-500">
-          Busca por cédula y registra o corrige el correo del acceso directo para que reciba la notificación de sanción.
-        </p>
-
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-1 flex-col gap-1.5" style={{ minWidth: 240 }}>
-            <label htmlFor="ad-cedula" className="text-[13px] font-semibold text-slate-900">Cédula</label>
-            <Input
-              id="ad-cedula"
-              value={cedula}
-              onChange={(e) => setCedula(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') void handleSearchPerson() }}
-              leftIcon={<Search size={16} />}
-              placeholder="Ej. V12345678"
-              fullWidth
-            />
-          </div>
-          <Button variant="secondary" loading={searching} onClick={handleSearchPerson}>
-            Buscar
-          </Button>
-        </div>
-
-        {person && (
-          <div className="mt-6 flex flex-col gap-4 border-t border-slate-100 pt-6">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm text-slate-500">Persona:</span>
-              <span className="text-sm font-semibold text-slate-900">
-                {person.first_name} {person.last_name}
-              </span>
-              <Badge variant="neutral">C.I. {person.document_id}</Badge>
-              <Badge variant={person.status === 'SUSPENDED' ? 'danger' : 'success'}>
-                {person.status}
-              </Badge>
-            </div>
-
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="flex flex-1 flex-col gap-1.5" style={{ minWidth: 260 }}>
-                <label htmlFor="ad-email" className="text-[13px] font-semibold text-slate-900">
-                  Correo electrónico
-                </label>
-                <Input
-                  id="ad-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  leftIcon={<Mail size={16} />}
-                  placeholder="correo@dominio.com"
-                  fullWidth
-                />
-              </div>
-              <Button
-                variant="primary"
-                leftIcon={<Save size={15} />}
-                loading={savingEmail}
-                onClick={handleSaveEmail}
-              >
-                Guardar correo
               </Button>
             </div>
           </div>

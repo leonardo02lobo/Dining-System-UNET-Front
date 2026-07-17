@@ -21,13 +21,13 @@ export function PreloadedLunchBar({
   const selected = options.find((o) => o.id === selectedId)
   const formatOptionLabel = (option: PreloadedLunch) =>
     `${option.name} (${option.plate_count} platos)`
-  const label = selected ? formatOptionLabel(selected) : 'Seleccionar almuerzo guardado'
+  const label = selected ? formatOptionLabel(selected) : 'Seleccionar servicio de alimentación guardado'
 
   return (
     <div className="rounded-[10px] bg-[rgba(217,217,217,0.8)] p-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
         <p className="text-xl font-medium text-black lg:w-[220px] lg:flex-shrink-0">
-          Almuerzo Precargado
+          Servicio de alimentación Precargado
         </p>
 
         <div ref={ref} className="relative min-w-0 flex-1">
@@ -72,7 +72,7 @@ export function PreloadedLunchBar({
           className="inline-flex h-10 flex-shrink-0 items-center justify-center gap-2.5 rounded-[10px] bg-[#03216a] px-5 text-[15px] font-bold text-white transition hover:bg-[#021a52] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <FolderOpen size={22} />
-          Cargar almuerzo
+          Cargar servicio de alimentación
         </button>
       </div>
     </div>

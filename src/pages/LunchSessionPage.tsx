@@ -105,14 +105,14 @@ export function LunchSessionPage() {
     <div className="p-6 max-w-3xl mx-auto">
       <PageHeader
         breadcrumb="Comedor"
-        title="Sesión de Almuerzo"
+        title="Sesión de Servicio de alimentación"
         subtitle="Abre o cierra las sesiones de servicio por sede. Cooldown de 12h por sede entre cierres y aperturas."
       />
 
       <Modal
         open={closeTarget !== null}
         onClose={() => setCloseTarget(null)}
-        title="Cerrar Sesión de Almuerzo"
+        title="Cerrar Sesión de Servicio de alimentación"
         size="sm"
         footer={
           <>
@@ -139,7 +139,7 @@ export function LunchSessionPage() {
       <Modal
         open={openModal}
         onClose={() => { if (!saving) setOpenModal(false) }}
-        title="Abrir Sesión de Almuerzo"
+        title="Abrir Sesión de Servicio de alimentación"
         size="sm"
         footer={
           <>
@@ -190,7 +190,7 @@ export function LunchSessionPage() {
               <div className="flex flex-col items-start gap-2">
                 <Badge variant="warning">No hay sesiones abiertas</Badge>
                 <p className="text-sm text-slate-400">
-                  Ninguna sede tiene una sesión de almuerzo activa en este momento.
+                  Ninguna sede tiene una sesión de servicio de alimentación activa en este momento.
                 </p>
               </div>
             ) : (
