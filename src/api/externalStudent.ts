@@ -1,41 +1,44 @@
+import { apiClient } from './client'
 import type { Student } from '../types/user'
+import type { StudentPadronData, StudentBulkItem, StudentBulkResult } from '../types/student'
 
-const BASE_URL = ((import.meta.env.VITE_STUDENTS_API_URL as string | undefined) ?? 'http://localhost:3000/api')
-  .replace(/\/$/, '')
+/**
+ * Padrón de estudiantes del backend (`/students`). Reemplaza al antiguo servicio
+ * Node externo. Se conserva el nombre `externalStudentApi` para no tocar los
+ * consumidores (RegisterDining, CheckConsumes, SuspendStudent, ManualRegistration).
+ */
 
-/** Shape returned by GET /api/users/:cedula */
-export interface ExternalStudentData {
-  id:          number
-  nombre:      string
-  documento:   string
-  email:       string
-  is_active:   boolean
-  foto_perfil: string
-}
+// Alias de compatibilidad con el nombre anterior del shape.
+export type ExternalStudentData = StudentPadronData
 
-export function mapExternalToStudent(data: ExternalStudentData): Student {
+/** Adapta el estudiante del padrón backend al tipo `Student` de la UI. */
+export function mapExternalToStudent(data: StudentPadronData): Student {
   return {
-    cedula:         data.documento,
-    name:           data.nombre,
-    email:          data.email,
-    career:         '',
-    user_type:      '',
-    is_suspended:   !data.is_active,
-    avatar_url:     data.foto_perfil,
+    cedula:            data.cedula,
+    name:              data.full_name,
+    email:             data.email ?? '',
+    career:            data.career ?? '',
+    user_type:         '',
+    is_suspended:      !data.is_active,
+    avatar_url:        data.photo_url ?? undefined,
     is_acceso_directo: false,
   }
 }
 
 export const externalStudentApi = {
-  lookup: async (cedula: string): Promise<ExternalStudentData> => {
-    const res = await fetch(`${BASE_URL}/users/${encodeURIComponent(cedula)}`)
-    if (!res.ok) {
-      if (res.status === 404) {
+  lookup: async (cedula: string): Promise<StudentPadronData> => {
+    try {
+      return await apiClient.get<StudentPadronData>(
+        `/students/lookup?q=${encodeURIComponent(cedula)}`,
+      )
+    } catch (err: any) {
+      if (err?.status === 404) {
         throw { status: 404, message: 'Este estudiante no está inscrito en la UNET' }
       }
-      throw { status: res.status, message: 'Error al consultar el estudiante' }
+      throw err
     }
-    const json = await res.json()
-    return (json.data ?? json) as ExternalStudentData
   },
+
+  bulkCreate: (items: StudentBulkItem[]): Promise<StudentBulkResult> =>
+    apiClient.post<StudentBulkResult>('/students/bulk', { items }),
 }

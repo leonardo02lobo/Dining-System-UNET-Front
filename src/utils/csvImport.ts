@@ -1,29 +1,34 @@
-import type { AccesoDirectoBulkItem } from '../types/acceso_directo'
+import type { StudentBulkItem } from '../types/student'
 
 /** Campos destino a los que se mapean las columnas del CSV. */
-export type TargetField = 'full_name' | 'email' | 'career' | 'document_id' | 'is_active'
+export type TargetField = 'full_name' | 'email' | 'career' | 'cedula' | 'is_active'
 
 export const TARGET_FIELDS: TargetField[] = [
   'full_name',
   'email',
   'career',
-  'document_id',
+  'cedula',
   'is_active',
 ]
 
 /** Etiquetas visibles de cada campo destino. */
 export const TARGET_FIELD_LABEL: Record<TargetField, string> = {
-  full_name:   'Nombre completo',
-  email:       'Correo',
-  career:      'Carrera',
-  document_id: 'Cédula',
-  is_active:   'Activo',
+  full_name: 'Nombre completo',
+  email:     'Correo',
+  career:    'Carrera',
+  cedula:    'Cédula',
+  is_active: 'Activo',
 }
 
 /**
  * Mapeo de campo destino → índice de columna del CSV (o `null` si no está mapeado).
  */
 export type ColumnMapping = Record<TargetField, number | null>
+
+/** Deja solo los dígitos de una cédula (quita 'V-', puntos, espacios, etc.). */
+export function cleanCedula(raw: string): string {
+  return (raw ?? '').replace(/\D/g, '')
+}
 
 export interface ParsedCsv {
   headers: string[]
@@ -123,11 +128,11 @@ function normalizeHeader(header: string): string {
 
 /** Sinónimos de cabecera por campo destino (ya normalizados). */
 const HEADER_SYNONYMS: Record<TargetField, string[]> = {
-  full_name:   ['nombre completo', 'nombre', 'nombres', 'nombre y apellido', 'full name', 'name'],
-  email:       ['correo', 'email', 'e mail', 'correo electronico', 'mail'],
-  career:      ['carrera', 'career', 'especialidad', 'programa'],
-  document_id: ['cedula', 'documento', 'document id', 'ci', 'dni', 'identificacion', 'nro documento'],
-  is_active:   ['activo', 'active', 'estado', 'is active', 'habilitado'],
+  full_name: ['nombre completo', 'nombre', 'nombres', 'nombre y apellido', 'full name', 'name'],
+  email:     ['correo', 'email', 'e mail', 'correo electronico', 'mail'],
+  career:    ['carrera', 'career', 'especialidad', 'programa'],
+  cedula:    ['cedula', 'documento', 'document id', 'ci', 'dni', 'identificacion', 'nro documento'],
+  is_active: ['activo', 'active', 'estado', 'is active', 'habilitado'],
 }
 
 /**
@@ -137,11 +142,11 @@ const HEADER_SYNONYMS: Record<TargetField, string[]> = {
 export function autoMapColumns(headers: string[]): ColumnMapping {
   const normalized = headers.map(normalizeHeader)
   const mapping: ColumnMapping = {
-    full_name:   null,
-    email:       null,
-    career:      null,
-    document_id: null,
-    is_active:   null,
+    full_name: null,
+    email:     null,
+    career:    null,
+    cedula:    null,
+    is_active: null,
   }
 
   for (const field of TARGET_FIELDS) {
@@ -168,16 +173,16 @@ function cell(row: string[], index: number | null): string {
  * Transforma las filas del CSV en items del contrato de importación masiva,
  * aplicando el mapeo de columnas. `email` y `career` vacíos se envían como `null`.
  */
-export function buildBulkItems(rows: string[][], mapping: ColumnMapping): AccesoDirectoBulkItem[] {
+export function buildBulkItems(rows: string[][], mapping: ColumnMapping): StudentBulkItem[] {
   return rows.map((row) => {
     const email = cell(row, mapping.email)
     const career = cell(row, mapping.career)
     return {
-      full_name:   cell(row, mapping.full_name),
-      email:       email === '' ? null : email,
-      career:      career === '' ? null : career,
-      document_id: cell(row, mapping.document_id),
-      is_active:   parseBoolean(cell(row, mapping.is_active)),
+      full_name: cell(row, mapping.full_name),
+      cedula:    cleanCedula(cell(row, mapping.cedula)),
+      email:     email === '' ? null : email,
+      career:    career === '' ? null : career,
+      is_active: parseBoolean(cell(row, mapping.is_active)),
     }
   })
 }
@@ -190,12 +195,13 @@ export interface RowValidation {
 }
 
 /**
- * Valida un item: `full_name` y `document_id` obligatorios; si hay email, formato razonable.
+ * Valida un item de estudiante: `full_name` y `cedula` (con dígitos) obligatorios;
+ * si hay email, formato razonable (el correo es opcional en el padrón).
  */
-export function validateRow(item: AccesoDirectoBulkItem): RowValidation {
+export function validateRow(item: StudentBulkItem): RowValidation {
   const errors: string[] = []
   if (item.full_name.trim() === '') errors.push('Falta el nombre completo')
-  if (item.document_id.trim() === '') errors.push('Falta la cédula')
+  if (item.cedula.trim() === '') errors.push('Falta la cédula (sin dígitos válidos)')
   if (item.email !== null && item.email.trim() !== '' && !EMAIL_RE.test(item.email.trim())) {
     errors.push('Correo con formato inválido')
   }
