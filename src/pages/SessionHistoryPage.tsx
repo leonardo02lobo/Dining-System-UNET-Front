@@ -6,7 +6,6 @@ import { lunchApi } from '../api/lunch'
 import { errorMessage } from '../utils/apiErrors'
 import { notify } from '../utils/toast'
 import { generateSessionEntrantsPdf } from '../utils/pdfSessionEntrants'
-import { genderStats, careerStats, roleStats } from '../utils/sessionStats'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
@@ -16,9 +15,7 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { Select } from '../components/ui/Select'
 import { BarChart, PieChart } from '../components/ui/Chart'
 import { Table, type ColumnDef } from '../components/ui/Table'
-import { BarChart, PieChart } from '../components/ui/Chart'
-import { USER_TYPE_LABEL } from '../utils/labels'
-import { careerStats, genderStats, roleStats, type StatBucket } from '../utils/sessionStats'
+import { CAREER_SET, careerKeyOf, careerStats, genderStats, roleStats, type StatBucket } from '../utils/sessionStats'
 import type { Consumption } from '../types/consumption'
 import type { LunchSession } from '../types/lunchSession'
 import type { LunchResponse } from '../types/lunch'
@@ -70,25 +67,6 @@ function toBarData(buckets: StatBucket[], label: string) {
   }
 }
 
-function chartTitleOptions(title: string, legendPosition: 'bottom' | 'top' = 'bottom') {
-  return {
-    responsive: true,
-    plugins: {
-      legend: { position: legendPosition },
-      title: { display: true, text: title, color: '#1e293b', font: { weight: 'bold' as const } },
-    },
-  }
-}
-
-// Opciones del filtro por rol del detalle de entrantes (issue #4).
-const ROLE_FILTER_OPTIONS = [
-  { value: '', label: 'Todos los roles' },
-  { value: 'STUDENT', label: USER_TYPE_LABEL.STUDENT },
-  { value: 'TEACHER', label: USER_TYPE_LABEL.TEACHER },
-  { value: 'ADMINISTRATIVE', label: USER_TYPE_LABEL.ADMINISTRATIVE },
-  { value: 'WORKER', label: USER_TYPE_LABEL.WORKER },
-]
-
 function toIsoDate(daysAgo = 0) {
   const date = new Date()
   date.setDate(date.getDate() - daysAgo)
@@ -117,25 +95,20 @@ const ROLE_FILTER_OPTIONS = [
   { value: 'WORKER',         label: 'Obrero' },
 ]
 
-/** Paleta reutilizable para las gráficas del modal. */
-const CHART_PALETTE = [
-  '#2563eb', '#f472b6', '#10b981', '#f59e0b', '#8b5cf6',
-  '#ef4444', '#14b8a6', '#eab308', '#6366f1', '#64748b',
+// Filtro de tipo dentro del modal de gráficas (#3): acota la población graficada.
+const CHART_TYPE_OPTIONS = [
+  { value: 'ALL',            label: 'Todos' },
+  { value: 'STUDENT',        label: 'Estudiante' },
+  { value: 'ADMINISTRATIVE', label: 'Administrativo' },
+  { value: 'TEACHER',        label: 'Docente' },
+  { value: 'WORKER',         label: 'Obrero' },
 ]
 
-function pieData(labels: string[], data: number[]) {
-  return {
-    labels,
-    datasets: [
-      {
-        data,
-        backgroundColor: labels.map((_, i) => `${CHART_PALETTE[i % CHART_PALETTE.length]}b3`),
-        borderColor: labels.map((_, i) => CHART_PALETTE[i % CHART_PALETTE.length]),
-        borderWidth: 1,
-      },
-    ],
-  }
-}
+// Filtro de carrera (solo aplica a estudiantes): "Todas" + set fijo del issue #3.
+const CHART_CAREER_OPTIONS = [
+  { value: 'ALL', label: 'Todas las carreras' },
+  ...CAREER_SET.map((c) => ({ value: c.key, label: c.label })),
+]
 
 export function SessionHistoryPage() {
   const [dateFrom, setDateFrom] = useState(toIsoDate(30))
@@ -156,6 +129,9 @@ export function SessionHistoryPage() {
   const [menuLoading, setMenuLoading] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [chartsOpen, setChartsOpen] = useState(false)
+  // Filtros del modal de gráficas (#3): tipo de persona y, si es estudiante, carrera.
+  const [chartType, setChartType] = useState('ALL')
+  const [chartCareer, setChartCareer] = useState('ALL')
 
   const loadSessions = useCallback(async () => {
     setSessionsLoading(true)
@@ -272,10 +248,28 @@ export function SessionHistoryPage() {
     },
   ]
 
-  // Datos de las gráficas de la sesión (issue #3), recalculados con los entrantes.
-  const genderData = useMemo(() => toPieData(genderStats(entrants)), [entrants])
-  const roleData = useMemo(() => toPieData(roleStats(entrants)), [entrants])
-  const careerData = useMemo(() => toBarData(careerStats(entrants), 'Estudiantes'), [entrants])
+  // Población graficada tras aplicar los filtros del modal (#3): primero por tipo y,
+  // si es estudiante, por carrera. Las gráficas se recalculan sobre este subconjunto.
+  const chartEntrants = useMemo(() => {
+    let list = entrants
+    if (chartType !== 'ALL') {
+      list = list.filter((e) => (e.user_type ?? '').toUpperCase() === chartType)
+    }
+    if (chartType === 'STUDENT' && chartCareer !== 'ALL') {
+      list = list.filter((e) => careerKeyOf(e.career) === chartCareer)
+    }
+    return list
+  }, [entrants, chartType, chartCareer])
+
+  // Datos de las gráficas de la sesión (issue #3), recalculados con la población filtrada.
+  const genderData = useMemo(() => toPieData(genderStats(chartEntrants)), [chartEntrants])
+  const roleData = useMemo(() => toPieData(roleStats(chartEntrants)), [chartEntrants])
+  const careerData = useMemo(() => toBarData(careerStats(chartEntrants), 'Estudiantes'), [chartEntrants])
+
+  // La gráfica por carrera solo aplica a estudiantes y sin una carrera concreta ya elegida.
+  const showCareerChart = (chartType === 'ALL' || chartType === 'STUDENT') && chartCareer === 'ALL'
+  // La gráfica por rol pierde sentido cuando ya se filtró a un único tipo.
+  const showRoleChart = chartType === 'ALL'
 
   return (
     <div className="flex flex-col gap-6">
@@ -358,7 +352,7 @@ export function SessionHistoryPage() {
                     size="sm"
                     leftIcon={<BarChart3 size={14} />}
                     disabled={entrants.length === 0}
-                    onClick={() => setChartsOpen(true)}
+                    onClick={() => { setChartType('ALL'); setChartCareer('ALL'); setChartsOpen(true) }}
                   >
                     Ver gráficas
                   </Button>
@@ -446,61 +440,88 @@ export function SessionHistoryPage() {
         }
       >
         <div className="flex flex-col gap-8">
+          {/* Filtros de la población graficada (#3): tipo y, si es estudiante, carrera. */}
+          <div className="flex flex-wrap items-end gap-4 rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+            <Select
+              label="Tipo"
+              options={CHART_TYPE_OPTIONS}
+              value={chartType}
+              onChange={(e) => { setChartType(e.target.value); setChartCareer('ALL') }}
+              className="w-full sm:w-48"
+            />
+            {chartType === 'STUDENT' && (
+              <Select
+                label="Carrera"
+                options={CHART_CAREER_OPTIONS}
+                value={chartCareer}
+                onChange={(e) => setChartCareer(e.target.value)}
+                className="w-full sm:w-56"
+              />
+            )}
+          </div>
+
           <p className="text-sm text-slate-500">
-            Distribución de los {entrants.length} entrantes de la sesión.
+            Distribución de {chartEntrants.length}{' '}
+            {chartType === 'ALL'
+              ? 'entrantes de la sesión.'
+              : `${CHART_TYPE_OPTIONS.find((o) => o.value === chartType)?.label.toLowerCase()}(s)${
+                  chartType === 'STUDENT' && chartCareer !== 'ALL'
+                    ? ` de ${CHART_CAREER_OPTIONS.find((o) => o.value === chartCareer)?.label}`
+                    : ''
+                }.`}
           </p>
 
-          <div>
-            <PieChart
-              data={pieData(genderStats(entrants).labels, genderStats(entrants).data)}
-              options={{
-                responsive: true,
-                plugins: {
-                  legend: { position: 'bottom' },
-                  title: { display: true, text: 'Por género', color: '#1e293b', font: { weight: 'bold' } },
-                },
-              }}
-            />
-          </div>
+          {chartEntrants.length === 0 ? (
+            <div className="rounded-md border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-400">
+              No hay entrantes que coincidan con el filtro seleccionado.
+            </div>
+          ) : (
+            <>
+              <div>
+                <PieChart
+                  data={genderData}
+                  options={{
+                    responsive: true,
+                    plugins: {
+                      legend: { position: 'bottom' },
+                      title: { display: true, text: 'Por género', color: '#1e293b', font: { weight: 'bold' } },
+                    },
+                  }}
+                />
+              </div>
 
-          <div>
-            <BarChart
-              data={{
-                labels: careerStats(entrants).labels,
-                datasets: [
-                  {
-                    label: 'Estudiantes',
-                    data: careerStats(entrants).data,
-                    backgroundColor: 'rgba(37, 99, 235, 0.7)',
-                    borderColor: 'rgba(37, 99, 235, 1)',
-                    borderWidth: 1,
-                    borderRadius: 4,
-                  },
-                ],
-              }}
-              options={{
-                responsive: true,
-                plugins: {
-                  legend: { display: false },
-                  title: { display: true, text: 'Por carrera (solo estudiantes)', color: '#1e293b', font: { weight: 'bold' } },
-                },
-                scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
-              }}
-            />
-          </div>
+              {showCareerChart && (
+                <div>
+                  <BarChart
+                    data={careerData}
+                    options={{
+                      responsive: true,
+                      plugins: {
+                        legend: { display: false },
+                        title: { display: true, text: 'Por carrera (solo estudiantes)', color: '#1e293b', font: { weight: 'bold' } },
+                      },
+                      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+                    }}
+                  />
+                </div>
+              )}
 
-          <div>
-            <PieChart
-              data={pieData(roleStats(entrants).labels, roleStats(entrants).data)}
-              options={{
-                responsive: true,
-                plugins: {
-                  legend: { position: 'bottom' },
-                  title: { display: true, text: 'Por rol', color: '#1e293b', font: { weight: 'bold' } },
-                },
-              }}
-            />
-          </div>
+              {showRoleChart && (
+                <div>
+                  <PieChart
+                    data={roleData}
+                    options={{
+                      responsive: true,
+                      plugins: {
+                        legend: { position: 'bottom' },
+                        title: { display: true, text: 'Por rol', color: '#1e293b', font: { weight: 'bold' } },
+                      },
+                    }}
+                  />
+                </div>
+              )}
+            </>
+          )}
         </div>
       </Modal>
     </div>

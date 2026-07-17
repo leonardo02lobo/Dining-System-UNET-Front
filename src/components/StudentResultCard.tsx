@@ -1,9 +1,8 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import { Avatar } from './ui/Avatar'
 import { Badge } from './ui/Badge'
 import { Card } from './ui/Card'
 import { Input } from './ui/Input'
-import { sanctionApi } from '../api/sanction'
 import type { Student } from '../types/user'
 
 interface StudentResultCardProps {
@@ -56,21 +55,6 @@ export function StudentResultCard({
 }: StudentResultCardProps) {
   const isSuspended = suspended ?? student.is_suspended ?? false
 
-  // Conteo de veces suspendido (issue #8): total histórico de sanciones de la persona.
-  const [suspensionCount, setSuspensionCount] = useState<number | null>(null)
-  useEffect(() => {
-    const id = student.acceso_directo_id
-    if (!showSuspensionCount || !id) {
-      setSuspensionCount(null)
-      return
-    }
-    let active = true
-    sanctionApi.history(id)
-      .then((res) => { if (active) setSuspensionCount(res.total) })
-      .catch(() => { if (active) setSuspensionCount(null) })
-    return () => { active = false }
-  }, [student.acceso_directo_id, showSuspensionCount])
-
   const content = (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
       <div className="flex flex-col items-center gap-3">
@@ -78,7 +62,7 @@ export function StudentResultCard({
         <Badge variant={isSuspended ? 'danger' : 'success'}>
           {isSuspended ? 'Suspendido' : 'Activo'}
         </Badge>
-        {suspensionCount !== null && (
+        {showSuspensionCount && suspensionCount != null && (
           <Badge variant={suspensionCount > 0 ? 'warning' : 'neutral'}>
             {suspensionCount > 0
               ? `Suspendido ${suspensionCount} ${suspensionCount === 1 ? 'vez' : 'veces'}`

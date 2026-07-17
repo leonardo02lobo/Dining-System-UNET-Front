@@ -79,19 +79,11 @@ export function playSound(
       /* autoplay bloqueado o error de reproducción: se ignora (cierre manual) */
     })
 
-    return () => {
-      if (cancelled) return
-      cancelled = true
-      if (stopTimer) { clearTimeout(stopTimer); stopTimer = null }
-      audio.loop = false
-      audio.pause()
-    }
+    return stop
   } catch {
     /* entorno sin Audio: se ignora */
     return () => {}
   }
-
-  return stop
 }
 
 /** Duración objetivo (ms) de la alerta de consumo duplicado (issue #5). */

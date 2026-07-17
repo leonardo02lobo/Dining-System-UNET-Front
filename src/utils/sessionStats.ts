@@ -40,7 +40,7 @@ export function genderStats(entrants: Consumption[]): StatBucket[] {
 }
 
 /** Set fijo de carreras pedido en el issue #3 (clave normalizada + etiqueta). */
-const CAREER_SET: { key: string; label: string }[] = [
+export const CAREER_SET: { key: string; label: string }[] = [
   { key: 'informatica', label: 'Informática' },
   { key: 'civil', label: 'Civil' },
   { key: 'mecanica', label: 'Mecánica' },
@@ -50,6 +50,21 @@ const CAREER_SET: { key: string; label: string }[] = [
   { key: 'musica', label: 'Música' },
   { key: 'produccion animal', label: 'Producción Animal' },
 ]
+
+/** Clave especial para carreras que no casan con el set fijo (o vienen vacías). */
+export const CAREER_OTHER_KEY = 'otras'
+
+/**
+ * Clave de carrera normalizada de una persona (misma lógica que `careerStats`): se
+ * normaliza el texto libre y se casa por inclusión contra el set fijo; si no casa
+ * (o viene vacía) devuelve `CAREER_OTHER_KEY`. Sirve para filtrar por carrera de
+ * forma coherente con la gráfica.
+ */
+export function careerKeyOf(career: string | null | undefined): string {
+  const c = normalize(career)
+  const match = c ? CAREER_SET.find((x) => c.includes(x.key)) : undefined
+  return match ? match.key : CAREER_OTHER_KEY
+}
 
 /**
  * Conteo por carrera (issue #3) considerando **solo estudiantes**. La carrera es
@@ -61,10 +76,9 @@ export function careerStats(entrants: Consumption[]): StatBucket[] {
   let otras = 0
   for (const e of entrants) {
     if (normalize(e.user_type) !== 'student') continue
-    const career = normalize(e.career)
-    const match = career ? CAREER_SET.find((c) => career.includes(c.key)) : undefined
-    if (match) counts.set(match.key, (counts.get(match.key) ?? 0) + 1)
-    else otras++
+    const key = careerKeyOf(e.career)
+    if (key === CAREER_OTHER_KEY) otras++
+    else counts.set(key, (counts.get(key) ?? 0) + 1)
   }
   const buckets = CAREER_SET.map((c) => ({ label: c.label, count: counts.get(c.key) ?? 0 }))
   if (otras > 0) buckets.push({ label: 'Otras', count: otras })
