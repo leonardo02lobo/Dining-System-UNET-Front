@@ -1,7 +1,8 @@
 ## 1. Tipos y cliente API
 
 - [x] 1.1 Añadir tipos `AccesoDirectoBulkItem`, `AccesoDirectoBulkRequest`, `AccesoDirectoBulkResult`,
-      `AccesoDirectoBulkRowResult` en `src/types/acceso_directo.ts`
+      `AccesoDirectoBulkRowResult` en `src/types/acceso_directo.ts` (con `status` ∈
+      `created|updated|unchanged|error` y contadores `created`/`updated`/`unchanged`/`failed`)
 - [x] 1.2 Añadir `accesoDirectoApi.bulkCreate(items)` → `POST /accesos_directos/bulk` en `src/api/acceso_directo.ts`
 
 ## 2. Lógica de CSV (utils testeables)
@@ -18,8 +19,11 @@
 - [x] 3.1 `src/pages/AccesoDirectoImportPage.tsx`: input de archivo + parseo en navegador
 - [x] 3.2 UI de mapeo de columnas (dropdowns por campo destino con auto-mapeo aplicado)
 - [x] 3.3 Tabla de vista previa con validación por fila y valores aceptados de `Activo` documentados
-- [x] 3.4 Botón de envío → `bulkCreate`; resumen (total/creados/fallidos) + errores por fila
+- [x] 3.4 Botón de envío → `bulkCreate`; resumen (total/creados/actualizados/sin cambios/fallidos) +
+      errores por fila
 - [x] 3.5 Acción para refrescar/ver la lista (`accesoDirectoApi.list`) tras la importación
+- [x] 3.6 Al terminar la importación, limpiar la ventana de carga (archivo, mapeo, vista previa) y
+      dejar solo el resumen del resultado
 
 ## 4. Rutas y navegación (solo admin)
 

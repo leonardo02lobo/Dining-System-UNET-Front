@@ -33,14 +33,19 @@ export function AccesoDirectoImportPage() {
   const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState<AccesoDirectoBulkResult | null>(null)
 
-  function resetAll() {
+  /** Limpia el área de trabajo (archivo, mapeo y vista previa) sin tocar el resultado. */
+  function clearWorkingData() {
     setFileName('')
     setHeaders([])
     setRows([])
     setMapping(null)
     setParseError('')
-    setResult(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  function resetAll() {
+    clearWorkingData()
+    setResult(null)
   }
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -101,7 +106,12 @@ export function AccesoDirectoImportPage() {
     try {
       const res = await accesoDirectoApi.bulkCreate(validItems)
       setResult(res)
-      notify.success(`Importación completada: ${res.created} creado(s), ${res.failed} con error.`)
+      // Importación terminada: se limpia la ventana de carga y queda solo el resumen.
+      clearWorkingData()
+      notify.success(
+        `Importación completada: ${res.created} creado(s), ${res.updated} actualizado(s), ` +
+        `${res.unchanged} sin cambios, ${res.failed} con error.`,
+      )
     } catch (err) {
       notify.error(err)
     } finally {
@@ -268,6 +278,8 @@ export function AccesoDirectoImportPage() {
               <div className="flex flex-wrap gap-2">
                 <Badge variant="info">Total: {result.total}</Badge>
                 <Badge variant="success">Creados: {result.created}</Badge>
+                <Badge variant="info">Actualizados: {result.updated}</Badge>
+                <Badge variant="neutral">Sin cambios: {result.unchanged}</Badge>
                 <Badge variant={result.failed > 0 ? 'danger' : 'neutral'}>Fallidos: {result.failed}</Badge>
               </div>
 

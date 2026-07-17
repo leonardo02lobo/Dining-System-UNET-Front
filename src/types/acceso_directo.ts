@@ -102,15 +102,21 @@ export interface AccesoDirectoBulkRequest {
 export interface AccesoDirectoBulkRowResult {
   row: number
   document_id: string
-  status: 'created' | 'error'
+  // created   -> alta nueva
+  // updated   -> ya existía y se actualizó (algún campo cambió)
+  // unchanged -> ya existía idéntico, no se tocó
+  // error     -> fila inválida (p. ej. cédula repetida en el archivo)
+  status: 'created' | 'updated' | 'unchanged' | 'error'
   id: number | null
   error: string | null
 }
 
-/** Respuesta (HTTP 200) de la importación masiva. */
+/** Respuesta (HTTP 200) de la importación masiva (upsert por cédula). */
 export interface AccesoDirectoBulkResult {
   total: number
   created: number
+  updated: number
+  unchanged: number
   failed: number
   results: AccesoDirectoBulkRowResult[]
 }

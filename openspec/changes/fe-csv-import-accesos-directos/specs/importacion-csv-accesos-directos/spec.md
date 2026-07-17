@@ -46,9 +46,18 @@ Cédula (`document_id`) y Activo (`is_active`, booleano).
 
 #### Scenario: Resumen de resultado y errores por fila
 
-- **WHEN** el backend responde `{ total, created, failed, results: [ { row, document_id, status, id, error } ] }`
-- **THEN** la UI muestra el resumen (total/creados/fallidos) y el detalle de errores por fila, y ofrece
-  una acción para refrescar/ver la lista existente de accesos directos (`accesoDirectoApi.list`)
+- **WHEN** el backend responde
+  `{ total, created, updated, unchanged, failed, results: [ { row, document_id, status, id, error } ] }`
+  con `status` ∈ `created|updated|unchanged|error`
+- **THEN** la UI muestra el resumen (total / creados / actualizados / sin cambios / fallidos) y el
+  detalle de errores por fila, y ofrece una acción para refrescar/ver la lista existente de accesos
+  directos (`accesoDirectoApi.list`)
+
+#### Scenario: La ventana de carga se limpia tras una importación
+
+- **WHEN** la importación finaliza correctamente
+- **THEN** el frontend limpia el área de carga (archivo seleccionado, mapeo de columnas y vista previa)
+  y deja visible únicamente el resumen del resultado, con la opción de importar otro archivo
 
 #### Scenario: Acceso restringido a administradores
 
