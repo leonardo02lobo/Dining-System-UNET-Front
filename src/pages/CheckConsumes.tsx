@@ -87,7 +87,7 @@ export function CheckConsumes() {
 
       {noSession && (
         <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-          No hay ninguna sesión de almuerzo activa en este momento (en ninguna sede).
+          No hay ninguna sesión de servicio de alimentación activa en este momento (en ninguna sede).
         </div>
       )}
 

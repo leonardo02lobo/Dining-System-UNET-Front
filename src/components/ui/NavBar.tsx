@@ -20,7 +20,7 @@ const navGroups: NavGroup[] = [
   {
     label: 'Comedor',
     items: [
-      { to: '/comedor/sesion',           label: 'Sesión de Almuerzo'  },
+      { to: '/comedor/sesion',           label: 'Sesión de Servicio de alimentación'  },
       { to: '/comedor/consultar',        label: 'Consultar Consumo'   },
       { to: '/comedor/registrar',        label: 'Registro al Comedor' },
       { to: '/comedor/reporte',          label: 'Reporte de Comedor'  },
@@ -30,6 +30,7 @@ const navGroups: NavGroup[] = [
       { to: '/suspendidos',              label: 'Usuarios Suspendidos' },
       { to: '/verificar-acceso-directo',  label: 'Verificar Acceso Directo' },
       { to: '/accesos_directos',         label: 'Accesos Directos'         },
+      { to: '/accesos_directos/importar', label: 'Importar Accesos (CSV)'   },
       { to: '/gente-externa',            label: 'Gente Externa'            },
       { to: '/usuarios',                 label: 'Lista de Usuario'       },
     ],
@@ -42,7 +43,7 @@ const navGroups: NavGroup[] = [
       { to: '/inventario/reportes-consumo', label: 'Reportes de Consumo' },
       { to: '/inventario/crear',        label: 'Crear servicio de alimentación' },
       { to: '/inventario/plantillas',   label: 'Plantillas'            },
-      { to: '/inventario/pruebas-almuerzo', label: 'Pruebas de Almuerzo' },
+      { to: '/inventario/pruebas-almuerzo', label: 'Pruebas de Servicio de alimentación' },
     ],
   },
   {

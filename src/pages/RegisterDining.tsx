@@ -392,7 +392,7 @@ export function RegisterDining() {
 
           {noSession && (
             <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-              No hay una sesión de almuerzo activa en esta sede. Un administrador debe abrirla antes de registrar consumos.
+              No hay una sesión de servicio de alimentación activa en esta sede. Un administrador debe abrirla antes de registrar consumos.
             </div>
           )}
 
