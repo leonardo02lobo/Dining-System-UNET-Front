@@ -1,8 +1,8 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Upload, FileUp, CheckCircle2, AlertTriangle, RotateCcw } from 'lucide-react'
-import { accesoDirectoApi } from '../api/acceso_directo'
-import type { AccesoDirectoBulkResult } from '../types/acceso_directo'
+import { userApi } from '../api/user'
+import type { UserBulkResult } from '../types/user'
 import {
   parseCsv,
   autoMapColumns,
@@ -31,7 +31,7 @@ export function AccesoDirectoImportPage() {
   const [mapping, setMapping] = useState<ColumnMapping | null>(null)
   const [parseError, setParseError] = useState<string>('')
   const [submitting, setSubmitting] = useState(false)
-  const [result, setResult] = useState<AccesoDirectoBulkResult | null>(null)
+  const [result, setResult] = useState<UserBulkResult | null>(null)
 
   /** Limpia el área de trabajo (archivo, mapeo y vista previa) sin tocar el resultado. */
   function clearWorkingData() {
@@ -104,7 +104,7 @@ export function AccesoDirectoImportPage() {
     }
     setSubmitting(true)
     try {
-      const res = await accesoDirectoApi.bulkCreate(validItems)
+      const res = await userApi.bulkCreate(validItems)
       setResult(res)
       // Importación terminada: se limpia la ventana de carga y queda solo el resumen.
       clearWorkingData()
@@ -124,12 +124,12 @@ export function AccesoDirectoImportPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Accesos Directos"
-        title="Importar Accesos (CSV)"
-        subtitle="Carga masiva de accesos directos desde un archivo CSV separado por comas."
+        breadcrumb="Usuarios"
+        title="Importar Usuarios (CSV)"
+        subtitle="Carga masiva de usuarios del sistema desde un archivo CSV separado por comas."
         actions={
           <Link
-            to="/accesos_directos"
+            to="/usuarios"
             className="inline-flex h-8 items-center rounded-md border-2 border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700"
           >
             Ver lista
@@ -231,7 +231,7 @@ export function AccesoDirectoImportPage() {
                           <td className="px-2 py-1.5 text-slate-800">{item.full_name || <span className="text-slate-300">—</span>}</td>
                           <td className="px-2 py-1.5 text-slate-600">{item.email ?? <span className="text-slate-300">—</span>}</td>
                           <td className="px-2 py-1.5 text-slate-600">{item.career ?? <span className="text-slate-300">—</span>}</td>
-                          <td className="px-2 py-1.5 text-slate-600">{item.document_id || <span className="text-slate-300">—</span>}</td>
+                          <td className="px-2 py-1.5 text-slate-600">{item.cedula || <span className="text-slate-300">—</span>}</td>
                           <td className="px-2 py-1.5">
                             <Badge variant={item.is_active ? 'success' : 'neutral'}>
                               {item.is_active ? 'Activo' : 'Inactivo'}
@@ -263,7 +263,7 @@ export function AccesoDirectoImportPage() {
                   disabled={validCount === 0}
                   onClick={handleSubmit}
                 >
-                  Importar {validCount} acceso{validCount !== 1 ? 's' : ''}
+                  Importar {validCount} usuario{validCount !== 1 ? 's' : ''}
                 </Button>
               </div>
             </div>
@@ -299,7 +299,7 @@ export function AccesoDirectoImportPage() {
                         .map((r) => (
                           <tr key={r.row} className="border-b border-slate-100 bg-red-50">
                             <td className="px-2 py-1.5 text-slate-500">{r.row}</td>
-                            <td className="px-2 py-1.5 text-slate-700">{r.document_id}</td>
+                            <td className="px-2 py-1.5 text-slate-700">{r.cedula}</td>
                             <td className="px-2 py-1.5 text-red-600">{r.error ?? 'Error desconocido'}</td>
                           </tr>
                         ))}
@@ -310,7 +310,7 @@ export function AccesoDirectoImportPage() {
 
               <div className="flex flex-wrap items-center gap-2">
                 <Link
-                  to="/accesos_directos"
+                  to="/usuarios"
                   className="inline-flex h-8 items-center rounded-md border-2 border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700"
                 >
                   Ver lista actualizada

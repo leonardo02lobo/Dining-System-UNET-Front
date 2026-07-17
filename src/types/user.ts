@@ -46,6 +46,34 @@ export interface Student {
   acceso_directo_id?: number
 }
 
+/** Una fila de la importación masiva de usuarios del sistema (CSV). */
+export interface UserBulkItem {
+  full_name: string
+  cedula:    string
+  email:     string | null
+  career:    string | null
+  is_active: boolean
+}
+
+/** Resultado por fila devuelto por el backend en la importación masiva de usuarios. */
+export interface UserBulkRowResult {
+  row:      number
+  cedula:   string
+  status:   'created' | 'updated' | 'unchanged' | 'error'
+  id:       number | null
+  error:    string | null
+}
+
+/** Respuesta (HTTP 200) de la importación masiva de usuarios (upsert por cédula). */
+export interface UserBulkResult {
+  total:     number
+  created:   number
+  updated:   number
+  unchanged: number
+  failed:    number
+  results:   UserBulkRowResult[]
+}
+
 /** Usuario del sistema (administrador, taquillero, etc.) */
 export interface SystemUser {
   id: number
