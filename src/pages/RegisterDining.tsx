@@ -21,18 +21,10 @@ import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { Table, type ColumnDef } from '../components/ui/Table'
 import { PageHeader } from '../components/ui/PageHeader'
-import type { Consumption } from '../types/consumption'
 import { StudentResultCard } from '../components/StudentResultCard'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
-import { Table, type ColumnDef } from '../components/ui/Table'
 import { SedeSelector } from '../components/SedeSelector'
-
-/** Hora local HH:mm a partir de un ISO. */
-function formatEntrantTime(iso: string): string {
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })
-}
 
 // Única clave persistida en localStorage del proyecto: recuerda la sede elegida
 // por el taquillero entre sesiones del navegador (no es información sensible).
@@ -78,6 +70,9 @@ export function RegisterDining() {
   const [sessionCount, setSessionCount] = useState<number | null>(null)
   const [recentEntrants, setRecentEntrants] = useState<Consumption[]>([])
   const [recentOpen, setRecentOpen] = useState(false)
+
+  // Conteo histórico de suspensiones de la persona consultada (issue #8).
+  const [suspensionCount, setSuspensionCount] = useState<number | null>(null)
 
   // Suspensión rápida (problemáticas 29 y 30)
   const [activeSanction, setActiveSanction] = useState<Sanction | null>(null)
@@ -301,13 +296,6 @@ export function RegisterDining() {
   const isSuspended = activeSanction !== null || (student?.is_suspended ?? false)
   const canSuspend = !!student?.is_acceso_directo && activeSanction === null
   const selectedSede = sedes.find((s) => s.id === sedeId) ?? null
-
-  // Columnas de la ventana "últimas 10 personas" (#7), más nueva primero (orden del backend).
-  const recentColumns: ColumnDef<Consumption>[] = [
-    { key: 'document_id', header: 'Cédula', render: (_, e) => e.document_id ?? '—' },
-    { key: 'name', header: 'Nombre', render: (_, e) => `${e.first_name ?? ''} ${e.last_name ?? ''}`.trim() || '—' },
-    { key: 'registered_at', header: 'Hora', render: (_, e) => formatEntrantTime(e.registered_at) },
-  ]
 
   // Atajo de teclado: ArrowDown dispara "Registrar consumo" sin ratón (issue #2).
   // Convive con useBarcodeScanner (que finaliza con Enter) y respeta la navegación
