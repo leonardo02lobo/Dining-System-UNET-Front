@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, Download, Trash2 } from 'lucide-react'
+import { ChevronDown, Download, Plus, Trash2 } from 'lucide-react'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { LunchDetailsForm } from '../components/lunch/LunchDetailsForm'
 import { LunchIngredientsTable } from '../components/lunch/LunchIngredientsTable'
-import { LunchRecalculationPanel } from '../components/lunch/LunchRecalculationPanel'
+import { LunchRecalculationTable } from '../components/lunch/LunchRecalculationTable'
 import { PreloadedLunchBar } from '../components/lunch/PreloadedLunchBar'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -280,14 +280,6 @@ export function LunchTestPage() {
     setDeleteTarget(null)
   }
 
-  function handleApplyRecalculation() {
-    if (ingredients.length === 0) return
-
-    setIngredients((prev) => recalculateIngredients(prev, desiredPlateCount))
-    setPlateCount(desiredPlateCount)
-    setError('')
-  }
-
   function handleDownload() {
     if (ingredients.length === 0) {
       notify.info('Agrega ingredientes antes de descargar la lista.')
@@ -341,59 +333,69 @@ export function LunchTestPage() {
         </div>
       )}
 
-      <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
-        <div className="min-w-0 flex-1 space-y-6">
-          <LunchDetailsForm
-            lunchName={lunchName}
-            date={date}
-            plateCount={plateCount}
-            onLunchNameChange={setLunchName}
-            onDateChange={setDate}
-            onPlateCountChange={setPlateCount}
-          />
+      <LunchDetailsForm
+        lunchName={lunchName}
+        date={date}
+        plateCount={plateCount}
+        desiredPlateCount={desiredPlateCount}
+        onLunchNameChange={setLunchName}
+        onDateChange={setDate}
+        onPlateCountChange={setPlateCount}
+        onDesiredPlateCountChange={setDesiredPlateCount}
+      />
 
+      {/* Dos tablas paralelas 50/50: ingredientes vs. recálculo automático */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:items-start">
+        <div className="min-w-0 space-y-3">
+          <h2 className="text-[15px] font-bold text-black">Ingredientes</h2>
           <LunchIngredientsTable
             items={ingredients}
             plateCount={plateCount}
             onEdit={openEditModal}
             onDelete={handleDelete}
           />
-
-          {error && (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-
-          <div className="flex flex-col items-center justify-center gap-4 pt-6 sm:flex-row sm:flex-wrap sm:gap-8">
-            <button
-              type="button"
-              onClick={handleDownload}
-              className="inline-flex h-[45px] w-full sm:w-auto items-center justify-center gap-2.5 rounded-[10px] bg-[#03216a] px-6 text-[15px] font-bold text-white transition hover:bg-[#021a52]"
-            >
-              <Download size={22} />
-              Descargar lista
-            </button>
-            <button
-              type="button"
-              onClick={handleClearLunch}
-              disabled={ingredients.length === 0}
-              className="inline-flex h-[45px] w-full sm:w-auto items-center justify-center gap-2.5 rounded-[10px] bg-red-600 px-6 text-[15px] font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Trash2 size={22} />
-              Limpiar servicio de alimentación
-            </button>
-          </div>
         </div>
 
-        <LunchRecalculationPanel
-          basePlates={plateCount}
-          desiredPlates={desiredPlateCount}
-          previews={previews}
-          onAddIngredient={openAddModal}
-          onDesiredPlatesChange={setDesiredPlateCount}
-          onApplyRecalculation={handleApplyRecalculation}
-        />
+        <div className="min-w-0">
+          <LunchRecalculationTable
+            basePlates={plateCount}
+            desiredPlates={desiredPlateCount}
+            previews={previews}
+          />
+        </div>
+      </div>
+
+      {/* Botón central bajo ambas tablas */}
+      <div className="flex justify-center">
+        <Button type="button" onClick={openAddModal} leftIcon={<Plus size={20} />}>
+          Agregar ingrediente
+        </Button>
+      </div>
+
+      {error && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      <div className="flex flex-col items-center justify-center gap-4 pt-6 sm:flex-row sm:flex-wrap sm:gap-8">
+        <button
+          type="button"
+          onClick={handleDownload}
+          className="inline-flex h-[45px] w-full sm:w-auto items-center justify-center gap-2.5 rounded-[10px] bg-[#03216a] px-6 text-[15px] font-bold text-white transition hover:bg-[#021a52]"
+        >
+          <Download size={22} />
+          Descargar lista
+        </button>
+        <button
+          type="button"
+          onClick={handleClearLunch}
+          disabled={ingredients.length === 0}
+          className="inline-flex h-[45px] w-full sm:w-auto items-center justify-center gap-2.5 rounded-[10px] bg-red-600 px-6 text-[15px] font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Trash2 size={22} />
+          Limpiar servicio de alimentación
+        </button>
       </div>
 
       <Modal
