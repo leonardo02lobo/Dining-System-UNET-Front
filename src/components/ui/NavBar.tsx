@@ -51,7 +51,7 @@ const navGroups: NavGroup[] = [
       { to: '/auditoria',            label: 'Auditoría de Acceso'  },
       { to: '/admin/permisos',       label: 'Gestión de Permisos'  },
       { to: '/admin/plantilla-correo', label: 'Plantilla de Correo' },
-      { to: '/accesos_directos/importar', label: 'Importar Accesos (CSV)'   },
+      { to: '/accesos_directos/importar', label: 'Importar Usuarios (CSV)'   },
       { to: '/sedes',                label: 'Sedes'                 },
     ],
   },
