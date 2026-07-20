@@ -5,9 +5,11 @@ interface LunchDetailsFormProps {
   lunchName: string
   date: string
   plateCount: number
+  desiredPlateCount: number
   onLunchNameChange: (value: string) => void
   onDateChange: (value: string) => void
   onPlateCountChange: (value: number) => void
+  onDesiredPlateCountChange: (value: number) => void
 }
 
 const fieldLabel = 'mb-1 block text-[15px] text-black/60'
@@ -16,9 +18,11 @@ export function LunchDetailsForm({
   lunchName,
   date,
   plateCount,
+  desiredPlateCount,
   onLunchNameChange,
   onDateChange,
   onPlateCountChange,
+  onDesiredPlateCountChange,
 }: LunchDetailsFormProps) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">
@@ -54,11 +58,21 @@ export function LunchDetailsForm({
         </div>
       </div>
 
-      <div>
-        <label className={fieldLabel} htmlFor="plate-count">
-          Cantidad de platos
-        </label>
-        <PlateCountStepper value={plateCount} onChange={onPlateCountChange} />
+      {/* Los dos steppers de platos siempre juntos, uno al lado del otro */}
+      <div className="flex flex-wrap gap-4">
+        <div>
+          <label className={fieldLabel} htmlFor="plate-count">
+            Cantidad de platos
+          </label>
+          <PlateCountStepper value={plateCount} onChange={onPlateCountChange} />
+        </div>
+
+        <div>
+          <label className={fieldLabel} htmlFor="desired-plate-count">
+            Cantidad deseada
+          </label>
+          <PlateCountStepper value={desiredPlateCount} onChange={onDesiredPlateCountChange} />
+        </div>
       </div>
     </div>
   )

@@ -228,10 +228,11 @@ export function CreateLunchPage() {
       ingredients.map((item) => ({
         inventoryItemId: item.ingredient_id,
         baseQuantity: item.quantity_per_plate * plateCount,
-        calculatedQuantity: item.calculated_quantity,
+        // Recálculo automático: se guarda la cantidad escalada a la cantidad deseada.
+        calculatedQuantity: Math.round(item.quantity_per_plate * desiredPlateCount * 100) / 100,
         unit: item.unit,
       })),
-    [ingredients, plateCount],
+    [ingredients, plateCount, desiredPlateCount],
   )
 
   const lunchIngredientDetails = useMemo(
@@ -391,28 +392,6 @@ export function CreateLunchPage() {
     if (!deleteTarget) return
     setIngredients((prev) => prev.filter((i) => i.ingredient_id !== deleteTarget.ingredient_id))
     setDeleteTarget(null)
-  }
-
-  function handleApplyRecalculation() {
-    if (ingredients.length === 0) return
-
-    const localInsufficientItems = ingredients.filter((item) => item.quantity_per_plate * desiredPlateCount > item.available_quantity)
-    if (localInsufficientItems.length > 0) {
-      setSaveError(
-        `No hay suficiente stock para agregar el recálculo. ${
-          localInsufficientItems
-            .map((item) =>
-              `${item.ingredient_name}: requiere ${formatQuantity(item.quantity_per_plate * desiredPlateCount, item.unit)}, disponible ${formatQuantity(item.available_quantity, item.unit)}`
-            )
-            .join('; ')
-        }.`,
-      )
-      return
-    }
-
-    setIngredients((prev) => recalculateIngredients(prev, desiredPlateCount))
-    setPlateCount(desiredPlateCount)
-    setSaveError('')
   }
 
   async function loadCreatedLunches() {
@@ -619,13 +598,15 @@ export function CreateLunchPage() {
         lunchName={lunchName}
         date={date}
         plateCount={plateCount}
+        desiredPlateCount={desiredPlateCount}
         onLunchNameChange={setLunchName}
         onDateChange={setDate}
         onPlateCountChange={setPlateCount}
+        onDesiredPlateCountChange={setDesiredPlateCount}
       />
 
       {/* Dos tablas paralelas 50/50: ingredientes vs. recálculo automático (issue #9) */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:items-start">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:items-start">
         <div className="min-w-0 space-y-3">
           <h2 className="text-[15px] font-bold text-black">Ingredientes</h2>
           <LunchIngredientsTable
@@ -641,8 +622,6 @@ export function CreateLunchPage() {
             basePlates={plateCount}
             desiredPlates={desiredPlateCount}
             previews={previews}
-            onDesiredPlatesChange={setDesiredPlateCount}
-            onApplyRecalculation={handleApplyRecalculation}
           />
         </div>
       </div>
