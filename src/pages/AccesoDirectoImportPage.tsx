@@ -1,8 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { Upload, FileUp, CheckCircle2, AlertTriangle, RotateCcw } from 'lucide-react'
-import { userApi } from '../api/user'
-import type { UserBulkResult } from '../types/user'
+import { externalStudentApi } from '../api/externalStudent'
+import type { StudentBulkResult } from '../types/student'
 import {
   parseCsv,
   autoMapColumns,
@@ -31,7 +30,7 @@ export function AccesoDirectoImportPage() {
   const [mapping, setMapping] = useState<ColumnMapping | null>(null)
   const [parseError, setParseError] = useState<string>('')
   const [submitting, setSubmitting] = useState(false)
-  const [result, setResult] = useState<UserBulkResult | null>(null)
+  const [result, setResult] = useState<StudentBulkResult | null>(null)
 
   /** Limpia el área de trabajo (archivo, mapeo y vista previa) sin tocar el resultado. */
   function clearWorkingData() {
@@ -104,7 +103,7 @@ export function AccesoDirectoImportPage() {
     }
     setSubmitting(true)
     try {
-      const res = await userApi.bulkCreate(validItems)
+      const res = await externalStudentApi.bulkCreate(validItems)
       setResult(res)
       // Importación terminada: se limpia la ventana de carga y queda solo el resumen.
       clearWorkingData()
@@ -124,17 +123,9 @@ export function AccesoDirectoImportPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Usuarios"
-        title="Importar Usuarios (CSV)"
-        subtitle="Carga masiva de usuarios del sistema desde un archivo CSV separado por comas."
-        actions={
-          <Link
-            to="/usuarios"
-            className="inline-flex h-8 items-center rounded-md border-2 border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700"
-          >
-            Ver lista
-          </Link>
-        }
+        breadcrumb="Estudiantes"
+        title="Importar Estudiantes (CSV)"
+        subtitle="Carga masiva de estudiantes al padrón desde un archivo CSV separado por comas."
       />
 
       <div className="flex flex-col gap-4">
@@ -263,7 +254,7 @@ export function AccesoDirectoImportPage() {
                   disabled={validCount === 0}
                   onClick={handleSubmit}
                 >
-                  Importar {validCount} usuario{validCount !== 1 ? 's' : ''}
+                  Importar {validCount} estudiante{validCount !== 1 ? 's' : ''}
                 </Button>
               </div>
             </div>
@@ -309,12 +300,6 @@ export function AccesoDirectoImportPage() {
               )}
 
               <div className="flex flex-wrap items-center gap-2">
-                <Link
-                  to="/usuarios"
-                  className="inline-flex h-8 items-center rounded-md border-2 border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700"
-                >
-                  Ver lista actualizada
-                </Link>
                 <Button variant="ghost" size="sm" leftIcon={<RotateCcw size={14} />} onClick={resetAll}>
                   Importar otro archivo
                 </Button>

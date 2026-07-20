@@ -141,13 +141,14 @@ describe('validateRow', () => {
     expect(validateRow({ full_name: 'Juan', cedula: '123', email: 'j@x.com', career: null, is_active: true }).valid).toBe(true)
   })
 
-  it('requires full_name, cedula and email', () => {
+  it('requires full_name and cedula', () => {
     const r = validateRow({ full_name: '', cedula: '', email: null, career: null, is_active: false })
     expect(r.valid).toBe(false)
     expect(r.errors.length).toBe(3)
   })
 
-  it('rejects a malformed email', () => {
+  it('rejects a malformed email but allows null email', () => {
     expect(validateRow({ full_name: 'A', cedula: '1', email: 'not-an-email', career: null, is_active: true }).valid).toBe(false)
+    expect(validateRow({ full_name: 'A', cedula: '1', email: null, career: null, is_active: true }).valid).toBe(true)
   })
 })

@@ -1,4 +1,4 @@
-import type { UserBulkItem } from '../types/user'
+import type { StudentBulkItem } from '../types/student'
 
 /** Campos destino a los que se mapean las columnas del CSV. */
 export type TargetField = 'full_name' | 'email' | 'career' | 'cedula' | 'is_active'
@@ -174,7 +174,7 @@ function cell(row: string[], index: number | null): string {
  * usuarios, aplicando el mapeo de columnas. La cédula se limpia a solo dígitos;
  * `email` y `career` vacíos se envían como `null`.
  */
-export function buildBulkItems(rows: string[][], mapping: ColumnMapping): UserBulkItem[] {
+export function buildBulkItems(rows: string[][], mapping: ColumnMapping): StudentBulkItem[] {
   return rows.map((row) => {
     const email = cell(row, mapping.email)
     const career = cell(row, mapping.career)
@@ -196,16 +196,14 @@ export interface RowValidation {
 }
 
 /**
- * Valida un item de usuario: `full_name`, `cedula` (con dígitos) y `email` (formato
- * razonable) son obligatorios para crear un usuario del sistema.
+ * Valida un item de estudiante: `full_name` y `cedula` (con dígitos) obligatorios;
+ * si hay email, formato razonable (el correo es opcional en el padrón).
  */
-export function validateRow(item: UserBulkItem): RowValidation {
+export function validateRow(item: StudentBulkItem): RowValidation {
   const errors: string[] = []
   if (item.full_name.trim() === '') errors.push('Falta el nombre completo')
   if (item.cedula.trim() === '') errors.push('Falta la cédula (sin dígitos válidos)')
-  if (item.email === null || item.email.trim() === '') {
-    errors.push('Falta el correo')
-  } else if (!EMAIL_RE.test(item.email.trim())) {
+  if (item.email !== null && item.email.trim() !== '' && !EMAIL_RE.test(item.email.trim())) {
     errors.push('Correo con formato inválido')
   }
   return { valid: errors.length === 0, errors }
