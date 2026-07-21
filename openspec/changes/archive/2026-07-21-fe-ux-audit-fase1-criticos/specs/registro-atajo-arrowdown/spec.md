@@ -10,7 +10,7 @@ ficha SHALL recibir el foco automáticamente al consultar una persona, y el ataj
 el objetivo del evento no está dentro de ese contenedor. El atajo SHALL respetar también el foco en
 un `INPUT`, además de `SELECT`/`TEXTAREA`.
 
-#### Scenario: Registro válido con ArrowDown dentro de la ficha
+#### Scenario: Registro válido con ArrowDown
 
 - **WHEN** hay un estudiante consultado y el registro es válido (sesión abierta, sede
   seleccionada, sin sanción y sin guardado en curso), el foco está dentro de la ficha del
