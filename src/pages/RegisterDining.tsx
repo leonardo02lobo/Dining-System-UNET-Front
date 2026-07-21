@@ -325,33 +325,33 @@ export function RegisterDining() {
   const canSuspend = !!student?.is_acceso_directo && activeSanction === null
   const selectedSede = sedes.find((s) => s.id === sedeId) ?? null
 
-  // Mueve el foco a la ficha del estudiante al consultarlo: además de anunciarla a
-  // lectores de pantalla, delimita dónde puede disparar el atajo ArrowDown de abajo.
+  // Mueve el foco a la ficha del estudiante al consultarlo: solo para anunciarla a
+  // lectores de pantalla (el atajo de flechas de abajo ya no depende de este foco,
+  // porque se pierde con cualquier click o modal y dejaba el atajo "muerto" hasta
+  // volver a hacer click dentro de la ficha).
   useEffect(() => {
     if (student) cardContainerRef.current?.focus()
   }, [student])
 
-  // Atajo de teclado: ArrowDown dispara "Registrar consumo" sin ratón (issue #2).
-  // Acotado a la ficha del estudiante (no a `window`): así no interfiere con el
-  // desplazamiento de la página ni con la navegación de un lector de pantalla en el
-  // resto de la aplicación. Convive con useBarcodeScanner (que finaliza con Enter) y
-  // respeta la navegación por flechas de select/textarea/input.
+  // Atajo de teclado: ArrowDown/ArrowUp disparan "Registrar consumo" sin ratón (issue #2).
+  // Escucha en `window` sin exigir que el foco DOM esté en un elemento en particular:
+  // solo se descarta si el foco está en un campo editable (select/textarea/input, para
+  // no interferir con su navegación por flechas) o si hay un modal abierto encima.
   useEffect(() => {
     const canRegister = !!student && !isSuspended && !registrationBlocked && !saving
-    if (!canRegister || suspendOpen) return
+    if (!canRegister || suspendOpen || duplicateOpen || recentOpen) return
 
-    function onArrowDownRegister(e: KeyboardEvent) {
-      if (e.key !== 'ArrowDown') return
-      const target = e.target as HTMLElement | null
-      if (target?.tagName === 'SELECT' || target?.tagName === 'TEXTAREA' || target?.tagName === 'INPUT') return
-      if (!cardContainerRef.current?.contains(target)) return
+    function onArrowRegister(e: KeyboardEvent) {
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+      const active = document.activeElement as HTMLElement | null
+      if (active?.tagName === 'SELECT' || active?.tagName === 'TEXTAREA' || active?.tagName === 'INPUT') return
       e.preventDefault()
       void handleRegister()
     }
 
-    window.addEventListener('keydown', onArrowDownRegister)
-    return () => window.removeEventListener('keydown', onArrowDownRegister)
-  }, [student, isSuspended, registrationBlocked, saving, suspendOpen])
+    window.addEventListener('keydown', onArrowRegister)
+    return () => window.removeEventListener('keydown', onArrowRegister)
+  }, [student, isSuspended, registrationBlocked, saving, suspendOpen, duplicateOpen, recentOpen])
 
   // Columnas de la ventana "últimas N personas" (issue #7).
   const recentColumns: ColumnDef<Consumption>[] = [
