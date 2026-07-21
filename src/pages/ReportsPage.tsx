@@ -310,7 +310,7 @@ export function ReportsPage() {
       )}
 
       {!loading && items !== null && rows.length === 0 && (
-        <div className="rounded-md border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-400">
+        <div className="rounded-md border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-600">
           No hay consumos registrados hasta el momento.
         </div>
       )}
@@ -319,17 +319,17 @@ export function ReportsPage() {
         <>
           <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Card variant="outlined" padding="md">
-              <p className="text-xs uppercase tracking-wide text-slate-400">Insumos consumidos</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Insumos consumidos</p>
               <p className="mt-1 text-2xl font-bold text-blue-600 sm:text-3xl">{rows.length}</p>
             </Card>
             <Card variant="outlined" padding="md">
-              <p className="text-xs uppercase tracking-wide text-slate-400">Categorias</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Categorias</p>
               <p className="mt-1 text-2xl font-bold text-slate-800 sm:text-3xl">
                 {new Set(rows.map((item) => item.categoryName)).size}
               </p>
             </Card>
             <Card variant="outlined" padding="md">
-              <p className="text-xs uppercase tracking-wide text-slate-400">Periodo reportado</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Periodo reportado</p>
               <p className="mt-2 text-sm font-semibold text-slate-700">{reportedPeriod}</p>
             </Card>
           </div>
@@ -416,7 +416,7 @@ export function ReportsPage() {
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[720px] text-sm">
                   <thead>
-                    <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
+                    <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
                       <th className="pb-2 pr-4">Insumo</th>
                       <th className="pb-2 pr-4">Categoria</th>
                       <th className="pb-2 pr-4">Cantidad consumida</th>

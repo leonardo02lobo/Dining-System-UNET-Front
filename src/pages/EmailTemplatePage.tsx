@@ -235,16 +235,16 @@ export function EmailTemplatePage() {
             <div className="flex flex-col gap-1.5">
               <span className="text-[13px] font-semibold text-slate-900">Previsualización</span>
               <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-                <p className="mb-2 text-xs uppercase tracking-wide text-slate-400">Asunto</p>
+                <p className="mb-2 text-xs uppercase tracking-wide text-slate-500">Asunto</p>
                 <p className="mb-4 text-sm font-medium text-slate-800">
                   {renderPreview(subject, placeholders) || '—'}
                 </p>
-                <p className="mb-2 text-xs uppercase tracking-wide text-slate-400">Cuerpo</p>
+                <p className="mb-2 text-xs uppercase tracking-wide text-slate-500">Cuerpo</p>
                 <div className="whitespace-pre-wrap text-sm text-slate-700">
                   {renderPreview(body, placeholders) || '—'}
                 </div>
               </div>
-              <span className="text-xs text-slate-400">
+              <span className="text-xs text-slate-500">
                 Aproximación con datos de ejemplo; el envío real usa los datos de la sanción.
               </span>
             </div>

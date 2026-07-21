@@ -95,7 +95,7 @@ export function Table<T extends object>({
             <tr>
               <td
                 colSpan={columns.length + (actions ? 1 : 0)}
-                className="px-4 py-10 text-center text-slate-400"
+                className="px-4 py-10 text-center text-slate-600"
               >
                 {emptyMessage}
               </td>
@@ -105,8 +105,17 @@ export function Table<T extends object>({
               <tr
                 key={String(getValue(row, keyField))}
                 onClick={() => onRowClick?.(row)}
+                onKeyDown={(e) => {
+                  if (!onRowClick) return
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onRowClick(row)
+                  }
+                }}
+                tabIndex={onRowClick ? 0 : undefined}
+                role={onRowClick ? 'button' : undefined}
                 className={`border-b border-slate-100 last:border-0 transition-colors ${
-                  onRowClick ? 'cursor-pointer hover:bg-blue-50/50' : 'hover:bg-slate-50'
+                  onRowClick ? 'cursor-pointer hover:bg-blue-50/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500' : 'hover:bg-slate-50'
                 }`}
               >
                 {columns.map((col) => (
@@ -117,7 +126,7 @@ export function Table<T extends object>({
                   </td>
                 ))}
                 {actions && (
-                  <td className="px-3 py-2 sm:px-4 sm:py-3">
+                  <td className="px-3 py-2 sm:px-4 sm:py-3" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-1">{actions(row)}</div>
                   </td>
                 )}

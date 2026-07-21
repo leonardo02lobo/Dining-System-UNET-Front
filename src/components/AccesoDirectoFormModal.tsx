@@ -249,7 +249,7 @@ export function AccesoDirectoFormModal({ open, onClose, onSave, initial }: Props
           />
           <div className="flex flex-col">
             <span className="text-sm font-medium text-slate-800">Acceso Directo Prioritario</span>
-            <span className="text-xs text-slate-400">Tiene prioridad de acceso al comedor</span>
+            <span className="text-xs text-slate-500">Tiene prioridad de acceso al comedor</span>
           </div>
         </label>
       </div>

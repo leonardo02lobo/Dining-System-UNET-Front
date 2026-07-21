@@ -1,5 +1,5 @@
-import { memo, useState } from "react";
-import { Menu, Smile } from "lucide-react";
+import { memo, useEffect, useState } from "react";
+import { Menu } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { LogoUnet } from "../icons/LogoUnet";
 import { LogoDecanato } from "../icons/LogoDecanato";
@@ -17,7 +17,11 @@ interface Props {
   onMenuClick?: () => void;
 }
 function HeaderComponent({isLogin, onMenuClick}: Props) {
-  const [date] = useState(new Date())
+  const [date, setDate] = useState(new Date())
+  useEffect(() => {
+    const id = window.setInterval(() => setDate(new Date()), 30_000)
+    return () => window.clearInterval(id)
+  }, [])
   const { user } = useAuth()
   const styles = isLogin
     ? "flex-shrink-0 border-b bg-gradient-to-b from-[#03216A] via-[#7D8EB7] to-[#EBEFF4] p-2 sm:p-4"
@@ -36,13 +40,13 @@ function HeaderComponent({isLogin, onMenuClick}: Props) {
               <Menu size={24} />
             </button>
           )}
-          <LogoUnet className="h-14 w-14 flex-shrink-0 object-contain sm:h-24 sm:w-24 lg:h-36 lg:w-36" />
+          <LogoUnet className={`h-14 w-14 flex-shrink-0 object-contain sm:h-24 sm:w-24 ${isLogin ? 'lg:h-16 lg:w-16' : 'lg:h-36 lg:w-36'}`} />
           <div className="flex min-w-0 flex-col gap-0.5">
             <span className="text-sm font-bold leading-tight text-slate-800 sm:text-xl lg:text-2xl">
               UNIVERSIDAD NACIONAL EXPERIMENTAL DEL TÁCHIRA
             </span>
             <span className="text-xs font-bold leading-tight text-slate-800 sm:text-base lg:text-xl">
-              VICERRECTORADO ACADEMICO
+              VICERRECTORADO ACADÉMICO
             </span>
             <span className="text-xs font-bold leading-tight text-slate-800 sm:text-base lg:text-xl">
               DECANATO DE DESARROLLO ESTUDIANTIL
@@ -50,17 +54,17 @@ function HeaderComponent({isLogin, onMenuClick}: Props) {
           </div>
         </div>
         <div className="hidden flex-shrink-0 flex-col items-end gap-1 md:flex">
-          <LogoDecanato className="h-20 w-48 object-contain lg:h-36 lg:w-96" />
-          <span className="text-[10px] text-slate-400">Decanato</span>
+          <LogoDecanato className={`h-20 w-48 object-contain ${isLogin ? 'lg:h-16 lg:w-40' : 'lg:h-36 lg:w-96'}`} />
+          <span className="text-[10px] text-slate-500">Decanato</span>
         </div>
       </div>
       {
         isLogin && (
-          <div className="flex flex-row flex-wrap items-center justify-end gap-1 p-2 text-xs font-bold sm:p-3 sm:text-sm">
-            <span>Hola {user?.name ?? '...'}</span>
-            <Smile size={20} className="text-slate-600" />
-            <span>, Bienvenid@ a la sección para {user ? ROLE_LABEL[user.role.name] ?? user.role.name : ''} - </span>
-            <span>{date.toLocaleDateString()} {date.toLocaleTimeString()}</span>
+          <div className="flex items-center justify-end gap-1 p-2 text-xs font-bold sm:p-3 sm:text-sm">
+            <span>
+              Hola, {user?.name ?? '...'} · {user ? ROLE_LABEL[user.role.name] ?? user.role.name : ''} ·{' '}
+              {date.toLocaleDateString()} {date.toLocaleTimeString()}
+            </span>
           </div>
         )
       }

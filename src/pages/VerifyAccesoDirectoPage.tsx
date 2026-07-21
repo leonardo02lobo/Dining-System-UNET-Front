@@ -105,7 +105,7 @@ export function VerifyAccesoDirectoPage() {
           </Button>
         </div>
 
-        <p className="mt-3 text-xs text-slate-400">
+        <p className="mt-3 text-xs text-slate-500">
           El resultado aparecerá como un aviso a pantalla completa que se cierra
           automáticamente luego de 5 segundos.
         </p>

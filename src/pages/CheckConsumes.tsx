@@ -112,7 +112,7 @@ export function CheckConsumes() {
             Consultar
           </Button>
         </div>
-        <p className="mt-3 flex items-center gap-1.5 text-xs text-slate-400">
+        <p className="mt-3 flex items-center gap-1.5 text-xs text-slate-500">
           <ScanLine size={13} />
           El lector de código de barras enviará el código automáticamente al pasar el carnet.
         </p>
@@ -131,7 +131,7 @@ export function CheckConsumes() {
       )}
 
       {!loading && searched && !student && !error && (
-        <div className="rounded-md border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-400">
+        <div className="rounded-md border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-600">
           No se encontró ningún acceso directo con la cédula <strong>{cedula}</strong>.
         </div>
       )}

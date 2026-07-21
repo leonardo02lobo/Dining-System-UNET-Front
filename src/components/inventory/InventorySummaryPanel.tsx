@@ -66,7 +66,7 @@ export function InventorySummaryPanel({ items, alerts }: InventorySummaryPanelPr
         <div className="mt-3 rounded-[10px] bg-white p-3">
           <p className="mb-2 text-xs font-medium text-slate-900">Alertas de Stock</p>
           {alerts.length === 0 ? (
-            <p className="py-4 text-center text-xs text-slate-400">
+            <p className="py-4 text-center text-xs text-slate-600">
               No hay alertas de stock
             </p>
           ) : (

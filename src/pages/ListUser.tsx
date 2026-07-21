@@ -113,10 +113,8 @@ export function ListUser() {
   ]
 
   const roleOptions = [
-    { value: 'all',        label: 'Todos los roles' },
-    { value: 'SUPER_ADMIN', label: 'Super Admin'    },
-    { value: 'ADMIN',      label: 'Admin'           },
-    { value: 'TAQUILLERO', label: 'Taquillero'      },
+    { value: 'all', label: 'Todos los roles' },
+    ...Object.entries(ROLE_LABEL).map(([value, label]) => ({ value, label })),
   ]
 
   const filtered = rows.filter((r) => {
@@ -196,12 +194,14 @@ export function ListUser() {
           debounceMs={200}
         />
         <Select
+          label="Estado"
           options={statusOptions}
           value={selectedStatus}
           onChange={(e) => setStatus(e.target.value)}
           className="w-full sm:w-44"
         />
         <Select
+          label="Rol"
           options={roleOptions}
           value={selectedRole}
           onChange={(e) => setRole(e.target.value)}

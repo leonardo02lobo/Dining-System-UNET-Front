@@ -218,7 +218,7 @@ export function AccesoDirectoImportPage() {
                           key={i}
                           className={`border-b border-slate-100 ${v.valid ? '' : 'bg-red-50'}`}
                         >
-                          <td className="px-2 py-1.5 text-slate-400">{i + 1}</td>
+                          <td className="px-2 py-1.5 text-slate-500">{i + 1}</td>
                           <td className="px-2 py-1.5 text-slate-800">{item.full_name || <span className="text-slate-300">—</span>}</td>
                           <td className="px-2 py-1.5 text-slate-600">{item.email ?? <span className="text-slate-300">—</span>}</td>
                           <td className="px-2 py-1.5 text-slate-600">{item.career ?? <span className="text-slate-300">—</span>}</td>

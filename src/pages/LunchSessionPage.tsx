@@ -189,7 +189,7 @@ export function LunchSessionPage() {
             {openSessions.length === 0 ? (
               <div className="flex flex-col items-start gap-2">
                 <Badge variant="warning">No hay sesiones abiertas</Badge>
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-slate-500">
                   Ninguna sede tiene una sesión de servicio de alimentación activa en este momento.
                 </p>
               </div>
@@ -205,7 +205,7 @@ export function LunchSessionPage() {
                         <Badge variant="success">Abierta</Badge>
                         <span className="text-sm font-semibold text-slate-800">{sedeName(s)}</span>
                       </div>
-                      <span className="text-xs text-slate-400">
+                      <span className="text-xs text-slate-500">
                         Fecha: {s.date}
                         {s.opened_at && ` · Abierta a las ${new Date(s.opened_at).toLocaleTimeString()}`}
                       </span>
@@ -227,7 +227,7 @@ export function LunchSessionPage() {
             )}
 
             {!canManage && (
-              <p className="text-sm text-slate-400 pt-2 border-t border-slate-100">
+              <p className="text-sm text-slate-500 pt-2 border-t border-slate-100">
                 Solo los administradores pueden abrir o cerrar sesiones.
               </p>
             )}

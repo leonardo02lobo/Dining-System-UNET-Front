@@ -28,7 +28,7 @@ export function LoginPage() {
   function validate(): boolean {
     const next: Partial<LoginCredentials> = {}
     if (!credentials.username.trim()) {
-      next.username = 'El usuario o cédula es requerido'
+      next.username = 'El correo electrónico es requerido'
     }
     if (!credentials.password) {
       next.password = 'La contraseña es requerida'
@@ -50,7 +50,7 @@ export function LoginPage() {
     } catch (err) {
       const error = err as ApiError
       if (error.status === 401) {
-        setApiError('Usuario o contraseña incorrectos')
+        setApiError('Correo o contraseña incorrectos')
       } else if (error.status === 403) {
         setApiError('Cuenta inactiva. Contacte al administrador.')
       } else if (error.status === 0 || !error.status) {
@@ -139,7 +139,7 @@ export function LoginPage() {
             </form>
           </Card>
 
-          <p className="mt-4 text-center text-xs text-slate-400">
+          <p className="mt-4 text-center text-xs text-slate-500">
             Estudiantes · Personal administrativo · Personal docente
           </p>
         </div>

@@ -63,7 +63,6 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               type="button"
               className="absolute right-2 flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
               onClick={() => setShowPassword((v) => !v)}
-              tabIndex={-1}
               aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
             >
               {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}

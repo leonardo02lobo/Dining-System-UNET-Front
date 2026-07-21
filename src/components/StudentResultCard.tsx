@@ -32,7 +32,7 @@ interface StudentResultCardProps {
 function ReadOnlyField({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-1">
-      <p className="text-xs uppercase tracking-wide text-slate-400">{label}</p>
+      <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
       <Input value={value} readOnly fullWidth />
     </div>
   )

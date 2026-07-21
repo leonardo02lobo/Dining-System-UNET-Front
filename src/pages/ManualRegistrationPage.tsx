@@ -338,7 +338,7 @@ export function ManualRegistrationPage() {
         )}
 
         {!loading && searched && !student && !error && (
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-slate-500">
             No se encontró ningún estudiante con la cédula <strong>{cedula}</strong>.
           </p>
         )}
@@ -365,7 +365,7 @@ export function ManualRegistrationPage() {
             Limpiar campos
           </Button>
         </div>
-        <p className="mt-3 text-xs text-slate-400">
+        <p className="mt-3 text-xs text-slate-500">
           Sugerencia: presiona la tecla <kbd className="rounded border border-slate-300 px-1">↓</kbd> para guardar el registro.
         </p>
       </Card>

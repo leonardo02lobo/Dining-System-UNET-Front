@@ -12,6 +12,7 @@ import { Toggle } from '../components/ui/Toggle'
 import { Spinner } from '../components/ui/Spinner'
 import { Card } from '../components/ui/Card'
 import { SearchInput } from '../components/ui/SearchInput'
+import { Modal } from '../components/ui/Modal'
 
 /** Agrupa cada ruta en una sección legible (espejo de los grupos del NavBar). */
 function sectionOf(route: string): string {
@@ -40,12 +41,16 @@ export function PermissionsPage() {
   const [users,        setUsers]        = useState<UserAccount[]>([])
   const [selectedUser, setSelectedUser] = useState<UserAccount | null>(null)
   const [permissions,  setPermissions]  = useState<Permission[]>([])
+  // Snapshot de los permisos tal como llegaron del servidor: sirve para detectar cambios sin guardar.
+  const [initialPermissions, setInitialPermissions] = useState<Permission[]>([])
   const [usersLoading, setUsersLoading] = useState(true)
   const [permsLoading, setPermsLoading] = useState(false)
   const [saving,       setSaving]       = useState(false)
   const [error,        setError]        = useState<string | null>(null)
   const [success,      setSuccess]      = useState<string | null>(null)
   const [search,       setSearch]       = useState('')
+  // Usuario al que se quiere cambiar mientras hay cambios sin guardar (confirmación pendiente).
+  const [pendingUser,  setPendingUser]  = useState<UserAccount | null>(null)
 
   // Load user list once
   useEffect(() => {
@@ -72,6 +77,7 @@ export function PermissionsPage() {
       try {
         const data = await permissionsApi.getByUser(selectedUser.id, selectedUser.role.name)
         setPermissions(data)
+        setInitialPermissions(data)
       } catch (err: any) {
         setError(err.message ?? 'Error al cargar los permisos')
       } finally {
@@ -80,9 +86,44 @@ export function PermissionsPage() {
     })()
   }, [selectedUser])
 
+  // Cambios pendientes: compara el estado actual contra el snapshot cargado del servidor.
+  const changedRoutes = new Set(
+    permissions
+      .filter((p) => initialPermissions.find((ip) => ip.route === p.route)?.enabled !== p.enabled)
+      .map((p) => p.route),
+  )
+  const isDirty = changedRoutes.size > 0
+
+  // Avisa antes de cerrar/recargar la pestaña si hay cambios sin guardar.
+  useEffect(() => {
+    if (!isDirty) return
+    function onBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [isDirty])
+
   function handleUserChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const user = users.find((u) => String(u.id) === e.target.value) ?? null
+    if (isDirty) {
+      // Con cambios pendientes, no se cambia de usuario directamente: se confirma antes.
+      setPendingUser(user)
+      return
+    }
     setSelectedUser(user)
+  }
+
+  function confirmDiscardAndSwitch() {
+    setSelectedUser(pendingUser)
+    setPendingUser(null)
+  }
+
+  async function confirmSaveAndSwitch() {
+    await handleSave()
+    setSelectedUser(pendingUser)
+    setPendingUser(null)
   }
 
   function togglePermission(route: string) {
@@ -97,6 +138,7 @@ export function PermissionsPage() {
     setError(null)
     try {
       await permissionsApi.update(selectedUser.id, permissions)
+      setInitialPermissions(permissions)
       setSuccess(`Permisos de ${selectedUser.name} guardados correctamente`)
     } catch (err: any) {
       setError(err.message ?? 'Error al guardar los permisos')
@@ -128,7 +170,7 @@ export function PermissionsPage() {
     <div>
       <PageHeader
         title="Gestión de permisos por Usuario"
-        subtitle="Configura qué funcionalidades puede acceder cada usuario"
+        subtitle="Configura a qué funcionalidades puede acceder cada usuario"
       />
 
       {success && (
@@ -201,7 +243,7 @@ export function PermissionsPage() {
               <tbody>
                 {grouped.length === 0 && !permsLoading && (
                   <tr>
-                    <td colSpan={2} className="px-6 py-8 text-center text-sm text-slate-400">
+                    <td colSpan={2} className="px-6 py-8 text-center text-sm text-slate-600">
                       No hay funcionalidades que coincidan con la búsqueda.
                     </td>
                   </tr>
@@ -216,41 +258,77 @@ export function PermissionsPage() {
                         {group.section}
                       </td>
                     </tr>
-                    {group.items.map((perm) => (
-                      <tr
-                        key={perm.route}
-                        className="border-b border-slate-100 last:border-0 transition-colors hover:bg-slate-50"
-                      >
-                        <td className="px-6 py-4 text-slate-700">
-                          {perm.label}
-                          <span className="ml-2 text-xs text-slate-400">{perm.route}</span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <Toggle
-                            checked={perm.enabled}
-                            onChange={() => togglePermission(perm.route)}
-                          />
-                        </td>
-                      </tr>
-                    ))}
+                    {group.items.map((perm) => {
+                      const changed = changedRoutes.has(perm.route)
+                      return (
+                        <tr
+                          key={perm.route}
+                          className={[
+                            'border-b border-slate-100 last:border-0 transition-colors hover:bg-slate-50',
+                            changed ? 'border-l-4 border-l-amber-400' : '',
+                          ].join(' ')}
+                        >
+                          <td className="px-6 py-4 text-slate-700">
+                            {perm.label}
+                            <span className="ml-2 text-xs text-slate-500">{perm.route}</span>
+                            {changed && (
+                              <Badge variant="warning" className="ml-2">Sin guardar</Badge>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <Toggle
+                              checked={perm.enabled}
+                              onChange={() => togglePermission(perm.route)}
+                              label={`${perm.label} — ${perm.enabled ? 'permitido' : 'denegado'}`}
+                            />
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </Fragment>
                 ))}
               </tbody>
             </table>
           </div>
 
-          <div className="mt-6 flex justify-end">
+          <div className="sticky bottom-0 mt-6 flex justify-end border-t border-slate-200 bg-white/95 py-4 backdrop-blur">
             <Button
               variant="primary"
               leftIcon={<Save size={15} />}
               loading={saving}
-              onClick={handleSave}
+              disabled={!isDirty}
+              onClick={() => void handleSave()}
             >
-              Guardar Cambios
+              {isDirty ? `Guardar ${changedRoutes.size} cambio${changedRoutes.size === 1 ? '' : 's'}` : 'Guardar Cambios'}
             </Button>
           </div>
         </>
       )}
+
+      <Modal
+        open={pendingUser !== null}
+        onClose={() => setPendingUser(null)}
+        title="Cambios sin guardar"
+        footer={
+          <>
+            <Button variant="ghost" size="sm" onClick={() => setPendingUser(null)}>
+              Cancelar
+            </Button>
+            <Button variant="secondary" size="sm" onClick={confirmDiscardAndSwitch}>
+              Descartar
+            </Button>
+            <Button variant="primary" size="sm" loading={saving} onClick={() => void confirmSaveAndSwitch()}>
+              Guardar y continuar
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-700">
+          Tiene {changedRoutes.size} cambio{changedRoutes.size === 1 ? '' : 's'} sin guardar en{' '}
+          <span className="font-semibold text-slate-900">{selectedUser?.name}</span>. ¿Desea
+          guardarlos antes de cambiar de usuario o descartarlos?
+        </p>
+      </Modal>
     </div>
   )
 }

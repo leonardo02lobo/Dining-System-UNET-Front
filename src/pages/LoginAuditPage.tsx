@@ -28,16 +28,15 @@ function parseBrowser(ua: string | null): string {
 }
 
 const ROLE_MAP: Record<string, { label: string; variant: BadgeVariant }> = {
-  SUPER_ADMIN: { label: 'Super Admin', variant: 'danger'  },
-  ADMIN:       { label: 'Admin',       variant: 'info'    },
-  TAQUILLERO:  { label: 'Taquillero',  variant: 'neutral' },
+  SUPER_ADMIN:    { label: 'Super Admin',    variant: 'danger'  },
+  ADMIN:          { label: 'Admin',          variant: 'info'    },
+  TAQUILLERO:     { label: 'Taquillero',     variant: 'neutral' },
+  ACCESO_DIRECTO: { label: 'Acceso Directo', variant: 'success' },
 }
 
 const roleOptions = [
-  { value: 'all',        label: 'Todos los roles' },
-  { value: 'SUPER_ADMIN', label: 'Super Admin'    },
-  { value: 'ADMIN',      label: 'Admin'           },
-  { value: 'TAQUILLERO', label: 'Taquillero'      },
+  { value: 'all', label: 'Todos los roles' },
+  ...Object.entries(ROLE_MAP).map(([value, { label }]) => ({ value, label })),
 ]
 
 export function LoginAuditPage() {
@@ -106,7 +105,7 @@ export function LoginAuditPage() {
       key: 'ip_address',
       header: 'IP',
       render: (_, row) => (
-        <span className="font-mono text-xs text-slate-400">{row.ip_address ?? '—'}</span>
+        <span className="font-mono text-xs text-slate-500">{row.ip_address ?? '—'}</span>
       ),
     },
     {
@@ -155,6 +154,7 @@ export function LoginAuditPage() {
           onChange={(e) => setToDate(e.target.value)}
         />
         <Select
+          label="Rol"
           options={roleOptions}
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value)}

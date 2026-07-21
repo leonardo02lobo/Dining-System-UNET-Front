@@ -222,7 +222,7 @@ export function SessionHistoryPage() {
       render: (_, s) =>
         s.closed_at
           ? formatTime(s.closed_at) ?? '—'
-          : <span className="text-slate-400">En curso</span>,
+          : <span className="text-slate-500">En curso</span>,
     },
     {
       key: 'status',
@@ -244,7 +244,7 @@ export function SessionHistoryPage() {
       key: 'is_priority',
       header: 'Acceso directo',
       render: (_, e) =>
-        e.is_priority ? <Badge variant="info">Acceso directo</Badge> : <span className="text-slate-400">—</span>,
+        e.is_priority ? <Badge variant="info">Acceso directo</Badge> : <span className="text-slate-500">—</span>,
     },
   ]
 
@@ -322,7 +322,7 @@ export function SessionHistoryPage() {
         {/* Detalle de la sesión seleccionada */}
         <div className="min-w-0 space-y-4">
           {!selected ? (
-            <div className="rounded-lg border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-400">
+            <div className="rounded-lg border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-600">
               Selecciona una sesión para ver sus entrantes y el menú del día.
             </div>
           ) : (
@@ -472,7 +472,7 @@ export function SessionHistoryPage() {
           </p>
 
           {chartEntrants.length === 0 ? (
-            <div className="rounded-md border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-400">
+            <div className="rounded-md border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-600">
               No hay entrantes que coincidan con el filtro seleccionado.
             </div>
           ) : (

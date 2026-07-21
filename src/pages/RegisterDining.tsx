@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Search, ScanLine, Ban, AlertTriangle, Users, History } from 'lucide-react'
+import { Search, ScanLine, Ban, AlertTriangle, Users, History, X } from 'lucide-react'
 import { studentApi, studentToIdentity } from '../api/student'
 import { lunchSessionApi } from '../api/lunchSession'
 import { consumptionApi } from '../api/consumption'
@@ -80,6 +80,13 @@ export function RegisterDining() {
   const [suspendReason,  setSuspendReason]  = useState('')
   const [suspendError,   setSuspendError]   = useState<string | null>(null)
   const [suspending,     setSuspending]     = useState(false)
+  // Persona objetivo congelada al abrir el modal de suspensión: si un escaneo cambia
+  // `student` mientras el modal está abierto, la suspensión sigue aplicando a esta persona.
+  const [suspendTarget,  setSuspendTarget]  = useState<Student | null>(null)
+
+  // Contenedor de la ficha del estudiante: recibe el foco al consultar y acota el
+  // atajo de teclado de registro para que no interfiera con el resto de la app.
+  const cardContainerRef = useRef<HTMLDivElement>(null)
 
   // Detiene cualquier alerta de duplicado en curso al desmontar la pantalla.
   useEffect(() => () => duplicateSoundStop.current?.(), [])
@@ -148,10 +155,15 @@ export function RegisterDining() {
   }
 
   // ── Scanner USB: captura entrada rápida de teclado ──────────────
-  useBarcodeScanner((scanned) => {
-    setCedula(scanned)
-    void triggerSearch(scanned)
-  })
+  // Deshabilitado mientras haya un modal abierto: un escaneo detrás de un modal
+  // (duplicado, suspensión o últimos registros) no debe reemplazar la persona en pantalla.
+  useBarcodeScanner(
+    (scanned) => {
+      setCedula(scanned)
+      void triggerSearch(scanned)
+    },
+    { enabled: !duplicateOpen && !suspendOpen && !recentOpen },
+  )
 
   // ── Búsqueda (manual o por scanner) ─────────────────────────────
   async function triggerSearch(value: string) {
@@ -196,6 +208,22 @@ export function RegisterDining() {
     if (e.key === 'Enter') handleSearch()
   }
 
+  // Limpia la persona consultada y vuelve al estado de búsqueda (sede/cédula reaparecen).
+  function resetSearch() {
+    setCedula('')
+    setStudent(null)
+    setSearched(false)
+    setActiveSanction(null)
+    setSuspensionCount(null)
+  }
+
+  // Cancela la consulta actual sin registrar consumo (UX-003): el taquillero puede
+  // volver a buscar tras un escaneo equivocado sin necesidad de registrar o recargar.
+  function handleCancelSearch() {
+    setError(null)
+    resetSearch()
+  }
+
   // ── Registrar consumo ────────────────────────────────────────────
   async function handleRegister() {
     if (!student || !session || !user) return
@@ -216,28 +244,26 @@ export function RegisterDining() {
       // Contador (#6): incremento optimista + refresco de últimas personas (#7).
       setSessionCount((c) => (c == null ? c : c + 1))
       void loadSessionData()
-      setCedula('')
-      setStudent(null)
-      setSearched(false)
-      setActiveSanction(null)
-      setSuspensionCount(null)
+      resetSearch()
     } catch (err: any) {
       if (err?.status === 409) {
         // Consumo duplicado: aviso con los datos del usuario + sonido de alerta ~10 s.
-        // Al terminar el sonido el aviso se cierra solo (y limpia para el siguiente).
+        // El sonido se detiene solo a los ~10 s, pero el aviso permanece abierto hasta
+        // que el usuario lo cierre explícitamente (botón "Entendido"): el cierre del
+        // modal no depende de la duración del sonido.
         setDuplicateOpen(true)
         duplicateSoundStop.current?.() // corta una alerta previa si aún sonaba
         duplicateSoundStop.current = playSound(
           DUPLICATE_ALERT_SOUND,
           0.6,
-          closeDuplicate,
+          undefined,
           DUPLICATE_ALERT_DURATION_MS,
         )
       } else {
-        // 403 = sanción activa — el mensaje ya viene limpio del apiClient
+        // 403 = sanción activa — el mensaje ya viene limpio del apiClient.
+        // Un solo canal de feedback para este evento: toast (ver UX-009).
         const msg = errorMessage(err, { 409: CONFLICT.consumptionToday }, 'Error al registrar el consumo')
         notify.error(msg)
-        setError(msg)
       }
     } finally {
       setSaving(false)
@@ -249,22 +275,21 @@ export function RegisterDining() {
     duplicateSoundStop.current?.() // detiene el sonido si se cierra antes de los 10 s
     duplicateSoundStop.current = null
     setDuplicateOpen(false)
-    setCedula('')
-    setStudent(null)
-    setSearched(false)
-    setActiveSanction(null)
-    setSuspensionCount(null)
+    resetSearch()
   }
 
   // ── Suspensión rápida desde el registro (problemáticas 29 y 30) ──
   function openSuspend() {
+    // Congela la persona objetivo: si un escaneo llega mientras el modal está abierto,
+    // la suspensión se sigue aplicando a quien se muestra en el modal, no a `student`.
+    setSuspendTarget(student)
     setSuspendReason('')
     setSuspendError(null)
     setSuspendOpen(true)
   }
 
   async function handleQuickSuspend() {
-    if (!student?.acceso_directo_id) return
+    if (!suspendTarget?.acceso_directo_id) return
     const reason = suspendReason.trim()
     if (reason.length < 3) {
       setSuspendError('Indica el motivo de la suspensión (mínimo 3 caracteres).')
@@ -274,12 +299,15 @@ export function RegisterDining() {
     setSuspendError(null)
     try {
       const sanction = await sanctionApi.quickCreate({
-        acceso_directo_id: student.acceso_directo_id,
+        acceso_directo_id: suspendTarget.acceso_directo_id,
         reason,
       })
-      setActiveSanction(sanction)
+      // Solo refleja la sanción en la ficha visible si sigue siendo la misma persona.
+      if (student?.acceso_directo_id === suspendTarget.acceso_directo_id) {
+        setActiveSanction(sanction)
+      }
       setSuspendOpen(false)
-      notify.success(`${student.name} fue suspendido.`)
+      notify.success(`${suspendTarget.name} fue suspendido.`)
     } catch (err: any) {
       const msg = errorMessage(err, { 409: CONFLICT.sanctionActive }, 'Error al suspender al usuario')
       notify.error(msg)
@@ -297,17 +325,26 @@ export function RegisterDining() {
   const canSuspend = !!student?.is_acceso_directo && activeSanction === null
   const selectedSede = sedes.find((s) => s.id === sedeId) ?? null
 
+  // Mueve el foco a la ficha del estudiante al consultarlo: además de anunciarla a
+  // lectores de pantalla, delimita dónde puede disparar el atajo ArrowDown de abajo.
+  useEffect(() => {
+    if (student) cardContainerRef.current?.focus()
+  }, [student])
+
   // Atajo de teclado: ArrowDown dispara "Registrar consumo" sin ratón (issue #2).
-  // Convive con useBarcodeScanner (que finaliza con Enter) y respeta la navegación
-  // por flechas de select/textarea.
+  // Acotado a la ficha del estudiante (no a `window`): así no interfiere con el
+  // desplazamiento de la página ni con la navegación de un lector de pantalla en el
+  // resto de la aplicación. Convive con useBarcodeScanner (que finaliza con Enter) y
+  // respeta la navegación por flechas de select/textarea/input.
   useEffect(() => {
     const canRegister = !!student && !isSuspended && !registrationBlocked && !saving
     if (!canRegister || suspendOpen) return
 
     function onArrowDownRegister(e: KeyboardEvent) {
       if (e.key !== 'ArrowDown') return
-      const tag = (e.target as HTMLElement | null)?.tagName
-      if (tag === 'SELECT' || tag === 'TEXTAREA') return
+      const target = e.target as HTMLElement | null
+      if (target?.tagName === 'SELECT' || target?.tagName === 'TEXTAREA' || target?.tagName === 'INPUT') return
+      if (!cardContainerRef.current?.contains(target)) return
       e.preventDefault()
       void handleRegister()
     }
@@ -331,7 +368,7 @@ export function RegisterDining() {
     <div>
       <PageHeader
         title="Registro al Comedor"
-        subtitle="Escanea el carnet o búsqueda por cédula para registrar el consumo"
+        subtitle="Escanea el carnet o busca por cédula para registrar el consumo"
         actions={
           session ? (
             <div className="flex items-center gap-3">
@@ -421,7 +458,7 @@ export function RegisterDining() {
               </Button>
             </div>
 
-            <p className="mt-3 flex items-center gap-1.5 text-xs text-slate-400">
+            <p className="mt-3 flex items-center gap-1.5 text-xs text-slate-500">
               <ScanLine size={13} />
               El lector de código de barras enviará el código automáticamente al pasar el carnet.
             </p>
@@ -436,47 +473,62 @@ export function RegisterDining() {
       )}
 
       {!loading && searched && !student && !error && (
-        <div className="rounded-md border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-400">
+        <div className="rounded-md border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-600">
           No se encontró ningún estudiante con la cédula <strong>{cedula}</strong>.
         </div>
       )}
 
       {/* ── Tarjeta del estudiante ─────────────────────────────── */}
       {!loading && student && (
-        <StudentResultCard
-          student={student}
-          suspended={isSuspended}
-          suspensionCount={suspensionCount}
-          notice={
-            activeSanction ? (
-              <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                Usuario suspendido y no puede registrar consumo.
-                <span className="mt-0.5 block text-xs text-red-600">Motivo: {activeSanction.reason}</span>
-              </div>
-            ) : student.is_suspended ? (
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                Este estudiante está suspendido y no puede registrar consumo.
-              </div>
-            ) : null
-          }
-          actions={
-            <>
-              {canSuspend && (
-                <Button variant="danger" leftIcon={<Ban size={15} />} onClick={openSuspend}>
-                  Suspender
+        <div ref={cardContainerRef} tabIndex={-1} className="outline-none">
+          {/* Franja compacta: la sede y el estado de sesión siguen visibles mientras
+              hay una persona consultada (antes desaparecían junto con el buscador). */}
+          {selectedSede && (
+            <div className="mb-3 flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-4 py-2 text-sm">
+              <span className="font-medium text-slate-700">{selectedSede.name}</span>
+              <Badge variant={session ? 'success' : 'warning'}>
+                {session ? 'Sesión abierta' : 'Sin sesión activa'}
+              </Badge>
+            </div>
+          )}
+          <StudentResultCard
+            student={student}
+            suspended={isSuspended}
+            suspensionCount={suspensionCount}
+            notice={
+              activeSanction ? (
+                <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  Usuario suspendido y no puede registrar consumo.
+                  <span className="mt-0.5 block text-xs text-red-600">Motivo: {activeSanction.reason}</span>
+                </div>
+              ) : student.is_suspended ? (
+                <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                  Este estudiante está suspendido y no puede registrar consumo.
+                </div>
+              ) : null
+            }
+            actions={
+              <>
+                <Button variant="ghost" leftIcon={<X size={15} />} onClick={handleCancelSearch} disabled={saving}>
+                  Cancelar / Consultar otra persona
                 </Button>
-              )}
-              <Button
-                variant="primary"
-                loading={saving}
-                disabled={isSuspended || registrationBlocked}
-                onClick={handleRegister}
-              >
-                Registrar Consumo
-              </Button>
-            </>
-          }
-        />
+                {canSuspend && (
+                  <Button variant="danger" leftIcon={<Ban size={15} />} onClick={openSuspend}>
+                    Suspender
+                  </Button>
+                )}
+                <Button
+                  variant="primary"
+                  loading={saving}
+                  disabled={isSuspended || registrationBlocked}
+                  onClick={handleRegister}
+                >
+                  Registrar Consumo
+                </Button>
+              </>
+            }
+          />
+        </div>
       )}
 
       {/* Aviso de consumo duplicado: datos del usuario + sonido de alerta */}
@@ -526,10 +578,10 @@ export function RegisterDining() {
         }
       >
         <div className="flex flex-col gap-3">
-          {student && (
+          {suspendTarget && (
             <p className="text-sm text-slate-600">
-              Vas a suspender a <span className="font-semibold text-slate-900">{student.name}</span>{' '}
-              (C.I. {student.cedula}). No podrá registrar consumo hasta que se levante la suspensión.
+              Vas a suspender a <span className="font-semibold text-slate-900">{suspendTarget.name}</span>{' '}
+              (C.I. {suspendTarget.cedula}). No podrá registrar consumo hasta que se levante la suspensión.
             </p>
           )}
           <div className="flex flex-col gap-1.5">
