@@ -280,7 +280,7 @@ export function ManualRegistrationPage() {
   ]
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex h-full flex-col gap-4">
       <PageHeader
         title="Registro Manual de Estudiantes"
         subtitle="Registra manualmente el consumo de comedor asociado a una fecha"
@@ -293,43 +293,56 @@ export function ManualRegistrationPage() {
       )}
 
       {/* Vista única sin scroll de página (issue #10): formulario y listado en
-          dos columnas; el listado tiene su propio scroll interno. */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start">
-      <Card variant="outlined" padding="md">
+          dos columnas, cada una con su propio scroll interno. */}
+      <div className="grid flex-1 grid-cols-1 gap-4 md:min-h-0 md:grid-cols-2 md:items-stretch">
+      <Card variant="outlined" padding="md" className="flex flex-col md:min-h-0 md:overflow-y-auto">
         <p className="mb-4 text-sm font-semibold text-blue-600">Datos del Registro</p>
 
-        <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Input
-            id="fecha-manual"
-            type="date"
-            label="Fecha del registro*"
-            value={date}
-            max={todayISO()}
-            onChange={(e) => setDate(e.target.value)}
-            fullWidth
-          />
-        </div>
+        {/* La fecha y la cédula se ocultan al consultar un estudiante (igual que en
+            Registro al Comedor) para evitar scroll: solo queda la ficha y las acciones. */}
+        {!student && (
+          <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Input
+              id="fecha-manual"
+              type="date"
+              label="Fecha del registro*"
+              value={date}
+              max={todayISO()}
+              onChange={(e) => setDate(e.target.value)}
+              fullWidth
+            />
+          </div>
+        )}
 
-        <div className="mb-4 flex items-end gap-3">
-          <Input
-            id="cedula-manual"
-            label="Cédula / Carnet*"
-            placeholder="Ingrese número de cédula o carnet"
-            value={cedula}
-            onChange={(e) => setCedula(e.target.value)}
-            onKeyDown={handleKeyDown}
-            leftIcon={<Search size={16} />}
-            fullWidth
-          />
-          <Button
-            variant="primary"
-            onClick={handleSearch}
-            loading={loading}
-            className="flex-shrink-0"
-          >
-            Buscar
-          </Button>
-        </div>
+        {student && (
+          <div className="mb-4 flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-4 py-2 text-sm">
+            <span className="font-medium text-slate-700">Fecha del registro</span>
+            <Badge variant="info">{date}</Badge>
+          </div>
+        )}
+
+        {!student && (
+          <div className="mb-4 flex items-end gap-3">
+            <Input
+              id="cedula-manual"
+              label="Cédula / Carnet*"
+              placeholder="Ingrese número de cédula o carnet"
+              value={cedula}
+              onChange={(e) => setCedula(e.target.value)}
+              onKeyDown={handleKeyDown}
+              leftIcon={<Search size={16} />}
+              fullWidth
+            />
+            <Button
+              variant="primary"
+              onClick={handleSearch}
+              loading={loading}
+              className="flex-shrink-0"
+            >
+              Buscar
+            </Button>
+          </div>
+        )}
 
         {loading && (
           <div className="flex justify-center py-8">
@@ -371,7 +384,7 @@ export function ManualRegistrationPage() {
       </Card>
 
       {/* Listado de registros manuales de la fecha seleccionada */}
-      <Card variant="outlined" padding="md">
+      <Card variant="outlined" padding="md" className="flex flex-col md:min-h-0">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-blue-600">Registros manuales de la fecha</p>
@@ -397,7 +410,9 @@ export function ManualRegistrationPage() {
           </div>
         </div>
 
-        <div className="max-h-[55vh] overflow-auto">
+        {/* Scroll propio del listado (issue #10): así no hace falta bajar en la
+            página para ver los usuarios registrados. */}
+        <div className="max-h-[55vh] overflow-auto md:max-h-none md:flex-1">
           <Table<ManualConsumption>
             columns={columns}
             rows={rows}

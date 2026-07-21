@@ -1,6 +1,6 @@
 ## MODIFIED Requirements
 
-### Requirement: La alarma de consumo duplicado dura ~10 segundos y el cierre del aviso es manual
+### Requirement: La alarma de consumo duplicado dura ~10 segundos
 
 Cuando el registro al comedor detecta un consumo duplicado (respuesta `409`), la **alarma sonora**
 SHALL sonar durante aproximadamente **10 segundos** (repitiendo el audio o mediante control de

@@ -9,7 +9,9 @@ Al registrar un consumo en la pantalla de registro al comedor, si el consumo ya 
 (respuesta `409` del backend), el sistema SHALL mostrar un aviso modal con los datos del usuario
 (identificación, nombre, correo y estado) indicando que ya consumió, y SHALL reproducir un sonido de
 alerta servido desde una ruta pública del frontend. La reproducción del sonido SHALL ser
-best-effort: un fallo de audio NO SHALL interrumpir el flujo ni impedir que se muestre el aviso.
+best-effort: un fallo de audio NO SHALL interrumpir el flujo ni impedir que se muestre el aviso. El
+cierre del aviso SHALL ser siempre manual (ver `registro-alarma-duplicado-duracion`): terminar de
+sonar la alarma NO SHALL cerrar el aviso por sí solo.
 
 #### Scenario: Consumo duplicado muestra el aviso y suena
 
@@ -35,12 +37,14 @@ best-effort: un fallo de audio NO SHALL interrumpir el flujo ni impedir que se m
 #### Scenario: El aviso se cierra solo al terminar el sonido
 
 - **WHEN** el sonido de alerta termina de reproducirse
-- **THEN** el aviso se cierra automáticamente y la búsqueda queda lista para el siguiente usuario
+- **THEN** el aviso modal **ya no** se cierra automáticamente: permanece abierto hasta que el
+  usuario lo cierre explícitamente (ver `registro-alarma-duplicado-duracion`)
 
 #### Scenario: Sin reproducción, el cierre queda manual
 
-- **WHEN** el sonido no llega a reproducirse (autoplay bloqueado)
-- **THEN** el aviso permanece abierto hasta que el usuario lo cierra ("Entendido") o hace una nueva consulta
+- **WHEN** el sonido no llega a reproducirse (autoplay bloqueado) o ya terminó de reproducirse
+- **THEN** el aviso permanece abierto hasta que el usuario lo cierre ("Entendido") o haga una nueva
+  consulta — el cierre es siempre manual, con o sin sonido
 
 #### Scenario: Otros errores no usan el aviso de duplicado
 

@@ -31,6 +31,18 @@ sonar la alarma NO SHALL cerrar el aviso por sí solo.
 - **WHEN** el usuario cierra el aviso ("Entendido") o realiza una nueva consulta/escaneo
 - **THEN** el aviso se cierra y la búsqueda queda lista para el siguiente usuario
 
+#### Scenario: El aviso se cierra solo al terminar el sonido
+
+- **WHEN** el sonido de alerta termina de reproducirse
+- **THEN** el aviso modal **ya no** se cierra automáticamente: permanece abierto hasta que el
+  usuario lo cierre explícitamente (ver `registro-alarma-duplicado-duracion`)
+
+#### Scenario: Sin reproducción, el cierre queda manual
+
+- **WHEN** el sonido no llega a reproducirse (autoplay bloqueado) o ya terminó de reproducirse
+- **THEN** el aviso permanece abierto hasta que el usuario lo cierre ("Entendido") o haga una nueva
+  consulta — el cierre es siempre manual, con o sin sonido
+
 #### Scenario: Otros errores no usan el aviso de duplicado
 
 - **WHEN** el registro falla por un motivo distinto al duplicado (p. ej. sanción activa `403`)
