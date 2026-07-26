@@ -1,8 +1,5 @@
-# consumo-duplicado-aviso Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change fe-consumo-duplicado-wizard-sonido. Update Purpose after archive.
-## Requirements
 ### Requirement: Aviso visual y sonoro de consumo duplicado
 
 Al registrar un consumo en la pantalla de registro al comedor, si el consumo ya existe para el día
@@ -50,4 +47,3 @@ sonar la alarma NO SHALL cerrar el aviso por sí solo.
 
 - **WHEN** el registro falla por un motivo distinto al duplicado (p. ej. sanción activa `403`)
 - **THEN** se mantiene el manejo por notificación/mensaje, sin el modal ni el sonido de duplicado
-

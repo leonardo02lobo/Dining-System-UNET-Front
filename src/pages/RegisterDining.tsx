@@ -119,6 +119,10 @@ function CounterBox({ value }: { value: string }) {
 export function RegisterDining() {
   const { user } = useAuth()
   const [tab,        setTab]        = useState<TabKey>('registro')
+  // La pestaña "Últimos registros" actúa como un modal a efectos del escáner/atajo:
+  // mientras esté activa, un escaneo o ArrowDown/ArrowUp no debe reemplazar/registrar
+  // a la persona en pantalla (ver comentarios de `useBarcodeScanner` y el atajo abajo).
+  const recentOpen = tab === 'ultimos'
   const [sedeId,     setSedeId]     = useState<number | null>(readStoredSedeId)
   const [sedes,      setSedes]      = useState<Sede[]>([])
   const [session,    setSession]    = useState<LunchSession | null | undefined>(undefined)
@@ -368,8 +372,11 @@ export function RegisterDining() {
         setActiveSanction(sanction)
       }
       setSuspendOpen(false)
-      notify.success(`${student.name} fue suspendido.`)
-      setStatusMessage({ text: `${student.name} fue suspendido.`, tone: 'warn' })
+      // Usa `suspendTarget` (la persona congelada al abrir el modal), no `student`:
+      // si llegó un nuevo escaneo mientras la suspensión estaba en curso, `student`
+      // ya podría ser otra persona y el mensaje atribuiría la suspensión a quien no es.
+      notify.success(`${suspendTarget.name} fue suspendido.`)
+      setStatusMessage({ text: `${suspendTarget.name} fue suspendido.`, tone: 'warn' })
     } catch (err: any) {
       const msg = errorMessage(err, { 409: CONFLICT.sanctionActive }, 'Error al suspender al usuario')
       notify.error(msg)
@@ -396,8 +403,10 @@ export function RegisterDining() {
 
   // Atajo de teclado: ArrowDown/ArrowUp disparan "Registrar consumo" sin ratón (issue #2).
   // Escucha en `window` sin exigir que el foco DOM esté en un elemento en particular:
-  // solo se descarta si el foco está en un campo editable (select/textarea/input, para
-  // no interferir con su navegación por flechas) o si hay un modal abierto encima.
+  // solo se descarta si el foco está en select/textarea (para no interferir con su
+  // navegación por flechas) o si hay un modal abierto encima. NO se descarta por foco en
+  // un INPUT: el campo de cédula es justo donde el foco queda tras escanear/consultar, y
+  // no tiene semántica propia de ArrowUp/ArrowDown.
   useEffect(() => {
     const canRegister = !!student && !isSuspended && !registrationBlocked && !saving
     if (!canRegister || suspendOpen || duplicateOpen || recentOpen) return
@@ -405,7 +414,7 @@ export function RegisterDining() {
     function onArrowRegister(e: KeyboardEvent) {
       if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
       const active = document.activeElement as HTMLElement | null
-      if (active?.tagName === 'SELECT' || active?.tagName === 'TEXTAREA' || active?.tagName === 'INPUT') return
+      if (active?.tagName === 'SELECT' || active?.tagName === 'TEXTAREA') return
       e.preventDefault()
       void handleRegister()
     }

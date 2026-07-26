@@ -1,8 +1,5 @@
-# registro-manual-tarjeta-usuario-compartida Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change fe-registro-manual-tarjeta-usuario-compartida. Update Purpose after archive.
-## Requirements
 ### Requirement: Ficha de usuario consultada compartida
 
 El frontend SHALL presentar al estudiante consultado mediante un componente único reutilizable, y
@@ -24,4 +21,3 @@ permitir acciones específicas de cada pantalla mediante un slot.
 
 - **WHEN** una pantalla necesita botones propios (p. ej. "Guardar registro" en el manual)
 - **THEN** esos botones se inyectan en el slot de acciones de la ficha sin duplicar su maquetado
-

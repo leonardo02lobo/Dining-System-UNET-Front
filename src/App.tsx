@@ -27,6 +27,7 @@ import { VerifyAccesoDirectoPage } from './pages/VerifyAccesoDirectoPage'
 import { SedesPage } from './pages/SedesPage'
 import { SuspendedListPage } from './pages/SuspendedListPage'
 import { SuspendStudent } from './pages/SuspendStudent'
+import { CareerCatalogPage } from './pages/CareerCatalogPage'
 
 export default function App() {
   return (
@@ -62,6 +63,7 @@ export default function App() {
               <Route path="gente-externa" element={<ExternalPeoplePage />} />
               <Route path="verificar-acceso-directo" element={<VerifyAccesoDirectoPage />} />
               <Route path="sedes" element={<SedesPage />} />
+              <Route path="admin/carreras" element={<CareerCatalogPage />} />
 
               <Route path="checkConsumes" element={<Navigate to="/comedor/consultar" replace />} />
               <Route path="registerDining" element={<Navigate to="/comedor/registrar" replace />} />
