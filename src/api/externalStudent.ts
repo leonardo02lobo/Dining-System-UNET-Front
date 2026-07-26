@@ -18,7 +18,10 @@ export function mapExternalToStudent(data: StudentPadronData): Student {
     name:              data.full_name,
     email:             data.email ?? '',
     career:            data.career ?? '',
-    user_type:         '',
+    // El padrón `/students` no guarda tipo de usuario: por definición todos sus
+    // registros son estudiantes. Si además existe como acceso directo, el
+    // `user_type` real lo sobrescribe en `studentApi.lookup`.
+    user_type:         'STUDENT',
     is_suspended:      !data.is_active,
     avatar_url:        data.photo_url ?? undefined,
     is_acceso_directo: false,

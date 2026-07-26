@@ -6,31 +6,47 @@ export interface LunchFormIngredient {
   ingredient_name: string
   category: string
   unit: string
+  /**
+   * Cantidad ORIGINAL del ingrediente, referida a `base_plates` platos.
+   * Es el único dato de entrada del recálculo: nunca se sobrescribe con un
+   * valor ya recalculado (evita el arrastre de error entre cambios sucesivos).
+   */
+  base_quantity: number
+  /** Cantidad base de platos a la que corresponde `base_quantity`. Siempre > 0. */
+  base_plates: number
+  /** Cantidad derivada para la cantidad de platos vigente (solo presentación). */
   calculated_quantity: number
   available_quantity: number
-  /** Cantidad base usada para recalcular al cambiar platos */
-  quantity_per_plate: number
 }
 
 /** Plantilla de almuerzo precargado */
 export interface PreloadedLunch {
   id: number
   name: string
+  /** Cantidad base de platos de la plantilla (denominador de la regla de tres). */
   plate_count: number
   ingredients: Array<{
     ingredient_id: number
     ingredient_name: string
     category: string
     unit: string
-    quantity_per_plate: number
+    /** Cantidad original del ingrediente para `plate_count` platos. */
+    base_quantity: number
   }>
 }
 
 /** Vista previa de recálculo por ingrediente */
 export interface RecalculationPreview {
+  ingredient_id: number
   ingredient_name: string
   unit: string
+  /** Platos a los que corresponde `base_quantity`. */
+  base_plates: number
+  /** Cantidad original inmutable, tal como se registró. */
+  base_quantity: number
+  /** Cantidad para la cantidad de platos vigente del formulario. */
   previous_quantity: number
+  /** Cantidad recalculada para la cantidad de platos deseada. */
   new_quantity: number
 }
 
