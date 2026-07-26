@@ -76,7 +76,7 @@ export function StudentResultCard({
           <ReadOnlyField label="Documento" value={student.cedula} />
           <ReadOnlyField label="Nombre" value={student.name} />
           <div className="sm:col-span-2">
-            <ReadOnlyField label="Email" value={student.email ?? '—'} />
+            <ReadOnlyField label="Carrera" value={student.career || '—'} />
           </div>
         </div>
 

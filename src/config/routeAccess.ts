@@ -25,6 +25,7 @@ export const ROUTE_ACCESS: Record<string, RoleName[]> = {
   '/admin/plantilla-correo':   ['SUPER_ADMIN'],
   '/verificar-acceso-directo': ['ACCESO_DIRECTO', 'SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'],
   '/sedes':                    ['SUPER_ADMIN', 'ADMIN'],
+  '/admin/carreras':           ['SUPER_ADMIN', 'ADMIN'],
 }
 
 export const DEFAULT_ROUTE: Record<RoleName, string> = {

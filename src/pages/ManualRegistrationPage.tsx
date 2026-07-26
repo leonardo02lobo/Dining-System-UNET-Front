@@ -77,25 +77,6 @@ export function ManualRegistrationPage() {
 
   useEffect(() => { void refetchList() }, [refetchList])
 
-  // Atajo de teclado: ArrowDown guarda el registro sin ratón, igual que en Registro
-  // al Comedor (#10). Respeta SELECT/TEXTAREA y no dispara con modales abiertos.
-  useEffect(() => {
-    const canSaveNow = !!student && !!date && !saving
-    if (!canSaveNow || editTarget || deleteTarget) return
-
-    function onArrowDownSave(e: KeyboardEvent) {
-      if (e.key !== 'ArrowDown') return
-      const tag = (e.target as HTMLElement | null)?.tagName
-      if (tag === 'SELECT' || tag === 'TEXTAREA') return
-      e.preventDefault()
-      void handleSave()
-    }
-
-    window.addEventListener('keydown', onArrowDownSave)
-    return () => window.removeEventListener('keydown', onArrowDownSave)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [student, date, saving, editTarget, deleteTarget])
-
   async function handleSearch() {
     const clean = normalizeCedula(cedula)
     if (!clean) return
