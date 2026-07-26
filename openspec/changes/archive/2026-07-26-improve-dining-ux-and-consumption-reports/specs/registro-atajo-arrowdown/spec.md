@@ -1,8 +1,5 @@
-# registro-atajo-arrowdown Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change fe-registro-atajo-arrowdown. Update Purpose after archive.
-## Requirements
 ### Requirement: Atajo ArrowDown/ArrowUp para registrar consumo
 
 La pantalla de registro de comedor SHALL disparar la acción "Registrar consumo" al presionar
@@ -44,4 +41,3 @@ consultar, y bloquear el atajo ahí lo dejaba inutilizable en la práctica.
 - **WHEN** el foco está en el campo de cédula (donde normalmente queda tras escanear o consultar)
   y el registro es válido, y el usuario presiona `ArrowDown` o `ArrowUp`
 - **THEN** se ejecuta "Registrar consumo" sin necesidad de mover el foco fuera del campo
-

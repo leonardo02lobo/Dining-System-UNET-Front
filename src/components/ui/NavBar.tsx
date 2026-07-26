@@ -53,6 +53,7 @@ const navGroups: NavGroup[] = [
       { to: '/admin/plantilla-correo', label: 'Plantilla de Correo' },
       { to: '/accesos_directos/importar', label: 'Importar Estudiantes (CSV)'   },
       { to: '/sedes',                label: 'Sedes'                 },
+      { to: '/admin/carreras',       label: 'Catálogo de Carreras' },
     ],
   },
 ]
