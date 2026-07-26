@@ -7,6 +7,7 @@ import { errorMessage, CONFLICT } from '../utils/apiErrors'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
+import { Input } from '../components/ui/Input'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
 import { Modal } from '../components/ui/Modal'
@@ -26,6 +27,9 @@ export function LunchSessionPage() {
   const [closeTarget,  setCloseTarget]  = useState<LunchSession | null>(null)
   const [openModal,    setOpenModal]    = useState(false)
   const [newSedeId,    setNewSedeId]    = useState<number | null>(null)
+  // Platos planificados del turno: alimenta "N° de Platos" y "Platos Faltantes"
+  // en el registro al comedor. Opcional: vacío = sesión sin planificación.
+  const [newPlates,    setNewPlates]    = useState('')
   const [openError,    setOpenError]    = useState<string | null>(null)
   const [sessionMarks, setSessionMarks] = useState<SessionMark[]>([])
 
@@ -61,6 +65,7 @@ export function LunchSessionPage() {
 
   function openOpenModal() {
     setNewSedeId(null)
+    setNewPlates('')
     setOpenError(null)
     setOpenModal(true)
   }
@@ -70,9 +75,15 @@ export function LunchSessionPage() {
       setOpenError('Selecciona una sede.')
       return
     }
+    const platesRaw = newPlates.trim()
+    const plates = platesRaw === '' ? null : Number(platesRaw)
+    if (plates != null && (!Number.isInteger(plates) || plates < 0)) {
+      setOpenError('El número de platos debe ser un entero positivo.')
+      return
+    }
     setSaving(true)
     try {
-      const s = await lunchSessionApi.open({ sede_id: newSedeId })
+      const s = await lunchSessionApi.open({ sede_id: newSedeId, plates_quantity: plates })
       setOpenModal(false)
       notify.success(`Sesión abierta en ${sedeName(s)}.`)
       await fetchOpenSessions()
@@ -160,6 +171,17 @@ export function LunchSessionPage() {
       >
         <div className="flex flex-col gap-3">
           <SedeSelector value={newSedeId} onChange={setNewSedeId} excludeIds={excludeSedeIds} />
+          <Input
+            id="session-plates"
+            type="number"
+            min={0}
+            label="N° de platos"
+            hint="Platos planificados para el turno. Se usa para calcular los platos faltantes."
+            placeholder="Opcional"
+            value={newPlates}
+            onChange={(e) => { setNewPlates(e.target.value); setOpenError(null) }}
+            fullWidth
+          />
           {openError && (
             <p className="text-xs text-red-600" role="alert">{openError}</p>
           )}
@@ -207,6 +229,7 @@ export function LunchSessionPage() {
                       </div>
                       <span className="text-xs text-slate-400">
                         Fecha: {s.date}
+                        {s.plates_quantity != null && ` · ${s.plates_quantity} platos`}
                         {s.opened_at && ` · Abierta a las ${new Date(s.opened_at).toLocaleTimeString()}`}
                       </span>
                     </div>

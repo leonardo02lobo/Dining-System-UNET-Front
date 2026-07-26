@@ -47,7 +47,10 @@ export function Index() {
         <main className="relative min-h-0 flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-6">
           <HomeWatermark />
 
-          <div className="relative z-10">
+          {/* h-full permite que una página se ajuste exactamente al alto
+              disponible (p. ej. Registro al Comedor, que no debe hacer scroll).
+              Las páginas más altas siguen desbordando y `main` las desplaza. */}
+          <div className="relative z-10 h-full">
             <Outlet />
           </div>
         </main>

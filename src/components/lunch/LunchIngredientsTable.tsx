@@ -1,5 +1,6 @@
 import { Pencil, Trash2 } from 'lucide-react'
 import type { LunchFormIngredient } from '../../types/lunch'
+import { formatQuantity, formatStock } from '../../utils/lunchRecalculation'
 import { Table, type ColumnDef } from '../ui/Table'
 
 interface LunchIngredientsTableProps {
@@ -22,13 +23,19 @@ export function LunchIngredientsTable({
       key: 'calculated_quantity',
       header: `Cantidad calculada (${plateCount} platos)`,
       sortable: true,
-      render: (_, item) => `${item.calculated_quantity} ${item.unit}`,
+      // El título deja a la vista la cantidad original cuando los platos base
+      // del formulario ya no coinciden con los del ingrediente.
+      render: (_, item) => (
+        <span title={`Original: ${formatQuantity(item.base_quantity, item.unit)} para ${item.base_plates} platos`}>
+          {formatQuantity(item.calculated_quantity, item.unit)}
+        </span>
+      ),
     },
     {
       key: 'available_quantity',
       header: 'Stock disponible',
       sortable: true,
-      render: (_, item) => `${item.available_quantity} ${item.unit}`,
+      render: (_, item) => formatStock(item.available_quantity, item.unit),
     },
   ]
 

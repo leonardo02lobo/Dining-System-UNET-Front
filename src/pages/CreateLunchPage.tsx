@@ -17,8 +17,13 @@ import { inventoryApi } from '../api/inventory'
 import { lunchApi } from '../api/lunch'
 import {
   buildIngredientFromTemplate,
+  formatQuantity,
+  formatStock,
   getRecalculationPreview,
+  isValidPlateCount,
+  payloadQuantity,
   recalculateIngredients,
+  scaleIngredient,
 } from '../utils/lunchRecalculation'
 import type { InventoryItem } from '../types/inventory'
 import type {
@@ -70,10 +75,17 @@ function mapInventoryItemToPantry(item: InventoryItem): PantryItem {
 }
 
 function mapTemplateToPreloaded(template: LunchTemplateResponse): PreloadedLunch {
+  // `baseQuantity` de la plantilla está expresada para `basePlatesQuantity`
+  // platos (así la guarda el backend al confirmar), no para `platesQuantity`:
+  // usar el denominador equivocado deformaba la receta al precargarla.
+  const basePlates = isValidPlateCount(template.basePlatesQuantity)
+    ? template.basePlatesQuantity
+    : template.platesQuantity
+
   return {
     id: template.id,
     name: template.name,
-    plate_count: template.platesQuantity,
+    plate_count: basePlates,
     ingredients: template.ingredients.flatMap((item, index) => {
       const record = getRecord(item)
       if (!record) return []
@@ -86,9 +98,7 @@ function mapTemplateToPreloaded(template: LunchTemplateResponse): PreloadedLunch
       const category = typeof categoryRecord?.name === 'string' ? categoryRecord.name : 'Sin categoría'
       const unit = typeof record.unit === 'string' ? record.unit : ''
       const inventoryItemId = toNumber(record.inventoryItemId) ?? toNumber(inventoryItem?.id)
-      const calculatedQuantity = toNumber(record.calculatedQuantity)
-      const baseQuantity = toNumber(record.baseQuantity)
-      const quantity = calculatedQuantity ?? baseQuantity ?? 0
+      const baseQuantity = toNumber(record.baseQuantity) ?? 0
 
       if (inventoryItemId === null) return []
 
@@ -97,7 +107,7 @@ function mapTemplateToPreloaded(template: LunchTemplateResponse): PreloadedLunch
         ingredient_name: name,
         category,
         unit,
-        quantity_per_plate: template.platesQuantity > 0 ? quantity / template.platesQuantity : 0,
+        base_quantity: baseQuantity,
       }]
     }),
   }
@@ -139,10 +149,6 @@ function mapLunchIngredientDetails(lunch: LunchResponse): LunchIngredientDetail[
   })
 }
 
-function formatQuantity(value: number, unit: string) {
-  return `${Number(value.toFixed(2))} ${unit}`
-}
-
 function buildInsufficientStockMessage(items: LunchStockValidationItem[]) {
   const insufficientItems = items.filter((item) => !item.isSufficient)
 
@@ -152,7 +158,7 @@ function buildInsufficientStockMessage(items: LunchStockValidationItem[]) {
 
   const details = insufficientItems
     .map((item) =>
-      `${item.name}: requiere ${formatQuantity(item.requiredQuantity, item.unit)}, disponible ${formatQuantity(item.availableStock, item.unit)}, faltan ${formatQuantity(item.missingQuantity, item.unit)}`
+      `${item.name}: requiere ${formatQuantity(item.requiredQuantity, item.unit)}, disponible ${formatStock(item.availableStock, item.unit)}, faltan ${formatQuantity(item.missingQuantity, item.unit)}`
     )
     .join('; ')
 
@@ -215,8 +221,16 @@ export function CreateLunchPage() {
   const selectedIngredientAlreadyAdded = !editTarget && ingredients.some((i) => i.ingredient_id === Number(selectedPantryId))
   const exceedsSelectedStock = !!selectedPantryItem && hasValidEditQty && editQtyNumber > selectedPantryItem.available
   const selectedStockError = exceedsSelectedStock
-    ? `No hay suficiente stock de ${selectedPantryItem.name}. Disponible: ${formatQuantity(selectedPantryItem.available, selectedPantryItem.unit)}.`
+    ? `No hay suficiente stock de ${selectedPantryItem.name}. Disponible: ${formatStock(selectedPantryItem.available, selectedPantryItem.unit)}.`
     : ''
+
+  // La regla de tres exige una base > 0; el stepper ya limita a 1, pero una
+  // plantilla corrupta podría traer 0 y dejaría el recálculo en blanco.
+  const plateCountError = !isValidPlateCount(plateCount)
+    ? 'La cantidad base de platos debe ser mayor que cero para poder recalcular.'
+    : !isValidPlateCount(desiredPlateCount)
+      ? 'La cantidad deseada de platos debe ser mayor que cero.'
+      : ''
 
   const previews = useMemo(
     () => getRecalculationPreview(ingredients, plateCount, desiredPlateCount),
@@ -227,9 +241,11 @@ export function CreateLunchPage() {
     () =>
       ingredients.map((item) => ({
         inventoryItemId: item.ingredient_id,
-        baseQuantity: item.quantity_per_plate * plateCount,
-        // Recálculo automático: se guarda la cantidad escalada a la cantidad deseada.
-        calculatedQuantity: Math.round(item.quantity_per_plate * desiredPlateCount * 100) / 100,
+        // Cantidad original reexpresada a los platos base del formulario; el
+        // backend vuelve a aplicar la regla de tres sobre ella hasta los platos
+        // deseados, así que nunca le mandamos un valor ya recalculado.
+        baseQuantity: payloadQuantity(scaleIngredient(item, plateCount), item.unit),
+        calculatedQuantity: payloadQuantity(scaleIngredient(item, desiredPlateCount), item.unit),
         unit: item.unit,
       })),
     [ingredients, plateCount, desiredPlateCount],
@@ -254,6 +270,8 @@ export function CreateLunchPage() {
     }
   }, [])
 
+  // Cada cambio de platos recalcula TODOS los ingredientes desde su cantidad
+  // original (`base_quantity`/`base_plates`), no desde el último resultado.
   useEffect(() => {
     if (plateDebounceRef.current) clearTimeout(plateDebounceRef.current)
     plateDebounceRef.current = setTimeout(() => {
@@ -325,6 +343,7 @@ export function CreateLunchPage() {
       )
     })
     setIngredients(loaded)
+    setSaveError('')
   }
 
   function openAddModal() {
@@ -347,9 +366,14 @@ export function CreateLunchPage() {
   function handleSaveIngredient() {
     const pantryItem = selectedPantryItem
     if (!pantryItem || !hasValidEditQty || exceedsSelectedStock) return
+    if (!isValidPlateCount(plateCount)) {
+      setSaveError('Define una cantidad de platos mayor que cero antes de agregar ingredientes.')
+      return
+    }
 
+    // La cantidad tecleada es la ORIGINAL para los platos base actuales: queda
+    // fijada junto con esos platos y de ahí se deriva todo recálculo posterior.
     const qty = editQtyNumber
-    const quantityPerPlate = qty / plateCount
 
     if (editTarget) {
       setIngredients((prev) =>
@@ -357,8 +381,9 @@ export function CreateLunchPage() {
           i.ingredient_id === editTarget.ingredient_id
             ? {
                 ...i,
+                base_quantity: qty,
+                base_plates: plateCount,
                 calculated_quantity: qty,
-                quantity_per_plate: quantityPerPlate,
               }
             : i
         )
@@ -374,9 +399,10 @@ export function CreateLunchPage() {
           ingredient_name: pantryItem.name,
           category: pantryItem.category,
           unit: pantryItem.unit,
+          base_quantity: qty,
+          base_plates: plateCount,
           calculated_quantity: qty,
           available_quantity: pantryItem.available,
-          quantity_per_plate: quantityPerPlate,
         },
       ])
     }
@@ -485,13 +511,20 @@ export function CreateLunchPage() {
       return
     }
 
-    const localInsufficientItems = ingredients.filter((item) => item.quantity_per_plate * desiredPlateCount > item.available_quantity)
+    if (plateCountError) {
+      setSaveError(plateCountError)
+      return
+    }
+
+    const localInsufficientItems = ingredients.filter(
+      (item) => payloadQuantity(scaleIngredient(item, desiredPlateCount), item.unit) > item.available_quantity,
+    )
     if (localInsufficientItems.length > 0) {
       setSaveError(
         `No hay suficiente stock para guardar el servicio de alimentación. ${
           localInsufficientItems
             .map((item) =>
-              `${item.ingredient_name}: requiere ${formatQuantity(item.quantity_per_plate * desiredPlateCount, item.unit)}, disponible ${formatQuantity(item.available_quantity, item.unit)}`
+              `${item.ingredient_name}: requiere ${formatQuantity(scaleIngredient(item, desiredPlateCount), item.unit)}, disponible ${formatStock(item.available_quantity, item.unit)}`
             )
             .join('; ')
         }.`,
@@ -604,6 +637,12 @@ export function CreateLunchPage() {
         onPlateCountChange={setPlateCount}
         onDesiredPlateCountChange={setDesiredPlateCount}
       />
+
+      {plateCountError && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {plateCountError}
+        </div>
+      )}
 
       {/* Dos tablas paralelas 50/50: ingredientes vs. recálculo automático (issue #9) */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:items-start">
@@ -732,7 +771,8 @@ export function CreateLunchPage() {
             </div>
           )}
           <Input
-            label={`Cantidad calculada (${plateCount} platos)`}
+            label={`Cantidad original para ${plateCount} platos${selectedPantryItem ? ` (${selectedPantryItem.unit})` : ''}`}
+            hint="Esta es la cantidad base: el recálculo por regla de tres siempre parte de ella."
             type="number"
             min="0"
             step="0.01"

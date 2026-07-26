@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import type { LunchFormIngredient } from '../types/lunch'
+import { formatQuantity, formatStock, quantityPerPlate } from './lunchRecalculation'
 import { logoUnetDataUri, logoDecanatoDataUri } from './pdfLogos'
 
 /**
@@ -23,8 +24,9 @@ function formatPdfDate(value: string): string {
   return parsedDate.toLocaleDateString('es-VE')
 }
 
-function formatQuantity(value: number, unit: string): string {
-  return `${Number(value.toFixed(2))} ${unit}`
+/** Cantidad por plato: necesita más decimales que la cantidad total (0,0225 kg). */
+function formatPerPlate(value: number, unit: string): string {
+  return `${Number(value.toFixed(4))} ${unit}`
 }
 
 async function loadPdfImage(src: string, maxWidth: number, maxHeight: number): Promise<string> {
@@ -126,8 +128,8 @@ export async function generateLunchListPdf({
       item.ingredient_name,
       item.category,
       formatQuantity(item.calculated_quantity, item.unit),
-      formatQuantity(item.quantity_per_plate, item.unit),
-      formatQuantity(item.available_quantity, item.unit),
+      formatPerPlate(quantityPerPlate(item), item.unit),
+      formatStock(item.available_quantity, item.unit),
     ]),
     theme: 'grid',
     styles: {

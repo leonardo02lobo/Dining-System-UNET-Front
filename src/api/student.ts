@@ -38,8 +38,14 @@ export const studentApi = {
     if (extResult.status === 'rejected') throw extResult.reason
     const student = mapExternalToStudent(extResult.value)
     if (adResult.status === 'fulfilled') {
+      const ad = adResult.value
       student.is_acceso_directo = true
-      student.acceso_directo_id = adResult.value.id
+      student.acceso_directo_id = ad.id
+      // El acceso directo es la fuente autoritativa de tipo de usuario (docente,
+      // obrero, administrativo…) y puede tener una carrera más actualizada que
+      // el padrón. Solo se sobrescribe cuando trae valor.
+      student.user_type = ad.user_type || student.user_type
+      student.career    = ad.career || student.career
     }
     return student
   },

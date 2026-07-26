@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Search, ScanLine, Ban, AlertTriangle, Users, History } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { ScanLine, Ban, AlertTriangle } from 'lucide-react'
 import { studentApi, studentToIdentity } from '../api/student'
 import { lunchSessionApi } from '../api/lunchSession'
 import { consumptionApi } from '../api/consumption'
 import { sanctionApi } from '../api/sanction'
 import { normalizeCedula } from '../utils/cedula'
 import { errorMessage, CONFLICT } from '../utils/apiErrors'
+import { userTypeLabel } from '../utils/labels'
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner'
 import type { Student } from '../types/user'
 import type { Consumption } from '../types/consumption'
@@ -20,9 +21,7 @@ import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { Table, type ColumnDef } from '../components/ui/Table'
-import { PageHeader } from '../components/ui/PageHeader'
 import { StudentResultCard } from '../components/StudentResultCard'
-import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
 import { SedeSelector } from '../components/SedeSelector'
 
@@ -30,11 +29,13 @@ import { SedeSelector } from '../components/SedeSelector'
 // por el taquillero entre sesiones del navegador (no es información sensible).
 const SEDE_STORAGE_KEY = 'selected_sede_id'
 
-// Cantidad de personas recientes mostradas en la ventana emergente (issue #7).
+// Cantidad de personas recientes mostradas en la pestaña "Últimos registros" (issue #7).
 const RECENT_LIMIT = 10
 // Intervalo de refresco del contador y de las últimas personas (issues #6/#7):
 // mantiene la exactitud entre varios taquilleros de la misma sede.
 const SESSION_POLL_MS = 15_000
+
+type TabKey = 'registro' | 'ultimos'
 
 function readStoredSedeId(): number | null {
   const raw = localStorage.getItem(SEDE_STORAGE_KEY)
@@ -42,15 +43,82 @@ function readStoredSedeId(): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-/** Formatea la hora de registro (ISO) como HH:mm local para la ventana de últimos. */
+/** Formatea la hora de registro (ISO) como HH:mm local para la lista de últimos. */
 function formatRegisteredTime(value: string): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '—'
   return date.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })
 }
 
+/** Fecha del turno en el formato del sistema anterior: 14-May-2026. */
+function formatSessionDate(value?: string): string {
+  const date = value ? new Date(`${value}T00:00:00`) : new Date()
+  if (Number.isNaN(date.getTime())) return '—'
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = date.toLocaleDateString('es-VE', { month: 'short' }).replace('.', '')
+  const capitalized = month.charAt(0).toUpperCase() + month.slice(1)
+  return `${day}-${capitalized}-${date.getFullYear()}`
+}
+
+/** Campo de solo lectura con la etiqueta encima (fila superior del formulario). */
+function StackedField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-[13px] font-semibold text-slate-500">{label}</span>
+      {children}
+    </div>
+  )
+}
+
+/** Campo de solo lectura con la etiqueta a la izquierda (ficha de la persona). */
+function InlineField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+      <span className="text-sm text-slate-600 sm:w-40 sm:flex-shrink-0">{label}</span>
+      <input
+        readOnly
+        value={value}
+        className="h-9 w-full min-w-0 rounded-md border border-slate-200 bg-slate-100 px-3 text-sm text-slate-700 outline-none"
+      />
+    </div>
+  )
+}
+
+/**
+ * Foto de la persona consultada. No se usa `Avatar` porque su tamaño es fijo y
+ * mucho mayor (hasta 320px) del que pide este formulario.
+ */
+function PersonPhoto({ name, src }: { name?: string; src?: string }) {
+  return (
+    <div
+      title={name}
+      className="relative flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-100 text-2xl"
+    >
+      {src ? (
+        <img alt={name ?? 'Usuario'} src={src} className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <span className="select-none font-semibold text-slate-400">
+          {name ? name[0].toUpperCase() : '?'}
+        </span>
+      )}
+    </div>
+  )
+}
+
+/** Caja compacta de solo lectura para el contador de consumos del turno. */
+function CounterBox({ value }: { value: string }) {
+  return (
+    <input
+      readOnly
+      value={value}
+      className="h-10 w-full rounded-md border border-slate-200 bg-slate-100 px-3 text-sm font-semibold tabular-nums text-slate-700 outline-none"
+    />
+  )
+}
+
 export function RegisterDining() {
   const { user } = useAuth()
+  const [tab,        setTab]        = useState<TabKey>('registro')
   const [sedeId,     setSedeId]     = useState<number | null>(readStoredSedeId)
   const [sedes,      setSedes]      = useState<Sede[]>([])
   const [session,    setSession]    = useState<LunchSession | null | undefined>(undefined)
@@ -58,18 +126,19 @@ export function RegisterDining() {
   const [student,    setStudent]    = useState<Student | null>(null)
   const [loading,    setLoading]    = useState(false)
   const [saving,     setSaving]     = useState(false)
-  const [error,      setError]      = useState<string | null>(null)
-  const [searched,   setSearched]   = useState(false)
+
+  // Barra de estado inferior del formulario (campo sin etiqueta del sistema anterior):
+  // refleja el resultado de la última acción sin depender solo del toast.
+  const [statusMessage, setStatusMessage] = useState<{ text: string; tone: 'ok' | 'warn' | 'error' } | null>(null)
 
   // Aviso de consumo duplicado (ya consumió hoy)
   const [duplicateOpen, setDuplicateOpen] = useState(false)
   // Cancelador del sonido de alerta en curso (issue #5): permite cortarlo antes de los 10 s.
   const duplicateSoundStop = useRef<(() => void) | null>(null)
 
-  // Contador de registros de la sesión (issue #6) y ventana de últimas personas (issue #7).
+  // Contador de registros de la sesión (issue #6) y últimas personas (issue #7).
   const [sessionCount, setSessionCount] = useState<number | null>(null)
   const [recentEntrants, setRecentEntrants] = useState<Consumption[]>([])
-  const [recentOpen, setRecentOpen] = useState(false)
 
   // Conteo histórico de suspensiones de la persona consultada (issue #8).
   const [suspensionCount, setSuspensionCount] = useState<number | null>(null)
@@ -159,8 +228,7 @@ export function RegisterDining() {
     if (!clean) return
     setCedula(clean)
     setLoading(true)
-    setError(null)
-    setSearched(true)
+    setStatusMessage(null)
     setStudent(null)
     setActiveSanction(null)
     setSuspensionCount(null)
@@ -184,7 +252,8 @@ export function RegisterDining() {
         }
       }
     } catch (err: any) {
-      setError(err.message ?? 'Error al consultar el estudiante')
+      const msg = err.message ?? 'Error al consultar el estudiante'
+      setStatusMessage({ text: msg, tone: 'error' })
     } finally {
       setLoading(false)
     }
@@ -196,11 +265,18 @@ export function RegisterDining() {
     if (e.key === 'Enter') handleSearch()
   }
 
+  /** Limpia la ficha para atender a la siguiente persona (conserva sede y sesión). */
+  function clearPerson() {
+    setCedula('')
+    setStudent(null)
+    setActiveSanction(null)
+    setSuspensionCount(null)
+  }
+
   // ── Registrar consumo ────────────────────────────────────────────
   async function handleRegister() {
     if (!student || !session || !user) return
     setSaving(true)
-    setError(null)
     try {
       await studentApi.registerDining({
         cedula:           student.cedula,
@@ -213,18 +289,16 @@ export function RegisterDining() {
         person:           student.is_acceso_directo ? undefined : studentToIdentity(student),
       })
       notify.success(`Consumo registrado para ${student.name}`)
+      setStatusMessage({ text: `Consumo registrado para ${student.name}.`, tone: 'ok' })
       // Contador (#6): incremento optimista + refresco de últimas personas (#7).
       setSessionCount((c) => (c == null ? c : c + 1))
       void loadSessionData()
-      setCedula('')
-      setStudent(null)
-      setSearched(false)
-      setActiveSanction(null)
-      setSuspensionCount(null)
+      clearPerson()
     } catch (err: any) {
       if (err?.status === 409) {
         // Consumo duplicado: aviso con los datos del usuario + sonido de alerta ~10 s.
         // Al terminar el sonido el aviso se cierra solo (y limpia para el siguiente).
+        setStatusMessage({ text: `${student.name} ya registró su consumo hoy.`, tone: 'warn' })
         setDuplicateOpen(true)
         duplicateSoundStop.current?.() // corta una alerta previa si aún sonaba
         duplicateSoundStop.current = playSound(
@@ -237,7 +311,7 @@ export function RegisterDining() {
         // 403 = sanción activa — el mensaje ya viene limpio del apiClient
         const msg = errorMessage(err, { 409: CONFLICT.consumptionToday }, 'Error al registrar el consumo')
         notify.error(msg)
-        setError(msg)
+        setStatusMessage({ text: msg, tone: 'error' })
       }
     } finally {
       setSaving(false)
@@ -249,11 +323,7 @@ export function RegisterDining() {
     duplicateSoundStop.current?.() // detiene el sonido si se cierra antes de los 10 s
     duplicateSoundStop.current = null
     setDuplicateOpen(false)
-    setCedula('')
-    setStudent(null)
-    setSearched(false)
-    setActiveSanction(null)
-    setSuspensionCount(null)
+    clearPerson()
   }
 
   // ── Suspensión rápida desde el registro (problemáticas 29 y 30) ──
@@ -280,6 +350,7 @@ export function RegisterDining() {
       setActiveSanction(sanction)
       setSuspendOpen(false)
       notify.success(`${student.name} fue suspendido.`)
+      setStatusMessage({ text: `${student.name} fue suspendido.`, tone: 'warn' })
     } catch (err: any) {
       const msg = errorMessage(err, { 409: CONFLICT.sanctionActive }, 'Error al suspender al usuario')
       notify.error(msg)
@@ -295,7 +366,6 @@ export function RegisterDining() {
   const registrationBlocked = noSedeSelected || noSession || sessionLoading
   const isSuspended = activeSanction !== null || (student?.is_suspended ?? false)
   const canSuspend = !!student?.is_acceso_directo && activeSanction === null
-  const selectedSede = sedes.find((s) => s.id === sedeId) ?? null
 
   // Atajo de teclado: ArrowDown dispara "Registrar consumo" sin ratón (issue #2).
   // Convive con useBarcodeScanner (que finaliza con Enter) y respeta la navegación
@@ -316,7 +386,7 @@ export function RegisterDining() {
     return () => window.removeEventListener('keydown', onArrowDownRegister)
   }, [student, isSuspended, registrationBlocked, saving, suspendOpen])
 
-  // Columnas de la ventana "últimas N personas" (issue #7).
+  // Columnas de la pestaña "últimas N personas" (issue #7).
   const recentColumns: ColumnDef<Consumption>[] = [
     { key: 'document_id', header: 'Cédula', render: (_, e) => e.document_id ?? '—' },
     {
@@ -327,157 +397,236 @@ export function RegisterDining() {
     { key: 'registered_at', header: 'Hora', render: (_, e) => formatRegisteredTime(e.registered_at) },
   ]
 
+  const statusTone = {
+    ok:    'border-green-200 bg-green-50 text-green-700',
+    warn:  'border-amber-200 bg-amber-50 text-amber-800',
+    error: 'border-red-200 bg-red-50 text-red-700',
+  }
+
+  // Un solo aviso de configuración del turno: antes se podían apilar varios y
+  // el alto de la pantalla se desbordaba. Se muestra el que realmente bloquea.
+  const blockingNotice: { text: string; tone: 'info' | 'warn' } | null =
+    sedes.length === 0 && !sessionLoading
+      ? { text: 'No hay sedes activas registradas. Contacta a un administrador.', tone: 'warn' }
+      : noSedeSelected && sedes.length > 0
+        ? { text: 'Selecciona la sede donde estás registrando para comenzar.', tone: 'info' }
+        : noSession
+          ? {
+              text: 'No hay una sesión de servicio activa en esta sede. Un administrador debe abrirla antes de registrar consumos.',
+              tone: 'warn',
+            }
+          : null
+
+  // Ídem para la persona consultada: se muestra únicamente el aviso más grave.
+  const personNotice: { text: string; tone: 'danger' | 'warn' } | null = !student
+    ? null
+    : activeSanction
+      ? { text: `Usuario suspendido, no puede registrar consumo. Motivo: ${activeSanction.reason}`, tone: 'danger' }
+      : student.is_suspended
+        ? { text: 'Este estudiante está suspendido y no puede registrar consumo.', tone: 'danger' }
+        : !student.is_acceso_directo
+          ? {
+              text: 'Este usuario no tiene acceso directo. Se registrará su consumo y se dará de alta automáticamente.',
+              tone: 'warn',
+            }
+          : suspensionCount != null && suspensionCount > 0
+            ? {
+                text: `Esta persona ha sido suspendida ${suspensionCount} ${suspensionCount === 1 ? 'vez' : 'veces'}.`,
+                tone: 'warn',
+              }
+            : null
+
   return (
-    <div>
-      <PageHeader
-        title="Registro al Comedor"
-        subtitle="Escanea el carnet o búsqueda por cédula para registrar el consumo"
-        actions={
-          session ? (
-            <div className="flex items-center gap-3">
-              {/* Contador de registros de la sede + sesión actual (issue #6). */}
-              <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700">
-                <Users size={16} className="text-blue-600" />
-                <span>Registros:</span>
-                <span className="tabular-nums text-blue-700">{sessionCount ?? '—'}</span>
-              </div>
-              <Button
-                variant="secondary"
-                size="sm"
-                leftIcon={<History size={14} />}
-                onClick={() => { void loadSessionData(); setRecentOpen(true) }}
-              >
-                Últimos registros
-              </Button>
-            </div>
-          ) : undefined
-        }
-      />
-
-      {error && (
-        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-          {error}
+    // h-full + overflow-hidden: la pantalla ocupa exactamente el alto disponible
+    // y nunca desplaza la página (el turno debe verse completo de un vistazo).
+    <div className="flex h-full flex-col overflow-hidden">
+      {/* ── Título y pestañas en una sola franja para ahorrar alto ──── */}
+      <div className="flex flex-shrink-0 flex-wrap items-end justify-between gap-2">
+        <h1 className="text-lg font-bold text-slate-800">Registro al Comedor</h1>
+        <div className="flex gap-1 rounded-t-md bg-[#03216A] px-1 pt-1">
+          {([
+            ['registro', 'REGISTRO DE ACCESO AL COMEDOR'],
+            ['ultimos',  'ULTIMOS REGISTROS'],
+          ] as const).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => {
+                setTab(key)
+                if (key === 'ultimos') void loadSessionData()
+              }}
+              aria-current={tab === key ? 'page' : undefined}
+              className={[
+                'rounded-t-md px-4 py-2 text-xs font-semibold tracking-wide transition',
+                tab === key
+                  ? 'bg-blue-600 text-white'
+                  : 'text-blue-100 hover:bg-white/10',
+              ].join(' ')}
+            >
+              {label}
+            </button>
+          ))}
         </div>
-      )}
+      </div>
 
-      {/* Sede y búsqueda de cédula: se ocultan mientras hay un estudiante
-          consultado y reaparecen al guardar/limpiar. La sede seleccionada y el
-          estado de la sesión se conservan en el estado del componente. */}
-      {!student && (
-        <>
-          <Card variant="outlined" padding="md" className="mb-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div className="max-w-xs flex-1">
-                <SedeSelector value={sedeId} onChange={handleSedeChange} onLoaded={handleSedesLoaded} />
+      <Card
+        variant="outlined"
+        padding="none"
+        className="flex min-h-0 flex-1 flex-col rounded-t-none p-4 sm:p-5"
+      >
+        {tab === 'ultimos' ? (
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <Table<Consumption>
+              columns={recentColumns}
+              rows={recentEntrants}
+              keyField="id"
+              emptyMessage="Aún no hay registros en esta sesión."
+            />
+          </div>
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col gap-4">
+            {/* Válvula de seguridad: en pantallas muy bajas el contenido se
+                desplaza aquí dentro, nunca la página completa. */}
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+              {/* ── Datos del turno: fecha, sede y consumos ──────────── */}
+              <div className="grid flex-shrink-0 grid-cols-1 gap-3 sm:grid-cols-3">
+                <StackedField label="Fecha:">
+                  <input
+                    readOnly
+                    value={formatSessionDate(session?.date)}
+                    className="h-10 w-full rounded-md border border-slate-200 bg-slate-100 px-3 text-sm text-slate-700 outline-none"
+                  />
+                </StackedField>
+
+                <SedeSelector value={sedeId} onChange={handleSedeChange} onLoaded={handleSedesLoaded} label="Sede:" />
+
+                <StackedField label="Consumos del Turno:">
+                  <CounterBox value={sessionCount != null ? String(sessionCount) : ''} />
+                </StackedField>
               </div>
-              {selectedSede && !sessionLoading && (
-                <Badge variant={session ? 'success' : 'warning'}>
-                  {session ? `Sesión abierta en ${selectedSede.name}` : `Sin sesión activa en ${selectedSede.name}`}
-                </Badge>
+
+              {/* Un único aviso a la vez: apilarlos desbordaba el alto útil. */}
+              {blockingNotice && (
+                <div
+                  className={[
+                    'flex-shrink-0 rounded-md border px-3 py-2 text-sm',
+                    blockingNotice.tone === 'info'
+                      ? 'border-blue-200 bg-blue-50 text-blue-700'
+                      : 'border-amber-200 bg-amber-50 text-amber-700',
+                  ].join(' ')}
+                >
+                  {blockingNotice.text}
+                </div>
+              )}
+
+              {/* ── Documento + acción principal, con la foto a la derecha ── */}
+              <div className="flex flex-shrink-0 items-start justify-between gap-4 border-t border-slate-200 pt-4">
+                <div className="flex-1">
+                  <label htmlFor="cedula-register" className="text-sm font-semibold text-slate-800">
+                    Cedula / Pasaporte / Carnet
+                  </label>
+                  <div className="mt-1.5 flex items-end gap-3">
+                    <Input
+                      id="cedula-register"
+                      placeholder="Ingrese Carnet o Documento de Identidad."
+                      value={cedula}
+                      onChange={(e) => setCedula(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      fullWidth
+                      disabled={registrationBlocked}
+                      className="h-10 border-green-500 focus:border-green-600 focus:ring-green-500/15"
+                    />
+                    <Button
+                      variant="secondary"
+                      onClick={handleSearch}
+                      loading={loading}
+                      disabled={registrationBlocked}
+                      className="h-10 flex-shrink-0 border-green-600 text-green-700 hover:bg-green-50"
+                    >
+                      REGISTRA
+                    </Button>
+                  </div>
+                  <p className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-400">
+                    <ScanLine size={13} />
+                    El lector enviará el código automáticamente al pasar el carnet.
+                  </p>
+                </div>
+
+                <PersonPhoto name={student?.name} src={student?.avatar_url} />
+              </div>
+
+              {/* ── Ficha de la persona, en dos columnas para ahorrar alto ── */}
+              <div className="grid flex-shrink-0 grid-cols-1 gap-x-6 gap-y-2 lg:grid-cols-2">
+                <InlineField label="Documento" value={student?.cedula ?? ''} />
+                <InlineField label="Nombre" value={student?.name ?? ''} />
+                <InlineField label="Carrera" value={student?.career || (student ? '—' : '')} />
+                <InlineField
+                  label="Tipo Usuario"
+                  value={student?.user_type ? userTypeLabel(student.user_type) : ''}
+                />
+                <InlineField
+                  label="Estatus del Usuario"
+                  value={student ? (isSuspended ? 'Suspendido' : 'Activo') : ''}
+                />
+                {loading && (
+                  <div className="flex items-center gap-2 text-sm text-slate-400">
+                    <Spinner size="sm" />
+                    Consultando…
+                  </div>
+                )}
+              </div>
+
+              {/* Campo sin etiqueta del sistema anterior: resultado de la última acción */}
+              <div
+                role="status"
+                className={[
+                  'flex-shrink-0 rounded-md border px-3 py-2 text-sm transition',
+                  statusMessage ? statusTone[statusMessage.tone] : 'border-slate-200 bg-slate-100',
+                ].join(' ')}
+              >
+                {statusMessage?.text ?? ' '}
+              </div>
+
+              {/* Aviso propio de la persona consultada (uno solo, el más grave) */}
+              {personNotice && (
+                <div
+                  className={[
+                    'flex-shrink-0 rounded-md border px-3 py-2 text-sm',
+                    personNotice.tone === 'danger'
+                      ? 'border-red-200 bg-red-50 text-red-700'
+                      : 'border-amber-200 bg-amber-50 text-amber-700',
+                  ].join(' ')}
+                >
+                  {personNotice.text}
+                </div>
               )}
             </div>
-          </Card>
 
-          {sedes.length === 0 && !sessionLoading && (
-            <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-              No hay sedes activas registradas. Contacta a un administrador.
-            </div>
-          )}
-
-          {sedes.length > 0 && noSedeSelected && (
-            <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-              Selecciona la sede donde estás registrando para comenzar.
-            </div>
-          )}
-
-          {noSession && (
-            <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-              No hay una sesión de servicio de alimentación activa en esta sede. Un administrador debe abrirla antes de registrar consumos.
-            </div>
-          )}
-
-          {/* ── Barra de búsqueda ──────────────────────────────────── */}
-          <Card variant="outlined" padding="md" className="mb-4">
-            <div className="flex items-end gap-3">
-              <Input
-                id="cedula-register"
-                label="Cédula o Carnet"
-                placeholder="Escanea el carnet o escribe la cédula"
-                value={cedula}
-                onChange={(e) => setCedula(e.target.value)}
-                onKeyDown={handleKeyDown}
-                leftIcon={<Search size={16} />}
-                fullWidth
-                disabled={registrationBlocked}
-              />
-              <Button
-                variant="primary"
-                onClick={handleSearch}
-                loading={loading}
-                disabled={registrationBlocked}
-                className="flex-shrink-0"
-              >
-                Consultar
-              </Button>
-            </div>
-
-            <p className="mt-3 flex items-center gap-1.5 text-xs text-slate-400">
-              <ScanLine size={13} />
-              El lector de código de barras enviará el código automáticamente al pasar el carnet.
-            </p>
-          </Card>
-        </>
-      )}
-
-      {loading && (
-        <div className="flex justify-center py-12">
-          <Spinner size="lg" />
-        </div>
-      )}
-
-      {!loading && searched && !student && !error && (
-        <div className="rounded-md border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-400">
-          No se encontró ningún estudiante con la cédula <strong>{cedula}</strong>.
-        </div>
-      )}
-
-      {/* ── Tarjeta del estudiante ─────────────────────────────── */}
-      {!loading && student && (
-        <StudentResultCard
-          student={student}
-          suspended={isSuspended}
-          suspensionCount={suspensionCount}
-          notice={
-            activeSanction ? (
-              <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                Usuario suspendido y no puede registrar consumo.
-                <span className="mt-0.5 block text-xs text-red-600">Motivo: {activeSanction.reason}</span>
-              </div>
-            ) : student.is_suspended ? (
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                Este estudiante está suspendido y no puede registrar consumo.
-              </div>
-            ) : null
-          }
-          actions={
-            <>
-              {canSuspend && (
-                <Button variant="danger" leftIcon={<Ban size={15} />} onClick={openSuspend}>
-                  Suspender
+            {/* ── Acciones: ancladas al pie de la tarjeta ─────────────── */}
+            {student && (
+              <div className="flex flex-shrink-0 justify-end gap-3 border-t border-slate-100 pt-3">
+                <Button variant="ghost" size="sm" onClick={clearPerson} disabled={saving}>
+                  Limpiar
                 </Button>
-              )}
-              <Button
-                variant="primary"
-                loading={saving}
-                disabled={isSuspended || registrationBlocked}
-                onClick={handleRegister}
-              >
-                Registrar Consumo
-              </Button>
-            </>
-          }
-        />
-      )}
+                {canSuspend && (
+                  <Button variant="danger" size="sm" leftIcon={<Ban size={15} />} onClick={openSuspend} disabled={saving}>
+                    Suspender
+                  </Button>
+                )}
+                <Button
+                  variant="primary"
+                  size="sm"
+                  loading={saving}
+                  disabled={isSuspended || registrationBlocked}
+                  onClick={handleRegister}
+                >
+                  Registrar Consumo
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
 
       {/* Aviso de consumo duplicado: datos del usuario + sonido de alerta */}
       <Modal
@@ -555,26 +704,6 @@ export function RegisterDining() {
             )}
           </div>
         </div>
-      </Modal>
-
-      {/* Ventana emergente: últimas N personas registradas en la sesión (issue #7) */}
-      <Modal
-        open={recentOpen}
-        onClose={() => setRecentOpen(false)}
-        title={`Últimas ${RECENT_LIMIT} personas registradas`}
-        size="lg"
-        footer={
-          <Button variant="primary" onClick={() => setRecentOpen(false)}>
-            Cerrar
-          </Button>
-        }
-      >
-        <Table<Consumption>
-          columns={recentColumns}
-          rows={recentEntrants}
-          keyField="id"
-          emptyMessage="Aún no hay registros en esta sesión."
-        />
       </Modal>
     </div>
   )
