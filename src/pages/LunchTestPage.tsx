@@ -13,7 +13,10 @@ import { inventoryApi } from '../api/inventory'
 import { lunchApi } from '../api/lunch'
 import {
   buildIngredientFromTemplate,
+  formatQuantity,
+  formatStock,
   getRecalculationPreview,
+  isValidPlateCount,
   recalculateIngredients,
 } from '../utils/lunchRecalculation'
 import { notify } from '../utils/toast'
@@ -51,10 +54,15 @@ function getRecord(value: unknown) {
 }
 
 function mapTemplateToPreloaded(template: LunchTemplateResponse): PreloadedLunch {
+  // `baseQuantity` corresponde a `basePlatesQuantity` platos (ver CreateLunchPage).
+  const basePlates = isValidPlateCount(template.basePlatesQuantity)
+    ? template.basePlatesQuantity
+    : template.platesQuantity
+
   return {
     id: template.id,
     name: template.name,
-    plate_count: template.platesQuantity,
+    plate_count: basePlates,
     ingredients: template.ingredients.flatMap((item, index) => {
       const record = getRecord(item)
       if (!record) return []
@@ -67,9 +75,7 @@ function mapTemplateToPreloaded(template: LunchTemplateResponse): PreloadedLunch
       const category = typeof categoryRecord?.name === 'string' ? categoryRecord.name : 'Sin categoría'
       const unit = typeof record.unit === 'string' ? record.unit : ''
       const inventoryItemId = toNumber(record.inventoryItemId) ?? toNumber(inventoryItem?.id)
-      const calculatedQuantity = toNumber(record.calculatedQuantity)
-      const baseQuantity = toNumber(record.baseQuantity)
-      const quantity = calculatedQuantity ?? baseQuantity ?? 0
+      const baseQuantity = toNumber(record.baseQuantity) ?? 0
 
       if (inventoryItemId === null) return []
 
@@ -78,7 +84,7 @@ function mapTemplateToPreloaded(template: LunchTemplateResponse): PreloadedLunch
         ingredient_name: name,
         category,
         unit,
-        quantity_per_plate: template.platesQuantity > 0 ? quantity / template.platesQuantity : 0,
+        base_quantity: baseQuantity,
       }]
     }),
   }
@@ -232,9 +238,13 @@ export function LunchTestPage() {
   function handleSaveIngredient() {
     const pantryItem = selectedPantryItem
     if (!pantryItem || !hasValidEditQty) return
+    if (!isValidPlateCount(plateCount)) {
+      setError('Define una cantidad de platos mayor que cero antes de agregar ingredientes.')
+      return
+    }
 
+    // Cantidad original para los platos base actuales (ver CreateLunchPage).
     const qty = editQtyNumber
-    const quantityPerPlate = qty / plateCount
 
     if (editTarget) {
       setIngredients((prev) =>
@@ -242,8 +252,9 @@ export function LunchTestPage() {
           i.ingredient_id === editTarget.ingredient_id
             ? {
                 ...i,
+                base_quantity: qty,
+                base_plates: plateCount,
                 calculated_quantity: qty,
-                quantity_per_plate: quantityPerPlate,
               }
             : i
         )
@@ -259,9 +270,10 @@ export function LunchTestPage() {
           ingredient_name: pantryItem.name,
           category: pantryItem.category,
           unit: pantryItem.unit,
+          base_quantity: qty,
+          base_plates: plateCount,
           calculated_quantity: qty,
           available_quantity: pantryItem.available,
-          quantity_per_plate: quantityPerPlate,
         },
       ])
     }
@@ -299,8 +311,8 @@ export function LunchTestPage() {
       body: ingredients.map((item) => [
         item.ingredient_name,
         item.category,
-        `${item.calculated_quantity} ${item.unit}`,
-        `${item.available_quantity} ${item.unit}`,
+        formatQuantity(item.calculated_quantity, item.unit),
+        formatStock(item.available_quantity, item.unit),
       ]),
     })
 
@@ -489,7 +501,7 @@ export function LunchTestPage() {
             </div>
           )}
           <Input
-            label={`Cantidad calculada (${plateCount} platos)`}
+            label={`Cantidad original para ${plateCount} platos`}
             type="number"
             min="0"
             step="0.01"

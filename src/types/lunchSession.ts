@@ -12,6 +12,8 @@ export interface LunchSession {
   closed_by_id: number | null
   sede_id: number | null
   sede?: Sede | null
+  /** Platos planificados para el turno. `null` en sesiones sin planificación. */
+  plates_quantity: number | null
   created_at: string
   updated_at: string | null
 }
@@ -19,4 +21,6 @@ export interface LunchSession {
 export interface LunchSessionCreate {
   sede_id: number
   date?: string
+  /** Platos planificados del turno (opcional). */
+  plates_quantity?: number | null
 }
