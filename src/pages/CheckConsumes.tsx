@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Search, ScanLine, CheckCircle2, XCircle } from 'lucide-react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { Search, ScanLine, CheckCircle2, XCircle, MinusCircle, ShieldCheck } from 'lucide-react'
 import { normalizeCedula } from '../utils/cedula'
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner'
 import { accesoDirectoApi } from '../api/acceso_directo'
@@ -15,6 +15,35 @@ import { StudentResultCard } from '../components/StudentResultCard'
 import { Spinner } from '../components/ui/Spinner'
 import type { Student } from '../types/user'
 import type { ConsumptionCheckResult } from '../types/consumption'
+
+/**
+ * Caja de estado de la ficha (consumo del día / sanción). `variant` neutro es el
+ * estado "todavía sin dato", que se usa mientras no hay una consulta con
+ * resultado, para no afirmar nada sobre una persona que no se ha buscado.
+ */
+function StatusBox({
+  variant,
+  icon,
+  children,
+}: {
+  variant: 'neutral' | 'success' | 'warning' | 'danger'
+  icon: ReactNode
+  children: ReactNode
+}) {
+  const variantClasses = {
+    neutral: 'border-slate-200 bg-slate-50 text-slate-500',
+    success: 'border-green-200 bg-green-50 text-green-700',
+    warning: 'border-amber-200 bg-amber-50 text-amber-700',
+    danger:  'border-red-200 bg-red-50 text-red-700',
+  }[variant]
+
+  return (
+    <div className={`flex items-center gap-3 rounded-md border px-4 py-3 text-sm ${variantClasses}`}>
+      {icon}
+      {children}
+    </div>
+  )
+}
 
 export function CheckConsumes() {
   const [hasOpenSessions, setHasOpenSessions] = useState<boolean | undefined>(undefined)
@@ -78,6 +107,48 @@ export function CheckConsumes() {
 
   const noSession = hasOpenSessions === false
 
+  // Las dos cajas de estado existen desde el inicio. Mientras no hay una consulta
+  // resuelta se muestran en neutro: la ausencia de dato NO se dibuja como "sin
+  // sanción" ni "no ha consumido", que serían afirmaciones sobre alguien que
+  // todavía no se ha buscado.
+  const consumptionStatus = loading ? null : !student ? (
+    <StatusBox variant="neutral" icon={<MinusCircle size={16} />}>
+      Consulta una cédula para ver el consumo del día.
+    </StatusBox>
+  ) : checkResult === null ? (
+    <StatusBox variant="neutral" icon={<MinusCircle size={16} />}>
+      Esta persona no tiene acceso directo: no hay registro de consumo asociado.
+    </StatusBox>
+  ) : checkResult.has_consumed_today ? (
+    <StatusBox variant="warning" icon={<XCircle size={16} />}>
+      Ya consumió hoy{checkResult.consumption?.registered_at
+        ? ` a las ${new Date(checkResult.consumption.registered_at).toLocaleTimeString()}`
+        : ''}
+    </StatusBox>
+  ) : (
+    <StatusBox variant="success" icon={<CheckCircle2 size={16} />}>
+      No ha consumido en la sesión de hoy
+    </StatusBox>
+  )
+
+  const sanctionStatus = loading ? null : !student ? (
+    <StatusBox variant="neutral" icon={<MinusCircle size={16} />}>
+      Consulta una cédula para ver el estado de sanción.
+    </StatusBox>
+  ) : checkResult === null ? (
+    <StatusBox variant="neutral" icon={<MinusCircle size={16} />}>
+      Sin información de sanciones para esta persona.
+    </StatusBox>
+  ) : checkResult.active_sanction ? (
+    <StatusBox variant="danger" icon={<XCircle size={16} />}>
+      Sanción activa: {checkResult.active_sanction.reason}
+    </StatusBox>
+  ) : (
+    <StatusBox variant="success" icon={<ShieldCheck size={16} />}>
+      Sin sanción activa
+    </StatusBox>
+  )
+
   return (
     <div>
       <PageHeader
@@ -118,53 +189,41 @@ export function CheckConsumes() {
         </p>
       </Card>
 
-      {loading && (
-        <div className="flex justify-center py-12">
-          <Spinner size="lg" />
-        </div>
-      )}
+      {/* La ficha está montada siempre: en blanco al entrar y rellenada al
+          consultar. Así la zona de información no aparece de golpe. */}
+      <StudentResultCard
+        student={loading ? null : student}
+        showAccesoDirectoNotice={false}
+        suspensionCount={suspensionCount}
+        notice={
+          <>
+            {loading && (
+              <div className="flex items-center justify-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                <Spinner size="sm" />
+                Consultando…
+              </div>
+            )}
 
-      {error && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-          {error}
-        </div>
-      )}
+            {!loading && error && (
+              <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                {error}
+              </div>
+            )}
 
-      {!loading && searched && !student && !error && (
-        <div className="rounded-md border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-600">
-          No se encontró ningún acceso directo con la cédula <strong>{cedula}</strong>.
-        </div>
-      )}
+            {!loading && !error && searched && !student && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                No se encontró ningún acceso directo con la cédula <strong>{cedula}</strong>.
+              </div>
+            )}
 
-      {!loading && student && (
-        <StudentResultCard
-          student={student}
-          showAccesoDirectoNotice={false}
-          suspensionCount={suspensionCount}
-          notice={
-            <>
-              {checkResult !== null && (
-                <div className={`flex items-center gap-3 rounded-md border px-4 py-3 text-sm ${checkResult.has_consumed_today
-                    ? 'border-amber-200 bg-amber-50 text-amber-700'
-                    : 'border-green-200 bg-green-50 text-green-700'
-                  }`}>
-                  {checkResult.has_consumed_today
-                    ? <><XCircle size={16} /> Ya consumió hoy {checkResult.consumption?.registered_at ? `a las ${new Date(checkResult.consumption.registered_at).toLocaleTimeString()}` : ''}</>
-                    : <><CheckCircle2 size={16} /> No ha consumido en la sesión de hoy</>
-                  }
-                </div>
-              )}
+            {/* Consumo del día */}
+            {consumptionStatus}
 
-              {checkResult?.active_sanction && (
-                <div className="flex items-center gap-3 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  <XCircle size={16} />
-                  Sanción activa: {checkResult.active_sanction.reason}
-                </div>
-              )}
-            </>
-          }
-        />
-      )}
+            {/* Estado de sanción */}
+            {sanctionStatus}
+          </>
+        }
+      />
     </div>
   )
 }
