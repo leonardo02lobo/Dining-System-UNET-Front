@@ -39,48 +39,60 @@ export function genderStats(entrants: Consumption[]): StatBucket[] {
   return buckets
 }
 
-/** Set fijo de carreras pedido en el issue #3 (clave normalizada + etiqueta). */
-export const CAREER_SET: { key: string; label: string }[] = [
-  { key: 'informatica', label: 'Informática' },
-  { key: 'civil', label: 'Civil' },
-  { key: 'mecanica', label: 'Mecánica' },
-  { key: 'psicologia', label: 'Psicología' },
-  { key: 'electronica', label: 'Electrónica' },
-  { key: 'arquitectura', label: 'Arquitectura' },
-  { key: 'musica', label: 'Música' },
-  { key: 'produccion animal', label: 'Producción Animal' },
-]
+/** Una carrera del catálogo, lista para filtrar y graficar. */
+export interface CareerOption {
+  /** Nombre normalizado: es la clave con la que se agrupan los entrantes. */
+  key: string
+  label: string
+}
 
-/** Clave especial para carreras que no casan con el set fijo (o vienen vacías). */
+/** Clave especial para carreras que no casan con el catálogo (o vienen vacías). */
 export const CAREER_OTHER_KEY = 'otras'
 
 /**
- * Clave de carrera normalizada de una persona (misma lógica que `careerStats`): se
- * normaliza el texto libre y se casa por inclusión contra el set fijo; si no casa
- * (o viene vacía) devuelve `CAREER_OTHER_KEY`. Sirve para filtrar por carrera de
- * forma coherente con la gráfica.
+ * Construye el set de carreras de las gráficas a partir del catálogo del backend
+ * (`GET /careers/`), que se alimenta del padrón oficial. Sustituye a la constante
+ * hardcodeada de 8 carreras que dejaba fuera a la mitad del padrón.
  */
-export function careerKeyOf(career: string | null | undefined): string {
-  const c = normalize(career)
-  const match = c ? CAREER_SET.find((x) => c.includes(x.key)) : undefined
-  return match ? match.key : CAREER_OTHER_KEY
+export function careerOptionsFrom(careers: { name: string }[]): CareerOption[] {
+  return careers
+    .map((c) => ({ key: normalize(c.name), label: c.name }))
+    .filter((c) => c.key !== '')
+    .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 }
 
 /**
- * Conteo por carrera (issue #3) considerando **solo estudiantes**. La carrera es
- * texto libre, así que se normaliza y se intenta casar por inclusión contra el set
- * fijo; lo que no casa (o carrera vacía) se agrupa en "Otras" (solo si aparece).
+ * Clave de carrera normalizada de una persona. Casa primero de forma exacta con el
+ * catálogo (el caso normal: el padrón guarda el nombre canónico) y, si falla, por
+ * inclusión en cualquier sentido, para tolerar registros antiguos escritos a mano.
+ * Si no casa (o viene vacía) devuelve `CAREER_OTHER_KEY`.
  */
-export function careerStats(entrants: Consumption[]): StatBucket[] {
-  const counts = new Map<string, number>(CAREER_SET.map((c) => [c.key, 0]))
+export function careerKeyOf(career: string | null | undefined, options: CareerOption[]): string {
+  const c = normalize(career)
+  if (!c) return CAREER_OTHER_KEY
+  const exact = options.find((x) => x.key === c)
+  if (exact) return exact.key
+  const partial = options.find((x) => c.includes(x.key) || x.key.includes(c))
+  return partial ? partial.key : CAREER_OTHER_KEY
+}
+
+/**
+ * Conteo por carrera considerando **solo estudiantes**. Agrupa contra el catálogo
+ * recibido; lo que no casa (o carrera vacía) se agrupa en "Otras" (solo si aparece).
+ * Las carreras sin ningún entrante no se listan, para no llenar la gráfica de ceros.
+ */
+export function careerStats(entrants: Consumption[], options: CareerOption[]): StatBucket[] {
+  const counts = new Map<string, number>(options.map((c) => [c.key, 0]))
   let otras = 0
   for (const e of entrants) {
     if (normalize(e.user_type) !== 'student') continue
-    const key = careerKeyOf(e.career)
+    const key = careerKeyOf(e.career, options)
     if (key === CAREER_OTHER_KEY) otras++
     else counts.set(key, (counts.get(key) ?? 0) + 1)
   }
-  const buckets = CAREER_SET.map((c) => ({ label: c.label, count: counts.get(c.key) ?? 0 }))
+  const buckets = options
+    .map((c) => ({ label: c.label, count: counts.get(c.key) ?? 0 }))
+    .filter((b) => b.count > 0)
   if (otras > 0) buckets.push({ label: 'Otras', count: otras })
   return buckets
 }
