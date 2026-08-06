@@ -6,6 +6,7 @@ import type { AccesoDirecto, AccesoDirectoCreate, AccesoDirectoUpdate, AccessRea
 import { Modal } from './ui/Modal'
 import { Input } from './ui/Input'
 import { Select } from './ui/Select'
+import { CareerInput } from './CareerInput'
 import { Button } from './ui/Button'
 import type { ApiError } from '../types/auth'
 
@@ -199,11 +200,10 @@ export function AccesoDirectoFormModal({ open, onClose, onSave, initial }: Props
           />
         </div>
 
-        <Input
-          label="Carrera / Departamento"
+        <CareerInput
           value={form.career}
-          onChange={set('career')}
-          placeholder="Ej. Ing. Informática"
+          onChange={(v) => setForm((f) => ({ ...f, career: v }))}
+          placeholder="Ej. Ingeniería En Informática"
         />
 
         <Select

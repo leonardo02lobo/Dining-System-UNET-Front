@@ -1,6 +1,11 @@
 import { apiClient } from './client'
 import type { Student } from '../types/user'
-import type { StudentPadronData, StudentBulkItem, StudentBulkResult } from '../types/student'
+import type {
+  StudentPadronData,
+  StudentBulkItem,
+  StudentBulkResult,
+  StudentMissingResult,
+} from '../types/student'
 
 /**
  * Padrón de estudiantes del backend (`/students`). Reemplaza al antiguo servicio
@@ -44,4 +49,11 @@ export const externalStudentApi = {
 
   bulkCreate: (items: StudentBulkItem[]): Promise<StudentBulkResult> =>
     apiClient.post<StudentBulkResult>('/students/bulk', { items }),
+
+  /**
+   * Estudiantes activos del padrón que no vienen en la carga recién importada
+   * (graduados, retirados). Solo informa: no desactiva a nadie.
+   */
+  missingCheck: (cedulas: string[]): Promise<StudentMissingResult> =>
+    apiClient.post<StudentMissingResult>('/students/missing-check', { cedulas }),
 }

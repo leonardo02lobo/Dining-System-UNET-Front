@@ -6,6 +6,7 @@ import { notify } from '../utils/toast'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
+import { CareerInput } from '../components/CareerInput'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { PageHeader } from '../components/ui/PageHeader'
@@ -340,7 +341,12 @@ export function ExternalPeoplePage() {
               onChange={(e) => setField('gender', e.target.value)}
               fullWidth
             />
-            <Input label="Carrera / Área (opcional)" value={form.career} onChange={(e) => setField('career', e.target.value)} fullWidth />
+            <CareerInput
+              label="Carrera / Área (opcional)"
+              value={form.career}
+              onChange={(v) => setField('career', v)}
+              fullWidth
+            />
             <Input label="Correo (opcional)" type="email" value={form.email} onChange={(e) => setField('email', e.target.value)} fullWidth />
             <Select
               label="Estado"

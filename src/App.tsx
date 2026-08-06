@@ -18,7 +18,7 @@ import { PermissionsPage } from './pages/PermissionsPage'
 import { EmailTemplatePage } from './pages/EmailTemplatePage'
 import { LunchSessionPage } from './pages/LunchSessionPage'
 import { AccesoDirectoPage } from './pages/AccesoDirectoPage'
-import { AccesoDirectoImportPage } from './pages/AccesoDirectoImportPage'
+import { StudentImportPage } from './pages/StudentImportPage'
 import { GeneralInventoryPage } from './pages/GeneralInventoryPage'
 import { ConsumptionReportPage } from './pages/ConsumptionReportPage'
 import { SessionHistoryPage } from './pages/SessionHistoryPage'
@@ -59,7 +59,10 @@ export default function App() {
               <Route path="suspendidos" element={<SuspendedListPage />} />
               <Route path="comedor/sesion" element={<LunchSessionPage />} />
               <Route path="accesos_directos" element={<AccesoDirectoPage />} />
-              <Route path="accesos_directos/importar" element={<AccesoDirectoImportPage />} />
+              {/* La ruta conserva el prefijo histórico: es gemela de `_PERMISSIONS`
+                  en el backend y de ROUTE_ACCESS. La pantalla importa al padrón
+                  `/students`, no a `/accesos_directos`. */}
+              <Route path="accesos_directos/importar" element={<StudentImportPage />} />
               <Route path="gente-externa" element={<ExternalPeoplePage />} />
               <Route path="verificar-acceso-directo" element={<VerifyAccesoDirectoPage />} />
               <Route path="sedes" element={<SedesPage />} />
