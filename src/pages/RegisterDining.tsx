@@ -7,9 +7,11 @@ import { sanctionApi } from '../api/sanction'
 import { normalizeCedula } from '../utils/cedula'
 import { errorMessage, CONFLICT } from '../utils/apiErrors'
 import { userTypeLabel } from '../utils/labels'
+import { previousConsumptionMessage } from '../utils/consumptionNotice'
+import { maxSanctionEndDate, todayISO, validateSanctionEndDate } from '../utils/sanctionDates'
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner'
 import type { Student } from '../types/user'
-import type { Consumption } from '../types/consumption'
+import type { Consumption, DayConsumptionRef } from '../types/consumption'
 import type { LunchSession } from '../types/lunchSession'
 import type { Sanction } from '../types/sanction'
 import type { Sede } from '../types/sede'
@@ -147,10 +149,21 @@ export function RegisterDining() {
   // Conteo histórico de suspensiones de la persona consultada (issue #8).
   const [suspensionCount, setSuspensionCount] = useState<number | null>(null)
 
+  // Consumo previo del día de la persona consultada. Se resuelve en la propia
+  // consulta, antes de que el taquillero intente registrarla: descubrirlo por el 409
+  // del POST significa descubrirlo después de haber intentado servir el plato.
+  const [priorConsumption, setPriorConsumption] = useState<DayConsumptionRef | null>(null)
+
   // Suspensión rápida (problemáticas 29 y 30)
   const [activeSanction, setActiveSanction] = useState<Sanction | null>(null)
   const [suspendOpen,    setSuspendOpen]    = useState(false)
   const [suspendReason,  setSuspendReason]  = useState('')
+  // Fecha de fin de la suspensión. `indefinite` es una casilla propia y no "campo
+  // vacío": la suspensión indefinida tiene que ser una elección explícita del
+  // operador, no el efecto secundario de no rellenar nada.
+  const [suspendEndDate, setSuspendEndDate] = useState('')
+  const [suspendIndefinite, setSuspendIndefinite] = useState(false)
+  const [suspendDateError, setSuspendDateError] = useState<string | null>(null)
   const [suspendError,   setSuspendError]   = useState<string | null>(null)
   const [suspending,     setSuspending]     = useState(false)
   // Persona objetivo congelada al abrir el modal de suspensión: si un escaneo cambia
@@ -248,9 +261,22 @@ export function RegisterDining() {
     setStudent(null)
     setActiveSanction(null)
     setSuspensionCount(null)
+    setPriorConsumption(null)
     setDuplicateOpen(false)  // una nueva consulta cierra el aviso de duplicado anterior
     try {
-      const data = await studentApi.lookup(clean)
+      // La verificación de consumo del día va **en paralelo** con la búsqueda: se
+      // resuelve por cédula, así que no depende de que la persona sea acceso directo
+      // ni del resultado del lookup. Si falla, la ficha se muestra igualmente y el
+      // rechazo del servidor sigue siendo el último guardia.
+      const [lookupResult, checkResult] = await Promise.allSettled([
+        studentApi.lookup(clean),
+        consumptionApi.checkByDocument(clean),
+      ])
+      if (checkResult.status === 'fulfilled' && checkResult.value.has_consumed) {
+        setPriorConsumption(checkResult.value.consumption)
+      }
+      if (lookupResult.status === 'rejected') throw lookupResult.reason
+      const data = lookupResult.value
       setStudent(data)
       // Si es acceso directo, consultamos si tiene una suspensión activa y su histórico (#8)
       if (data.acceso_directo_id) {
@@ -287,6 +313,7 @@ export function RegisterDining() {
     setStudent(null)
     setActiveSanction(null)
     setSuspensionCount(null)
+    setPriorConsumption(null)
   }
 
   // ── Registrar consumo ────────────────────────────────────────────
@@ -349,6 +376,9 @@ export function RegisterDining() {
     // la suspensión se sigue aplicando a quien se muestra en el modal, no a `student`.
     setSuspendTarget(student)
     setSuspendReason('')
+    setSuspendEndDate('')
+    setSuspendIndefinite(false)
+    setSuspendDateError(null)
     setSuspendError(null)
     setSuspendOpen(true)
   }
@@ -360,12 +390,24 @@ export function RegisterDining() {
       setSuspendError('Indica el motivo de la suspensión (mínimo 3 caracteres).')
       return
     }
+    // El atributo `max` del campo acota el calendario pero no impide teclear la fecha:
+    // sin esta comprobación el formulario dependería del 422 del servidor para un
+    // error que puede señalar en el sitio.
+    const dateError = validateSanctionEndDate(suspendEndDate, { indefinite: suspendIndefinite })
+    if (dateError) {
+      setSuspendDateError(dateError)
+      return
+    }
     setSuspending(true)
     setSuspendError(null)
+    setSuspendDateError(null)
     try {
       const sanction = await sanctionApi.quickCreate({
         acceso_directo_id: suspendTarget.acceso_directo_id,
         reason,
+        // `null` explícito = indefinida. Omitir la clave dejaría al servidor
+        // adivinando lo que el operador eligió a propósito.
+        end_date: suspendIndefinite ? null : suspendEndDate,
       })
       // Solo refleja la sanción en la ficha visible si sigue siendo la misma persona.
       if (student?.acceso_directo_id === suspendTarget.acceso_directo_id) {
@@ -392,6 +434,11 @@ export function RegisterDining() {
   const registrationBlocked = noSedeSelected || noSession || sessionLoading
   const isSuspended = activeSanction !== null || (student?.is_suspended ?? false)
   const canSuspend = !!student?.is_acceso_directo && activeSanction === null
+  // Ya comió: registrar de nuevo no puede salir bien, así que el botón se apaga
+  // antes del intento. El modal de duplicado por 409 se conserva igualmente — es la
+  // red que atrapa el caso de dos taquillas registrando a la vez, que ninguna
+  // consulta previa puede prevenir.
+  const alreadyConsumed = priorConsumption !== null
 
   // Mueve el foco a la ficha del estudiante al consultarlo: solo para anunciarla a
   // lectores de pantalla (el atajo de flechas de abajo ya no depende de este foco,
@@ -408,7 +455,7 @@ export function RegisterDining() {
   // un INPUT: el campo de cédula es justo donde el foco queda tras escanear/consultar, y
   // no tiene semántica propia de ArrowUp/ArrowDown.
   useEffect(() => {
-    const canRegister = !!student && !isSuspended && !registrationBlocked && !saving
+    const canRegister = !!student && !isSuspended && !registrationBlocked && !alreadyConsumed && !saving
     if (!canRegister || suspendOpen || duplicateOpen || recentOpen) return
 
     function onArrowRegister(e: KeyboardEvent) {
@@ -421,7 +468,7 @@ export function RegisterDining() {
 
     window.addEventListener('keydown', onArrowRegister)
     return () => window.removeEventListener('keydown', onArrowRegister)
-  }, [student, isSuspended, registrationBlocked, saving, suspendOpen, duplicateOpen, recentOpen])
+  }, [student, isSuspended, registrationBlocked, alreadyConsumed, saving, suspendOpen, duplicateOpen, recentOpen])
 
   // Columnas de la pestaña "últimas N personas" (issue #7).
   const recentColumns: ColumnDef<Consumption>[] = [
@@ -626,6 +673,16 @@ export function RegisterDining() {
                 {statusMessage?.text ?? ' '}
               </div>
 
+              {/* Aviso de consumo previo. Va en su propio bloque y no dentro de la
+                  cascada de `personNotice` porque nunca debe quedar tapado por otro
+                  aviso: es el dato que evita el intento de registro. */}
+              {student && priorConsumption && (
+                <div className="flex flex-shrink-0 items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
+                  <span>{previousConsumptionMessage(priorConsumption)}</span>
+                </div>
+              )}
+
               {/* Aviso propio de la persona consultada (uno solo, el más grave) */}
               {personNotice && (
                 <div
@@ -656,7 +713,7 @@ export function RegisterDining() {
                   variant="primary"
                   size="sm"
                   loading={saving}
-                  disabled={isSuspended || registrationBlocked}
+                  disabled={isSuspended || registrationBlocked || alreadyConsumed}
                   onClick={handleRegister}
                 >
                   Registrar Consumo
@@ -741,6 +798,30 @@ export function RegisterDining() {
             {suspendError && (
               <span className="text-xs text-red-600" role="alert">{suspendError}</span>
             )}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Input
+              id="suspend-end-date"
+              type="date"
+              label="Fecha de fin"
+              value={suspendEndDate}
+              min={todayISO()}
+              max={maxSanctionEndDate()}
+              disabled={suspendIndefinite}
+              error={suspendDateError ?? undefined}
+              onChange={(e) => { setSuspendEndDate(e.target.value); setSuspendDateError(null) }}
+              fullWidth
+            />
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={suspendIndefinite}
+                onChange={(e) => { setSuspendIndefinite(e.target.checked); setSuspendDateError(null) }}
+                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              />
+              Indefinida
+            </label>
           </div>
         </div>
       </Modal>

@@ -7,6 +7,7 @@ import { Input } from './ui/Input'
 import { Select } from './ui/Select'
 import { Button } from './ui/Button'
 import type { ApiError } from '../types/auth'
+import { roleLabel } from '../utils/labels'
 
 interface Props {
   open: boolean
@@ -14,12 +15,6 @@ interface Props {
   onSave: () => void
   initial?: UserAccount | null
   roles: Role[]
-}
-
-const ROLE_LABEL: Record<string, string> = {
-  SUPER_ADMIN: 'Super Administrador',
-  ADMIN:       'Administrador',
-  TAQUILLERO:  'Taquillero',
 }
 
 const STATUS_OPTIONS = [
@@ -108,7 +103,7 @@ export function UserFormModal({ open, onClose, onSave, initial, roles }: Props) 
 
   const roleOptions = roles.map((r) => ({
     value: String(r.id),
-    label: ROLE_LABEL[r.name] ?? r.name,
+    label: roleLabel(r.name),
   }))
 
   return (

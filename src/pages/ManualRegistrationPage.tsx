@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Search, Save, RotateCcw, Printer, Pencil, Trash2 } from 'lucide-react'
 import { studentApi, studentToIdentity } from '../api/student'
 import { accesoDirectoApi } from '../api/acceso_directo'
@@ -8,7 +8,7 @@ import { normalizeCedula } from '../utils/cedula'
 import { errorMessage, CONFLICT } from '../utils/apiErrors'
 import { printManualList } from '../utils/printManual'
 import type { Student } from '../types/user'
-import type { ManualConsumption, ManualOrderBy, OrderDir } from '../types/consumption'
+import type { DayConsumption, DayConsumptionRef, ManualOrderBy, OrderDir } from '../types/consumption'
 import { notify } from '../utils/toast'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
@@ -21,6 +21,7 @@ import { Spinner } from '../components/ui/Spinner'
 import { Table, type ColumnDef } from '../components/ui/Table'
 import { StudentResultCard } from '../components/StudentResultCard'
 import { userTypeLabel } from '../utils/labels'
+import { previousConsumptionMessage } from '../utils/consumptionNotice'
 
 /** Fecha local de hoy en formato YYYY-MM-DD (sin desfase de zona horaria). */
 function todayISO(): string {
@@ -28,6 +29,9 @@ function todayISO(): string {
   const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
   return local.toISOString().slice(0, 10)
 }
+
+/** Pestañas del listado de la fecha. */
+type ListTabKey = 'manual' | 'dia'
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })
@@ -46,34 +50,55 @@ export function ManualRegistrationPage() {
   const [error,    setError]    = useState<string | null>(null)
   const [suspensionCount, setSuspensionCount] = useState<number | null>(null)
 
-  // Listado de registros manuales (problemáticas 24 y 28)
-  const [rows,        setRows]      = useState<ManualConsumption[]>([])
+  // Consumo previo de la persona **en la fecha seleccionada**. Esta pantalla registra
+  // consumos de días pasados: avisar de lo que comió hoy mientras se le registra un
+  // consumo del día 3 sería ruido, y entrenaría al operador a ignorar el aviso.
+  const [priorConsumption, setPriorConsumption] = useState<DayConsumptionRef | null>(null)
+  // Fecha con la que se resolvió la última comprobación: evita repetirla tras la
+  // búsqueda y descarta respuestas tardías de una fecha que ya no está seleccionada.
+  const checkedDateRef = useRef<string | null>(null)
+
+  // Listado de la fecha: registros manuales (problemáticas 24 y 28) e ingresos de
+  // todos los orígenes (`day-summary`), en dos pestañas.
+  const [listTab,     setListTab]   = useState<ListTabKey>('manual')
+  const [rows,        setRows]      = useState<DayConsumption[]>([])
   const [listLoading, setListLoad]  = useState(false)
+  const [listError,   setListError] = useState<string | null>(null)
   const [orderBy,     setOrderBy]   = useState<ManualOrderBy>('document_id')
   const [orderDir,    setOrderDir]  = useState<OrderDir>('asc')
 
   // Edición (problemática 25)
-  const [editTarget, setEditTarget] = useState<ManualConsumption | null>(null)
+  const [editTarget, setEditTarget] = useState<DayConsumption | null>(null)
   const [editDate,   setEditDate]   = useState('')
   const [editCedula, setEditCedula] = useState('')
   const [editSaving, setEditSaving] = useState(false)
 
   // Eliminación (problemática 26)
-  const [deleteTarget,  setDeleteTarget]  = useState<ManualConsumption | null>(null)
+  const [deleteTarget,  setDeleteTarget]  = useState<DayConsumption | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
 
   const refetchList = useCallback(async () => {
     if (!date) return
     setListLoad(true)
     try {
-      const result = await consumptionApi.listManual({ date, order_by: orderBy, order_dir: orderDir })
+      const params = { date, order_by: orderBy, order_dir: orderDir }
+      // "Ingresos del día" es la generalización del listado manual a todos los
+      // consumos de la fecha: quien entró por taquilla era invisible aquí, y esa
+      // omisión es la que lleva a registrar dos veces a la misma persona.
+      const result = listTab === 'manual'
+        ? await consumptionApi.listManual(params)
+        : await consumptionApi.daySummary(params)
       setRows(result.items)
+      setListError(null)
     } catch (err) {
-      notify.error(err)
+      // Mismo tratamiento que el resto de listados del panel: el error se ve en el
+      // sitio y la tabla queda vacía, sin tumbar la pantalla.
+      setRows([])
+      setListError(errorMessage(err, {}, 'Error al cargar el listado de la fecha'))
     } finally {
       setListLoad(false)
     }
-  }, [date, orderBy, orderDir])
+  }, [date, orderBy, orderDir, listTab])
 
   useEffect(() => { void refetchList() }, [refetchList])
 
@@ -86,8 +111,16 @@ export function ManualRegistrationPage() {
     setSearched(true)
     setStudent(null)
     setSuspensionCount(null)
+    setPriorConsumption(null)
     try {
-      const data = await studentApi.lookup(clean)
+      // La comprobación de consumo previo va en paralelo con la búsqueda: se resuelve
+      // por cédula y no depende del resultado del lookup.
+      const [lookupResult] = await Promise.allSettled([
+        studentApi.lookup(clean),
+        runPriorCheck(clean, date),
+      ])
+      if (lookupResult.status === 'rejected') throw lookupResult.reason
+      const data = lookupResult.value
       setStudent(data)
       // Conteo de suspensiones (#8) para acceso directo; informativo, no bloquea.
       if (data.acceso_directo_id) {
@@ -102,6 +135,23 @@ export function ManualRegistrationPage() {
       setError(err.message ?? 'Error al consultar el estudiante')
     } finally {
       setLoading(false)
+    }
+  }
+
+  /**
+   * Comprueba si la cédula ya tiene consumo **en `forDate`**. Nunca lanza: si la
+   * consulta no puede completarse, la ficha se muestra igualmente y el rechazo del
+   * servidor queda como último guardia.
+   */
+  async function runPriorCheck(documentId: string, forDate: string) {
+    checkedDateRef.current = forDate
+    try {
+      const result = await consumptionApi.checkByDocument(documentId, forDate)
+      // Descarta una respuesta tardía de una fecha que ya no es la seleccionada.
+      if (checkedDateRef.current !== forDate) return
+      setPriorConsumption(result.has_consumed ? result.consumption : null)
+    } catch {
+      setPriorConsumption(null)
     }
   }
 
@@ -134,13 +184,26 @@ export function ManualRegistrationPage() {
     setSearched(false)
     setError(null)
     setSuspensionCount(null)
+    setPriorConsumption(null)
+    checkedDateRef.current = null
   }
+
+  // Cambiar la fecha con una persona ya consultada rehace la comprobación sobre la
+  // nueva fecha: el aviso siempre habla del día que se está registrando.
+  useEffect(() => {
+    if (!student) return
+    if (checkedDateRef.current === date) return
+    void runPriorCheck(student.cedula, date)
+    // `runPriorCheck` se recrea en cada render pero no captura estado que cambie el
+    // resultado; incluirla en las dependencias dispararía la consulta en bucle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [student, date])
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Enter') void handleSearch()
   }
 
-  function openEdit(row: ManualConsumption) {
+  function openEdit(row: DayConsumption) {
     setEditTarget(row)
     setEditDate(row.date)
     setEditCedula(row.document_id)
@@ -197,7 +260,9 @@ export function ManualRegistrationPage() {
   }
 
   const isSuspended = student?.is_suspended ?? false
-  const canSave = !!student && !!date
+  // Ya tiene consumo en esa fecha: guardar de nuevo no puede salir bien.
+  const alreadyConsumed = priorConsumption !== null
+  const canSave = !!student && !!date && !alreadyConsumed
 
   // Atajo de teclado: ArrowDown guarda el registro sin ratón, igual que en Registro
   // al Comedor (issue #10). Respeta SELECT/TEXTAREA y no dispara con un modal abierto.
@@ -230,7 +295,17 @@ export function ManualRegistrationPage() {
     setOrderDir(dir)
   }
 
-  const columns: ColumnDef<ManualConsumption>[] = [
+  const originColumn: ColumnDef<DayConsumption> = {
+    key: 'is_manual',
+    header: 'Origen',
+    render: (_, row) => (
+      <Badge variant={row.is_manual ? 'warning' : 'info'}>
+        {row.is_manual ? 'Manual' : 'Taquilla'}
+      </Badge>
+    ),
+  }
+
+  const baseColumns: ColumnDef<DayConsumption>[] = [
     {
       key: 'document_id',
       header: 'Cédula',
@@ -245,7 +320,7 @@ export function ManualRegistrationPage() {
       key: 'user_type',
       header: 'Tipo',
       render: (_, row) => (
-        <Badge variant="info">{userTypeLabel(row.user_type)}</Badge>
+        <Badge variant="info">{row.user_type ? userTypeLabel(row.user_type) : '—'}</Badge>
       ),
     },
     {
@@ -259,6 +334,10 @@ export function ManualRegistrationPage() {
       render: (_, row) => <span className="text-slate-500">{formatTime(row.registered_at)}</span>,
     },
   ]
+
+  // La columna de origen solo tiene sentido donde conviven los dos: en el listado
+  // manual todas las filas serían "Manual".
+  const columns = listTab === 'dia' ? [...baseColumns, originColumn] : baseColumns
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -296,9 +375,18 @@ export function ManualRegistrationPage() {
         )}
 
         {student && (
-          <div className="mb-4 flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-4 py-2 text-sm">
-            <span className="font-medium text-slate-700">Fecha del registro</span>
-            <Badge variant="info">{date}</Badge>
+          // Sigue siendo editable con la persona en pantalla: cambiar la fecha rehace
+          // la comprobación de consumo previo sobre el día que de verdad se registra.
+          <div className="mb-4 flex items-end gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+            <Input
+              id="fecha-manual-activa"
+              type="date"
+              label="Fecha del registro*"
+              value={date}
+              max={todayISO()}
+              onChange={(e) => setDate(e.target.value)}
+              fullWidth
+            />
           </div>
         )}
 
@@ -338,7 +426,24 @@ export function ManualRegistrationPage() {
         )}
 
         {!loading && student && (
-          <StudentResultCard student={student} suspended={isSuspended} suspensionCount={suspensionCount} bare />
+          <StudentResultCard
+            student={student}
+            suspended={isSuspended}
+            suspensionCount={suspensionCount}
+            bare
+            /* En la ficha, no en un modal: el operador necesita el dato mientras
+               mira los datos de la persona, no interrumpiendo su trabajo. */
+            notice={
+              priorConsumption ? (
+                <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  {previousConsumptionMessage(priorConsumption)}
+                  <span className="mt-0.5 block text-xs text-amber-700">
+                    Fecha consultada: {date}
+                  </span>
+                </div>
+              ) : null
+            }
+          />
         )}
 
         <div className="mt-5 flex gap-3">
@@ -364,11 +469,35 @@ export function ManualRegistrationPage() {
         </p>
       </Card>
 
-      {/* Listado de registros manuales de la fecha seleccionada */}
+      {/* Listado de la fecha seleccionada: registros manuales o todos los ingresos */}
       <Card variant="outlined" padding="md" className="flex flex-col md:min-h-0">
+        <div className="mb-3 flex flex-wrap gap-1 border-b border-slate-200">
+          {([
+            ['manual', 'Registros manuales'],
+            ['dia',    'Ingresos del día'],
+          ] as const).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setListTab(key)}
+              aria-current={listTab === key ? 'page' : undefined}
+              className={[
+                '-mb-px border-b-2 px-3 py-2 text-sm font-semibold transition',
+                listTab === key
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-700',
+              ].join(' ')}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-blue-600">Registros manuales de la fecha</p>
+            <p className="text-sm font-semibold text-blue-600">
+              {listTab === 'manual' ? 'Registros manuales de la fecha' : 'Ingresos del día'}
+            </p>
             <p className="text-xs text-slate-500">
               {rows.length} registro{rows.length !== 1 ? 's' : ''} cargado{rows.length !== 1 ? 's' : ''}
             </p>
@@ -384,23 +513,35 @@ export function ManualRegistrationPage() {
               variant="secondary"
               leftIcon={<Printer size={15} />}
               onClick={() => printManualList(date, rows)}
-              disabled={rows.length === 0}
+              disabled={rows.length === 0 || listTab !== 'manual'}
             >
               Imprimir
             </Button>
           </div>
         </div>
 
+        {listError && (
+          <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            {listError}
+          </div>
+        )}
+
         {/* Scroll propio del listado (issue #10): así no hace falta bajar en la
             página para ver los usuarios registrados. */}
         <div className="max-h-[55vh] overflow-auto md:max-h-none md:flex-1">
-          <Table<ManualConsumption>
+          <Table<DayConsumption>
             columns={columns}
             rows={rows}
             keyField="id"
             loading={listLoading}
-            emptyMessage="No hay registros manuales para la fecha seleccionada."
-            actions={(row) => (
+            emptyMessage={
+              listTab === 'manual'
+                ? 'No hay registros manuales para la fecha seleccionada.'
+                : 'No hay ingresos registrados en la fecha seleccionada.'
+            }
+            /* Editar y eliminar solo aplican al registro manual: un consumo de
+               taquilla no se toca desde esta pantalla. */
+            actions={listTab !== 'manual' ? undefined : (row) => (
               <>
                 <button
                   type="button"

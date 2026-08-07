@@ -23,12 +23,16 @@ export interface SanctionCreate {
   end_date: string
 }
 
-/** Suspensión rápida desde el registro: solo persona + motivo (inicia hoy). */
+/**
+ * Suspensión rápida desde el registro: persona + motivo (inicia hoy) y, opcionalmente,
+ * fecha de fin. `end_date: null` explícito = indefinida; el backend lo acepta y no lo
+ * convierte en obligatorio.
+ */
 export interface SanctionQuickCreate {
   acceso_directo_id: number
   reason: string
   description?: string
-  end_date?: string
+  end_date?: string | null
 }
 
 /** Persona actualmente suspendida (sanción activa vigente hoy). */

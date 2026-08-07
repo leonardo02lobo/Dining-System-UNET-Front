@@ -3,13 +3,7 @@ import { Menu } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { LogoUnet } from "../icons/LogoUnet";
 import { LogoDecanato } from "../icons/LogoDecanato";
-
-const ROLE_LABEL: Record<string, string> = {
-  SUPER_ADMIN:  'Super Administrador',
-  ADMIN:        'Administrador',
-  TAQUILLERO:   'Taquillero',
-  ACCESO_DIRECTO: 'Acceso Directo',
-}
+import { roleLabel } from "../../utils/labels";
 
 interface Props {
   isLogin?: boolean;
@@ -62,7 +56,7 @@ function HeaderComponent({isLogin, onMenuClick}: Props) {
         isLogin && (
           <div className="flex items-center justify-end gap-1 p-2 text-xs font-bold sm:p-3 sm:text-sm">
             <span>
-              Hola, {user?.name ?? '...'} · {user ? ROLE_LABEL[user.role.name] ?? user.role.name : ''} ·{' '}
+              Hola, {user?.name ?? '...'} · {user ? roleLabel(user.role.name) : ''} ·{' '}
               {date.toLocaleDateString()} {date.toLocaleTimeString()}
             </span>
           </div>

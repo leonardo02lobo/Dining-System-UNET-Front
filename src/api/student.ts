@@ -30,6 +30,9 @@ export function studentToIdentity(s: Student): AccesoDirectoIdentity {
     // columna "Carrera" salía en blanco en historial, registro manual y PDFs.
     career: s.career || null,
     user_type: s.user_type || 'STUDENT',
+    // El sexo llega del padrón. Se omite cuando no está clasificado: un valor vacío
+    // nunca debe pisar el que ya tenga guardado el acceso directo.
+    gender: s.gender || undefined,
   }
 }
 

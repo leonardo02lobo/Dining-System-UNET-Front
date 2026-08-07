@@ -13,6 +13,7 @@ import { Spinner } from '../components/ui/Spinner'
 import { Card } from '../components/ui/Card'
 import { SearchInput } from '../components/ui/SearchInput'
 import { Modal } from '../components/ui/Modal'
+import { roleLabel } from '../utils/labels'
 
 /** Agrupa cada ruta en una sección legible (espejo de los grupos del NavBar). */
 function sectionOf(route: string): string {
@@ -22,13 +23,6 @@ function sectionOf(route: string): string {
 }
 
 const SECTION_ORDER = ['Comedor', 'Inventario', 'Administración']
-
-const ROLE_LABEL: Record<RoleName, string> = {
-  SUPER_ADMIN:  'Super Admin',
-  ADMIN:        'Admin',
-  TAQUILLERO:   'Taquillero',
-  ACCESO_DIRECTO: 'Acceso Directo',
-}
 
 const ROLE_VARIANT: Record<RoleName, 'info' | 'warning' | 'neutral'> = {
   SUPER_ADMIN:  'info',
@@ -149,7 +143,7 @@ export function PermissionsPage() {
 
   const userOptions = users.map((u) => ({
     value: String(u.id),
-    label: `${u.name} — ${ROLE_LABEL[u.role.name]}`,
+    label: `${u.name} — ${roleLabel(u.role.name)}`,
   }))
 
   // Filtra por texto y agrupa por sección para una lista larga más manejable.
@@ -203,8 +197,8 @@ export function PermissionsPage() {
               {selectedUser && (
                 <div className="flex items-center gap-2 pb-0.5">
                   <span className="text-sm text-slate-500">Rol:</span>
-                  <Badge variant={ROLE_VARIANT[selectedUser.role.name]}>
-                    {ROLE_LABEL[selectedUser.role.name]}
+                  <Badge variant={ROLE_VARIANT[selectedUser.role.name] ?? 'neutral'}>
+                    {roleLabel(selectedUser.role.name)}
                   </Badge>
                   <span className="text-sm text-slate-500">Estado:</span>
                   <Badge variant={selectedUser.is_active ? 'success' : 'danger'}>

@@ -6,6 +6,7 @@ import { sanctionApi } from '../api/sanction'
 import { normalizeCedula } from '../utils/cedula'
 import { errorMessage, CONFLICT } from '../utils/apiErrors'
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner'
+import { maxSanctionEndDate, todayISO, validateSanctionEndDate } from '../utils/sanctionDates'
 import { notify } from '../utils/toast'
 import type { Student } from '../types/user'
 import type { Sanction } from '../types/sanction'
@@ -37,6 +38,11 @@ export function SuspendStudent() {
   // Modal de suspensión rápida (motivo).
   const [suspendOpen,   setSuspendOpen]   = useState(false)
   const [suspendReason, setSuspendReason] = useState('')
+  // Fecha de fin y casilla "Indefinida", igual que en el modal rápido del registro:
+  // dejar el campo vacío no puede significar "para siempre" por descuido.
+  const [suspendEndDate, setSuspendEndDate] = useState('')
+  const [suspendIndefinite, setSuspendIndefinite] = useState(false)
+  const [suspendDateError, setSuspendDateError] = useState<string | null>(null)
   const [suspendError,  setSuspendError]  = useState<string | null>(null)
   const [suspending,    setSuspending]    = useState(false)
 
@@ -94,6 +100,9 @@ export function SuspendStudent() {
   // ── Suspensión rápida (misma interacción que Registro al Comedor) ──
   function openSuspend() {
     setSuspendReason('')
+    setSuspendEndDate('')
+    setSuspendIndefinite(false)
+    setSuspendDateError(null)
     setSuspendError(null)
     setSuspendOpen(true)
   }
@@ -105,12 +114,22 @@ export function SuspendStudent() {
       setSuspendError('Indica el motivo de la suspensión (mínimo 3 caracteres).')
       return
     }
+    // El `max` del campo acota el calendario, no el teclado: la comprobación previa
+    // es la que señala el error junto al campo en lugar de esperar al 422.
+    const dateError = validateSanctionEndDate(suspendEndDate, { indefinite: suspendIndefinite })
+    if (dateError) {
+      setSuspendDateError(dateError)
+      return
+    }
     setSuspending(true)
     setSuspendError(null)
+    setSuspendDateError(null)
     try {
       const sanction = await sanctionApi.quickCreate({
         acceso_directo_id: student.acceso_directo_id,
         reason,
+        // `null` explícito = suspensión indefinida.
+        end_date: suspendIndefinite ? null : suspendEndDate,
       })
       setActiveSanction(sanction)
       setSuspensionCount((c) => (c == null ? c : c + 1))
@@ -281,6 +300,30 @@ export function SuspendStudent() {
             {suspendError && (
               <span className="text-xs text-red-600" role="alert">{suspendError}</span>
             )}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Input
+              id="suspend-end-date"
+              type="date"
+              label="Fecha de fin"
+              value={suspendEndDate}
+              min={todayISO()}
+              max={maxSanctionEndDate()}
+              disabled={suspendIndefinite}
+              error={suspendDateError ?? undefined}
+              onChange={(e) => { setSuspendEndDate(e.target.value); setSuspendDateError(null) }}
+              fullWidth
+            />
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={suspendIndefinite}
+                onChange={(e) => { setSuspendIndefinite(e.target.checked); setSuspendDateError(null) }}
+                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              />
+              Indefinida
+            </label>
           </div>
         </div>
       </Modal>
