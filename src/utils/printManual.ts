@@ -1,4 +1,4 @@
-import type { ManualConsumption } from '../types/consumption'
+import type { DayConsumption } from '../types/consumption'
 import { userTypeLabel } from './labels'
 import { notify } from './toast'
 
@@ -25,7 +25,7 @@ function formatTime(iso: string): string {
  * Abre una vista imprimible del listado manual (problemática 27).
  * Las filas se reciben ya ordenadas por cédula (problemática 28).
  */
-export function printManualList(date: string, rows: ManualConsumption[]): void {
+export function printManualList(date: string, rows: DayConsumption[]): void {
   const win = window.open('', '_blank', 'width=900,height=700')
   if (!win) {
     notify.error('No se pudo abrir la ventana de impresión. Revisa el bloqueador de ventanas emergentes.')
@@ -39,7 +39,7 @@ export function printManualList(date: string, rows: ManualConsumption[]): void {
         <td class="num">${i + 1}</td>
         <td>${escapeHtml(r.document_id)}</td>
         <td>${escapeHtml(`${r.first_name} ${r.last_name}`)}</td>
-        <td>${escapeHtml(userTypeLabel(r.user_type))}</td>
+        <td>${escapeHtml(r.user_type ? userTypeLabel(r.user_type) : '—')}</td>
         <td>${escapeHtml(r.career ?? '—')}</td>
         <td>${formatTime(r.registered_at)}</td>
       </tr>`,

@@ -15,13 +15,7 @@ import { Select } from '../components/ui/Select'
 import { Modal } from '../components/ui/Modal'
 import { UserFormModal } from '../components/UserFormModal'
 import type { RoleName } from '../types/user'
-
-const ROLE_LABEL: Record<RoleName, string> = {
-  SUPER_ADMIN:    'Super Admin',
-  ADMIN:          'Admin',
-  TAQUILLERO:     'Taquillero',
-  ACCESO_DIRECTO: 'Acceso Directo',
-}
+import { ROLE_LABEL, roleLabel } from '../utils/labels'
 
 const ROLE_VARIANT: Record<RoleName, 'info' | 'warning' | 'neutral' | 'success'> = {
   SUPER_ADMIN:    'info',
@@ -84,7 +78,7 @@ export function ListUser() {
       body: filtered.map((r) => [
         r.name,
         r.email,
-        ROLE_LABEL[r.role.name],
+        roleLabel(r.role.name),
         r.is_active ? 'Activo' : 'Inactivo',
       ]),
     })
@@ -143,7 +137,7 @@ export function ListUser() {
       header: 'Rol',
       sortable: true,
       render: (_, row) => (
-        <Badge variant={ROLE_VARIANT[row.role.name]}>{ROLE_LABEL[row.role.name]}</Badge>
+        <Badge variant={ROLE_VARIANT[row.role.name] ?? 'neutral'}>{roleLabel(row.role.name)}</Badge>
       ),
     },
     {

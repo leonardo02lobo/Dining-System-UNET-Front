@@ -13,6 +13,13 @@ export interface RosterFields {
   cod_carr?:     string | null   // código oficial de carrera ('08000')
 }
 
+/**
+ * Sexo del estudiante. Dominio cerrado de tres estados: `null` no significa "otro",
+ * significa *nadie lo ha clasificado todavía*. El padrón se importa sin sexo, así que
+ * distinguir lo no revisado de un valor real es lo que permite medir cuánto falta.
+ */
+export type StudentGender = 'M' | 'F'
+
 /** Estudiante del padrón backend (GET /students/lookup, POST /students/bulk). */
 export interface StudentPadronData extends RosterFields {
   id:         number
@@ -22,6 +29,17 @@ export interface StudentPadronData extends RosterFields {
   career:     string | null
   is_active:  boolean
   photo_url:  string | null
+  /**
+   * Fuera de `RosterFields` a propósito: no viene del CSV de Control de Estudios y
+   * una reimportación no debe tocarlo (contrato del backend §1).
+   */
+  gender:     StudentGender | null
+}
+
+/** Respuesta paginada de `GET /students/`. */
+export interface PaginatedStudents {
+  total: number
+  items: StudentPadronData[]
 }
 
 /** Una fila de la importación masiva de estudiantes (CSV). */

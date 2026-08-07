@@ -3,7 +3,9 @@ import type {
   Consumption,
   ConsumptionCreate,
   ConsumptionCheckResult,
+  ConsumptionCheckByDocument,
   ManualConsumption,
+  PaginatedDayConsumptions,
   ManualConsumptionCreate,
   ManualConsumptionUpdate,
   ManualOrderBy,
@@ -72,6 +74,36 @@ export const consumptionApi = {
     if (params?.to)   p.set('to', params.to)
     const qs = p.toString()
     return apiClient.get<UserConsumptionStats>(`/consumptions/user-stats${qs ? `?${qs}` : ''}`)
+  },
+
+  /**
+   * ¿Esta cédula ya registró consumo en esa fecha? Resuelve por documento, así que
+   * sirve para alguien recién consultado en el padrón que todavía no es acceso
+   * directo (`check/{id}` exige un id que esa persona aún no tiene).
+   *
+   * `date` omitida ⇒ hoy. El registro manual **debe** pasar la fecha seleccionada:
+   * avisar de lo que alguien comió hoy mientras se le registra un consumo del día 3
+   * sería ruido, y entrenaría al operador a ignorar el aviso.
+   */
+  checkByDocument: (documentId: string, date?: string) => {
+    const p = new URLSearchParams({ document_id: documentId })
+    if (date) p.set('date', date)
+    return apiClient.get<ConsumptionCheckByDocument>(
+      `/consumptions/check-by-document?${p.toString()}`,
+    )
+  },
+
+  /**
+   * Todos los ingresos de una fecha (taquilla + manuales), con `is_manual` por fila.
+   * El listado manual por sí solo deja invisible a quien entró por taquilla, que es
+   * justamente la confusión que lleva a registrar dos veces a la misma persona.
+   */
+  daySummary: (params: { date: string; order_by?: ManualOrderBy; order_dir?: OrderDir }) => {
+    const p = new URLSearchParams()
+    p.set('date', params.date)
+    if (params.order_by)  p.set('order_by', params.order_by)
+    if (params.order_dir) p.set('order_dir', params.order_dir)
+    return apiClient.get<PaginatedDayConsumptions>(`/consumptions/day-summary?${p.toString()}`)
   },
 
   // --- Registro manual (problemáticas 23-28) ---

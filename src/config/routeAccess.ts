@@ -12,6 +12,9 @@ export const ROUTE_ACCESS: Record<string, RoleName[]> = {
   '/suspendidos':              ['SUPER_ADMIN', 'ADMIN', 'TAQUILLERO'],
   '/accesos_directos':         ['SUPER_ADMIN', 'ADMIN'],
   '/accesos_directos/importar': ['SUPER_ADMIN', 'ADMIN'],
+  // Gemela de ("/estudiantes", "Padrón de Estudiantes") en `_PERMISSIONS` del backend:
+  // sin la entrada de allí la ruta queda sin control de permisos server-side.
+  '/estudiantes':              ['SUPER_ADMIN', 'ADMIN'],
   '/gente-externa':            ['SUPER_ADMIN', 'ADMIN'],
   '/usuarios':                 ['SUPER_ADMIN', 'ADMIN'],
   '/inventario':               ['SUPER_ADMIN', 'ADMIN'],

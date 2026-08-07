@@ -4,7 +4,9 @@ import type {
   StudentPadronData,
   StudentBulkItem,
   StudentBulkResult,
+  StudentGender,
   StudentMissingResult,
+  PaginatedStudents,
 } from '../types/student'
 
 /**
@@ -30,10 +32,49 @@ export function mapExternalToStudent(data: StudentPadronData): Student {
     is_suspended:      !data.is_active,
     avatar_url:        data.photo_url ?? undefined,
     is_acceso_directo: false,
+    // Viaja hasta `studentToIdentity` para que el alta al vuelo escriba el sexo en
+    // `beneficiaries.gender`, que es la columna que alimenta las estadísticas de
+    // género. Sin este salto la clasificación del padrón sería decorativa.
+    gender:            data.gender ?? null,
   }
 }
 
+/** Parámetros de `GET /students/` (paginado + filtros que el backend ya expone). */
+export interface StudentListParams {
+  skip?:      number
+  limit?:     number
+  search?:    string
+  is_active?: boolean
+  cod_carr?:  string
+}
+
 export const externalStudentApi = {
+  /** Listado paginado del padrón. Envolvente `{ total, items }`. */
+  list: (params: StudentListParams = {}): Promise<PaginatedStudents> => {
+    const p = new URLSearchParams()
+    if (params.skip != null)      p.set('skip', String(params.skip))
+    if (params.limit != null)     p.set('limit', String(params.limit))
+    if (params.search)            p.set('search', params.search)
+    if (params.is_active != null) p.set('is_active', String(params.is_active))
+    if (params.cod_carr)          p.set('cod_carr', params.cod_carr)
+    const qs = p.toString()
+    return apiClient.get<PaginatedStudents>(`/students/${qs ? `?${qs}` : ''}`)
+  },
+
+  /** Ficha completa de un estudiante del padrón. */
+  getById: (id: number): Promise<StudentPadronData> =>
+    apiClient.get<StudentPadronData>(`/students/${id}`),
+
+  /**
+   * Clasifica (o desclasifica, con `null`) el sexo del estudiante.
+   *
+   * El PATCH del backend **solo** acepta `gender`: cualquier otro campo responde 422.
+   * Esa restricción es la que hace real el "el resto del padrón es de solo lectura";
+   * por eso aquí se envía el objeto con ese único campo y nada más.
+   */
+  setGender: (id: number, gender: StudentGender | null): Promise<StudentPadronData> =>
+    apiClient.patch<StudentPadronData>(`/students/${id}`, { gender }),
+
   lookup: async (cedula: string): Promise<StudentPadronData> => {
     try {
       return await apiClient.get<StudentPadronData>(

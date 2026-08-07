@@ -52,6 +52,7 @@ const navGroups: NavGroup[] = [
       { to: '/admin/permisos',       label: 'Gestión de Permisos'  },
       { to: '/admin/plantilla-correo', label: 'Plantilla de Correo' },
       { to: '/accesos_directos/importar', label: 'Importar Estudiantes (CSV)'   },
+      { to: '/estudiantes',          label: 'Padrón de Estudiantes' },
       { to: '/sedes',                label: 'Sedes'                 },
       { to: '/admin/carreras',       label: 'Catálogo de Carreras' },
     ],

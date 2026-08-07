@@ -44,6 +44,8 @@ export interface Student {
   avatar_url?:     string
   is_acceso_directo:  boolean
   acceso_directo_id?: number
+  /** Sexo del padrón ('M'/'F'/null = sin clasificar). Se propaga al alta al vuelo. */
+  gender?:         string | null
 }
 
 /** Una fila de la importación masiva de usuarios del sistema (CSV). */

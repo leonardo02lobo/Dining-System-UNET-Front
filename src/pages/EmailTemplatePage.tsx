@@ -1,50 +1,36 @@
 import { useEffect, useState } from 'react'
 import { Save } from 'lucide-react'
-import { emailTemplateApi, emailSettingsApi } from '../api/emailTemplate'
+import { emailSettingsApi, type EmailTemplateKey } from '../api/emailTemplate'
 import { notify } from '../utils/toast'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Spinner } from '../components/ui/Spinner'
+import { EmailTemplateEditor } from '../components/EmailTemplateEditor'
 
-// Valores de ejemplo para la previsualización (aproxima el render del backend).
-const PREVIEW_VALUES: Record<string, string> = {
-  '{nombre}':       'Juan Pérez',
-  '{cedula}':       'V-12345678',
-  '{motivo}':       'Uso indebido del comedor',
-  '{descripcion}':  'Se coló en la fila reiteradamente',
-  '{fecha_inicio}': '01/07/2026',
-  '{fecha_fin}':    '15/07/2026',
-}
-
-/** Sustituye los marcadores soportados por valores de ejemplo (réplica aproximada
- *  del render del backend: reemplazo literal, tolerante a llaves sueltas). */
-function renderPreview(text: string, placeholders: string[]): string {
-  let out = text
-  for (const token of placeholders) {
-    const value = PREVIEW_VALUES[token] ?? `«${token.slice(1, -1)}»`
-    out = out.split(token).join(value)
-  }
-  return out
-}
-
-/** Marcadores con forma {...} presentes en el texto que no son soportados. */
-function unsupportedMarkers(text: string, placeholders: string[]): string[] {
-  const found = text.match(/\{[^}]+\}/g) ?? []
-  const supported = new Set(placeholders)
-  return [...new Set(found.filter((m) => !supported.has(m)))]
-}
+/** Pestañas del editor: una por clave de plantilla del backend. */
+const TABS: { key: EmailTemplateKey; label: string; description: string }[] = [
+  {
+    key: 'sanction',
+    label: 'Suspensión',
+    description: 'Correo automático que se envía al usuario cuando se le suspende el acceso al comedor.',
+  },
+  {
+    key: 'sanction_lift',
+    label: 'Levantamiento de suspensión',
+    description: 'Correo automático que se envía al usuario cuando se levanta su suspensión.',
+  },
+]
 
 export function EmailTemplatePage() {
-  // ── Plantilla del correo ──────────────────────────────────────────
-  const [subject,      setSubject]      = useState('')
-  const [body,         setBody]         = useState('')
-  const [placeholders, setPlaceholders] = useState<string[]>([])
-  const [loadingTpl,   setLoadingTpl]   = useState(true)
-  const [savingTpl,    setSavingTpl]    = useState(false)
+  // Pestaña activa. Cada una monta su propio editor, que carga su plantilla y su
+  // juego de marcadores por clave.
+  const [tab, setTab] = useState<EmailTemplateKey>('sanction')
 
   // ── Configuración del emisor y CC del correo (#5) ─────────────────
+  // Es global a todos los correos, así que vive fuera de las pestañas: repetirla en
+  // cada una sugeriría que se puede configurar un emisor distinto por plantilla.
   const [fromName,     setFromName]     = useState('')
   const [fromAddress,  setFromAddress]  = useState('')
   const [cc,           setCc]           = useState('')
@@ -89,48 +75,11 @@ export function EmailTemplatePage() {
     }
   }
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const tpl = await emailTemplateApi.getSanction()
-        setSubject(tpl.subject)
-        setBody(tpl.body)
-        setPlaceholders(tpl.placeholders ?? [])
-      } catch (err: any) {
-        notify.error(err.message ?? 'Error al cargar la plantilla')
-      } finally {
-        setLoadingTpl(false)
-      }
-    })()
-  }, [])
-
-  function insertPlaceholder(token: string) {
-    setBody((prev) => (prev.endsWith(' ') || prev === '' ? prev : prev + ' ') + token)
-  }
-
-  const unknownMarkers = unsupportedMarkers(`${subject}\n${body}`, placeholders)
-
-  async function handleSaveTemplate() {
-    if (!subject.trim() || !body.trim()) {
-      notify.error('El asunto y el cuerpo no pueden estar vacíos.')
-      return
-    }
-    setSavingTpl(true)
-    try {
-      await emailTemplateApi.updateSanction({ subject, body })
-      notify.success('Plantilla guardada correctamente.')
-    } catch (err: any) {
-      notify.error(err.message ?? 'Error al guardar la plantilla')
-    } finally {
-      setSavingTpl(false)
-    }
-  }
-
   return (
     <div>
       <PageHeader
-        title="Plantilla de Correo de Sanción"
-        subtitle="Edita el correo automático que se envía al usuario al suspenderlo"
+        title="Plantillas de Correo"
+        subtitle="Edita los correos automáticos de suspensión y de levantamiento de suspensión"
       />
 
       {/* ── Configuración del emisor y CC (#5) ───────────────────── */}
@@ -175,92 +124,32 @@ export function EmailTemplatePage() {
         )}
       </Card>
 
-      {/* ── Editor de plantilla ──────────────────────────────────── */}
+      {/* ── Plantillas, una por pestaña ──────────────────────────── */}
       <Card variant="outlined" padding="lg" className="mb-6">
-        <p className="mb-4 text-sm font-semibold text-slate-700">Plantilla del correo</p>
+        <div className="mb-5 flex flex-wrap gap-1 border-b border-slate-200">
+          {TABS.map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setTab(key)}
+              aria-current={tab === key ? 'page' : undefined}
+              className={[
+                '-mb-px border-b-2 px-4 py-2 text-sm font-semibold transition',
+                tab === key
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-700',
+              ].join(' ')}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
-        {loadingTpl ? (
-          <div className="flex justify-center py-12"><Spinner size="lg" /></div>
-        ) : (
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="tpl-subject" className="text-[13px] font-semibold text-slate-900">
-                Asunto
-              </label>
-              <Input
-                id="tpl-subject"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                fullWidth
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="tpl-body" className="text-[13px] font-semibold text-slate-900">
-                Cuerpo del mensaje
-              </label>
-              <textarea
-                id="tpl-body"
-                rows={12}
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                className="w-full resize-y rounded-md border border-slate-300 bg-white px-3.5 py-2.5 font-mono text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
-              />
-            </div>
-
-            {placeholders.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-slate-500">Marcadores disponibles (clic para insertar):</span>
-                {placeholders.map((token) => (
-                  <button
-                    key={token}
-                    type="button"
-                    onClick={() => insertPlaceholder(token)}
-                    className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-mono text-xs text-slate-700 transition hover:border-blue-300 hover:bg-blue-50"
-                  >
-                    {token}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {unknownMarkers.length > 0 && (
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                Marcadores no soportados (se enviarán tal cual, sin sustituir):{' '}
-                <span className="font-mono">{unknownMarkers.join(', ')}</span>
-              </div>
-            )}
-
-            {/* Previsualización con valores de ejemplo (aproximada). */}
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[13px] font-semibold text-slate-900">Previsualización</span>
-              <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-                <p className="mb-2 text-xs uppercase tracking-wide text-slate-500">Asunto</p>
-                <p className="mb-4 text-sm font-medium text-slate-800">
-                  {renderPreview(subject, placeholders) || '—'}
-                </p>
-                <p className="mb-2 text-xs uppercase tracking-wide text-slate-500">Cuerpo</p>
-                <div className="whitespace-pre-wrap text-sm text-slate-700">
-                  {renderPreview(body, placeholders) || '—'}
-                </div>
-              </div>
-              <span className="text-xs text-slate-500">
-                Aproximación con datos de ejemplo; el envío real usa los datos de la sanción.
-              </span>
-            </div>
-
-            <div className="flex justify-end border-t border-slate-100 pt-4">
-              <Button
-                variant="primary"
-                leftIcon={<Save size={15} />}
-                loading={savingTpl}
-                onClick={handleSaveTemplate}
-              >
-                Guardar plantilla
-              </Button>
-            </div>
-          </div>
-        )}
+        {TABS.filter((t) => t.key === tab).map(({ key, description }) => (
+          // `key` fuerza el remontaje al cambiar de pestaña: cada plantilla arranca
+          // con su propio contenido en lugar de heredar el texto de la anterior.
+          <EmailTemplateEditor key={key} templateKey={key} description={description} />
+        ))}
       </Card>
     </div>
   )
