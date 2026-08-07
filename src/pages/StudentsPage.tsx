@@ -102,6 +102,9 @@ export function StudentsPage() {
         search:    search.trim() || undefined,
         is_active: activeState === 'all' ? undefined : activeState === 'true',
         cod_carr:  codCarr || undefined,
+        // El servidor resuelve el filtro de sexo, de modo que `total` es el conteo
+        // real de lo que falta por clasificar y no el de la página en pantalla.
+        gender:    onlyUnassigned ? 'none' : undefined,
       })
       setRows(result.items)
       setTotal(result.total)
@@ -115,7 +118,7 @@ export function StudentsPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, search, activeState, codCarr])
+  }, [page, search, activeState, codCarr, onlyUnassigned])
 
   useEffect(() => { void refetch() }, [refetch])
 
@@ -124,17 +127,6 @@ export function StudentsPage() {
   function resetPage<T>(setter: (value: T) => void) {
     return (value: T) => { setter(value); setPage(0) }
   }
-
-  /**
-   * El filtro "Sin sexo asignado" se aplica sobre la página cargada: el contrato del
-   * backend no expone un parámetro de sexo en `GET /students`, y no se inventa uno
-   * aquí porque el otro lado no lo implementaría. Mientras el padrón esté sin
-   * clasificar —que es el estado de partida— toda la página cae dentro del filtro.
-   */
-  const visibleRows = useMemo(
-    () => (onlyUnassigned ? rows.filter((s) => s.gender == null) : rows),
-    [rows, onlyUnassigned],
-  )
 
   const careerOptions = useMemo(
     () => [
@@ -254,7 +246,7 @@ export function StudentsPage() {
           <input
             type="checkbox"
             checked={onlyUnassigned}
-            onChange={(e) => setOnlyUnassigned(e.target.checked)}
+            onChange={(e) => resetPage(setOnlyUnassigned)(e.target.checked)}
             className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
           />
           Sin sexo asignado
@@ -266,13 +258,13 @@ export function StudentsPage() {
         <div className="flex flex-col gap-3 lg:col-span-3">
           <Table<StudentPadronData>
             columns={columns}
-            rows={visibleRows}
+            rows={rows}
             keyField="id"
             loading={loading}
             onRowClick={(row) => setSelected(row)}
             emptyMessage={
               onlyUnassigned
-                ? 'No queda ningún estudiante sin sexo asignado en esta página.'
+                ? 'No queda ningún estudiante sin sexo asignado.'
                 : 'No hay estudiantes para los filtros seleccionados.'
             }
           />
@@ -284,7 +276,7 @@ export function StudentsPage() {
                 : `Mostrando ${from}–${to} de ${total} estudiante${total !== 1 ? 's' : ''}`}
               {onlyUnassigned && total > 0 && (
                 <span className="text-xs text-slate-400">
-                  {' '}· filtro de sexo aplicado sobre esta página
+                  {' '}· pendientes de clasificar
                 </span>
               )}
             </span>

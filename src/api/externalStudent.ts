@@ -40,12 +40,20 @@ export function mapExternalToStudent(data: StudentPadronData): Student {
 }
 
 /** Parámetros de `GET /students/` (paginado + filtros que el backend ya expone). */
+/**
+ * Valor del filtro de sexo. `'none'` **no** es un sexo: selecciona a quienes faltan
+ * por clasificar. Hace falta un token porque un parámetro vacío en la URL no puede
+ * distinguirse de "sin filtro".
+ */
+export type StudentGenderFilter = StudentGender | 'none'
+
 export interface StudentListParams {
   skip?:      number
   limit?:     number
   search?:    string
   is_active?: boolean
   cod_carr?:  string
+  gender?:    StudentGenderFilter
 }
 
 export const externalStudentApi = {
@@ -57,6 +65,10 @@ export const externalStudentApi = {
     if (params.search)            p.set('search', params.search)
     if (params.is_active != null) p.set('is_active', String(params.is_active))
     if (params.cod_carr)          p.set('cod_carr', params.cod_carr)
+    // El filtro de sexo lo resuelve el servidor: hacerlo aquí sobre la página ya
+    // cargada devolvería un `total` falso y menos filas de las pedidas conforme
+    // avanzara la clasificación, justo cuando la cola de trabajo empieza a servir.
+    if (params.gender)            p.set('gender', params.gender)
     const qs = p.toString()
     return apiClient.get<PaginatedStudents>(`/students/${qs ? `?${qs}` : ''}`)
   },

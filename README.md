@@ -16,8 +16,8 @@ Consume la API REST de
 
 | Módulo | Pantallas |
 |---|---|
-| **Comedor** | Sesión de servicio, Consultar consumo, Registro al comedor (con lector de código de barras), Reporte de comedor, Historial de sesiones, Registro manual, Suspender usuario, Usuarios suspendidos, Verificar acceso directo |
-| **Personas** | Accesos directos, Gente externa, Importación de estudiantes por CSV, Lista de usuarios del sistema |
+| **Comedor** | Sesión de servicio, Consultar consumo, Registro al comedor (con lector de código de barras y aviso previo si la persona ya consumió), Reporte de comedor, Historial de sesiones, Registro manual (con la relación de ingresos del día), Suspender usuario, Usuarios suspendidos, Verificar acceso directo |
+| **Personas** | Padrón de estudiantes, Accesos directos, Gente externa, Importación de estudiantes por CSV, Lista de usuarios del sistema |
 | **Inventario** | Registrar inventario, Inventario general, Reportes de consumo de insumos, Crear servicio de alimentación, Plantillas, Pruebas de cálculo |
 | **Administración** | Auditoría de acceso, Gestión de permisos, Plantilla de correo, Sedes, Catálogo de carreras |
 
@@ -105,7 +105,7 @@ src/
 ├── config/        # routeAccess.ts — mapa de rutas por rol
 ├── context/       # AuthContext (usuario + permisos)
 ├── hooks/         # useBarcodeScanner
-├── pages/         # 26 pantallas, una por ruta
+├── pages/         # 27 pantallas, una por ruta
 ├── types/         # Tipos que reflejan los contratos del backend
 ├── utils/         # CSV, PDF, impresión, sonidos, toasts, cálculo de almuerzos
 ├── App.tsx        # Rutas + AuthProvider + Toaster
