@@ -61,17 +61,54 @@ describe('StudentsPage — cola de clasificación del sexo', () => {
     list.mockResolvedValue({ total: 2, items: [UNCLASSIFIED, CLASSIFIED] })
   })
 
-  it('el filtro "Sin sexo asignado" deja solo a los estudiantes sin clasificar', async () => {
+  it('el filtro "Sin sexo asignado" lo resuelve el servidor, no la página cargada', async () => {
     const user = userEvent.setup()
     render(<StudentsPage />)
 
     expect(await screen.findByText('Frankly Bautista')).toBeInTheDocument()
     expect(screen.getByText('Ana Pérez')).toBeInTheDocument()
+    expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ gender: undefined }))
+
+    // El servidor devuelve solo a los pendientes cuando llega `gender: 'none'`.
+    list.mockResolvedValue({ total: 1, items: [UNCLASSIFIED] })
+    await user.click(screen.getByLabelText('Sin sexo asignado'))
+
+    await waitFor(() =>
+      expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ gender: 'none' })),
+    )
+    expect(await screen.findByText('Frankly Bautista')).toBeInTheDocument()
+    expect(screen.queryByText('Ana Pérez')).not.toBeInTheDocument()
+  })
+
+  it('el total con el filtro puesto es el de pendientes, no el de la página', async () => {
+    const user = userEvent.setup()
+    render(<StudentsPage />)
+    await screen.findByText('Frankly Bautista')
+
+    // Más pendientes que filas caben en una página: es el caso que el filtrado en
+    // cliente no podía representar, porque solo veía las filas ya cargadas.
+    list.mockResolvedValue({ total: 8375, items: [UNCLASSIFIED] })
+    await user.click(screen.getByLabelText('Sin sexo asignado'))
+
+    expect(await screen.findByText(/de 8375 estudiantes/)).toBeInTheDocument()
+  })
+
+  it('activar el filtro vuelve a la primera página', async () => {
+    const user = userEvent.setup()
+    list.mockResolvedValue({ total: 200, items: [UNCLASSIFIED, CLASSIFIED] })
+    render(<StudentsPage />)
+    await screen.findByText('Frankly Bautista')
+
+    await user.click(screen.getByRole('button', { name: /Siguiente/i }))
+    await waitFor(() =>
+      expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ skip: 50 })),
+    )
 
     await user.click(screen.getByLabelText('Sin sexo asignado'))
 
-    expect(screen.getByText('Frankly Bautista')).toBeInTheDocument()
-    expect(screen.queryByText('Ana Pérez')).not.toBeInTheDocument()
+    await waitFor(() =>
+      expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ skip: 0, gender: 'none' })),
+    )
   })
 
   it('el estado inicial no tiene ninguna opción marcada y el estudiante cae en el filtro', async () => {
@@ -124,7 +161,7 @@ describe('StudentsPage — cola de clasificación del sexo', () => {
     // Sigue visible: la fila del listado y la cabecera de la ficha abierta.
     expect(screen.getAllByText('Frankly Bautista').length).toBeGreaterThan(0)
     expect(
-      screen.queryByText('No queda ningún estudiante sin sexo asignado en esta página.'),
+      screen.queryByText('No queda ningún estudiante sin sexo asignado.'),
     ).not.toBeInTheDocument()
   })
 

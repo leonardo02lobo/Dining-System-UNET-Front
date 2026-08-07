@@ -6,17 +6,19 @@ Client for the **Sistema de Comedor Universitario** of the Universidad Nacional
 Experimental del Táchira (UNET). A React 19 SPA that ships two ways: as a web app
 (Vite build, deployed to Vercel) and as a desktop app (Tauri 2 / Rust shell).
 
-Four roles — **SUPER_ADMIN**, **ADMIN**, **TAQUILLERO** and **ACCESO_DIRECTO**
-(stored as `BENEFICIARIO`) — drive 26 screens covering:
+Four roles — **SUPER_ADMIN**, **ADMIN**, **TAQUILLERO** and **ACCESO_DIRECTO** —
+drive 27 screens covering:
 
-- Meal registration at the counter, driven by a USB barcode/ID-card scanner
-- Person lookup, quick suspension and the suspended list
+- Meal registration at the counter, driven by a USB barcode/ID-card scanner, with
+  an up-front warning when the person already ate that day
+- Person lookup, quick suspension (with a capped end date) and the suspended list
 - Service sessions per campus (*sede*) and their history
-- Manual registration by date, with printable listings
-- Direct-access people, external people, official student-roster import, career catalogue
+- Manual registration by date, the day's full entry list, and printable listings
+- Direct-access people, external people, official student-roster import, the roster
+  screen where sex is classified, career catalogue
 - Pantry inventory and meal planning with proportional ingredient scaling
 - Consumption / supply reports, attendance statistics and PDF·CSV export
-- User directory, per-user permission management, login audit, email template
+- User directory, per-user permission management, login audit, email templates
 
 The backend is the FastAPI service in
 [`../Dining-System-UNET-Backend`](../Dining-System-UNET-Backend).
@@ -70,14 +72,16 @@ Rust side: `tauri` 2, `tauri-plugin-opener`, `serde`/`serde_json`.
 │   │   ├── statistics/       # Attendance charts by career / date / gender / person type
 │   │   ├── icons/            # UNET and Decanato logos (SVG + embedded data)
 │   │   ├── ProtectedRoute.tsx  SedeSelector.tsx  StudentResultCard.tsx
-│   │   ├── AccesoDirectoFormModal.tsx  UserFormModal.tsx
+│   │   ├── AccesoDirectoFormModal.tsx  UserFormModal.tsx  CareerInput.tsx
+│   │   ├── EmailTemplateEditor.tsx   # One template editor, parameterised by key
 │   ├── config/routeAccess.ts # ROUTE_ACCESS, DEFAULT_ROUTE, canAccess() — the client-side gate
 │   ├── context/AuthContext.tsx  # The only React context: user + permissions + loading
 │   ├── hooks/useBarcodeScanner.ts
-│   ├── pages/                # 26 route components (see §5)
+│   ├── pages/                # 27 route components (see §5)
 │   ├── types/                # 16 type modules mirroring the backend contracts
 │   ├── utils/                # csvImport, rosterMerge, lunchRecalculation, pdf*, printManual, sessionStats,
-│   │                         # sound, toast, labels, cedula, apiErrors, chartPercent, downloadBlob
+│   │                         # sound, toast, labels, cedula, apiErrors, chartPercent, downloadBlob,
+│   │                         # sanctionDates (end-date window), consumptionNotice (shared warning text)
 │   ├── data/mockLunch.ts     # Demo data only (used by LunchTestPage)
 │   ├── test/setup.ts         # jest-dom matchers for Vitest
 │   ├── App.tsx · main.tsx · index.css
@@ -149,15 +153,16 @@ All authenticated routes render inside `Index` (Header + sidebar `NavBar` +
 | `/` | `Index` | Layout shell; the home view shows a watermark only |
 | `/comedor/sesion` | `LunchSessionPage` | Open/close the service session for a sede, set planned plate count |
 | `/comedor/consultar` | `CheckConsumes` | Look up a person and see whether they already ate today + sanction status |
-| `/comedor/registrar` | `RegisterDining` | The counter screen: scan or type a cédula, register the meal, see the session counter and the last 10 entrants |
+| `/comedor/registrar` | `RegisterDining` | The counter screen: scan or type a cédula, register the meal, see the session counter and the last 10 entrants. Warns **before** registering when the person already ate today, and blocks the button |
 | `/comedor/reporte` | `ReportsPage` | Consumption report with charts |
 | `/comedor/historial` | `SessionHistoryPage` | Past sessions with attendance breakdown and printable entrant lists |
-| `/comedor/registro-manual` | `ManualRegistrationPage` | Add/edit/delete registrations attached to a date; printable listing |
-| `/comedor/suspender` | `SuspendStudent` | Same lookup flow as registration, but the action is a quick suspension |
-| `/suspendidos` | `SuspendedListPage` | Currently suspended people; lift a suspension |
+| `/comedor/registro-manual` | `ManualRegistrationPage` | Add/edit/delete registrations attached to a date; printable listing. Second tab lists **every** entry of that date (counter + manual), and the duplicate warning uses the **selected** date, not today |
+| `/comedor/suspender` | `SuspendStudent` | Same lookup flow as registration, but the action is a quick suspension, with an end date capped at 365 days or an explicit "Indefinida" |
+| `/suspendidos` | `SuspendedListPage` | Currently suspended people; lift a suspension (which emails the person) |
 | `/verificar-acceso-directo` | `VerifyAccesoDirectoPage` | Self-service verification screen for the `ACCESO_DIRECTO` role |
 | `/accesos_directos` | `AccesoDirectoPage` | CRUD of direct-access people |
 | `/accesos_directos/importar` | `StudentImportPage` | Import of the official student roster: multi-file, auto-detected encoding/delimiter, merge, paged preview, chunked upload. The path keeps its historical prefix (twin of `_PERMISSIONS`) but the screen writes to `/students` |
+| `/estudiantes` | `StudentsPage` | The roster itself: paginated list with search / status / career / **"Sin sexo asignado"** filters, and a detail panel split into sections. Everything is read-only **except the sex**, which is the only field the CSV does not carry and the panel must supply |
 | `/gente-externa` | `ExternalPeoplePage` | CRUD of external people (jubilados / externos) |
 | `/usuarios` | `ListUser` | Staff account directory. **No CSV import screen exists** — `userApi.bulkCreate` and the `UserBulk*` types are defined but unused |
 | `/inventario` | `InventoryPage` | Register supplies: categories, items, stock entries |
@@ -168,7 +173,7 @@ All authenticated routes render inside `Index` (Header + sidebar `NavBar` +
 | `/inventario/pruebas-almuerzo` | `LunchTestPage` | Sandbox to try the scaling maths without persisting |
 | `/auditoria` | `LoginAuditPage` | Login audit log with date/role filters |
 | `/admin/permisos` | `PermissionsPage` | Per-user route permission toggles (SUPER_ADMIN) |
-| `/admin/plantilla-correo` | `EmailTemplatePage` | Edit the sanction email subject/body + sender settings, with live preview |
+| `/admin/plantilla-correo` | `EmailTemplatePage` | Two tabs — **suspension** and **lift** — each editing its template's subject/body with live preview, plus the shared sender settings. Placeholders come from the server, since each template admits a different set |
 | `/sedes` | `SedesPage` | Campus CRUD |
 | `/admin/carreras` | `CareerCatalogPage` | Career catalogue used by statistics filters |
 
@@ -251,18 +256,18 @@ Behaviour worth knowing:
 | `user.ts` | `/users`, `/roles` | `userApi` CRUD + `bulkCreate`; `roleApi.list` |
 | `permissions.ts` | `/users/{id}/permissions` | `getByUser`, `update` |
 | `student.ts` | composite | `lookup` runs the roster lookup and the direct-access lookup **in parallel** (`Promise.allSettled`) and merges them: the direct-access record wins on `user_type`, the **roster wins on `career`** (it is reloaded from the official CSV every term, the direct-access one was typed once). `studentToIdentity` must carry `career` and `user_type` — they feed `beneficiaries.career`, which is the column every report and career filter reads |
-| `externalStudent.ts` | `/students` | Name kept for backward compatibility; `mapExternalToStudent` adapts the roster row to the UI `Student` |
+| `externalStudent.ts` | `/students` | Name kept for backward compatibility; `mapExternalToStudent` adapts the roster row to the UI `Student`. `list`/`getById`/`setGender` back the roster screen — `setGender` is the **only** write the panel may make to a roster row |
 | `acceso_directo.ts` | `/accesos_directos` | CRUD, `lookup`, `verify`, `bulkCreate` |
 | `externalPerson.ts` | `/external-people` | CRUD |
 | `accessReason.ts`, `career.ts`, `sedes.ts` | catalogues | |
 | `lunchSession.ts` | `/lunch-sessions` | `open`, `today` (404 → `null`), `openList`, `close`, `list`, `listByRange` |
-| `consumption.ts` | `/consumptions` | `register`, `check`, `list`, `sessionRecent`, `userStats`, manual CRUD |
+| `consumption.ts` | `/consumptions` | `register`, `check`, `list`, `sessionRecent`, `userStats`, manual CRUD, plus `checkByDocument` (resolves by cédula, so it also answers for someone who is not yet a direct-access person) and `daySummary` (every entry of a date, counter + manual) |
 | `sanction.ts` | `/sanctions` | `create`, `quickCreate`, `revoke`, `lift`, `list`, `suspended`, `history` |
 | `inventory.ts` | `/inventory` | Categories, items, stock increase, PDF export |
 | `lunch.ts` | `/lunches`, `/lunch-templates` | CRUD + the composed `createConfirmedLunch` flow |
 | `reports.ts` | `/reports`, `/consumption-reports` | JSON reports + CSV/PDF blobs |
 | `statistics.ts` | `/statistics` | Attendance by period / by session, with demographic filters |
-| `emailTemplate.ts` | `/email-templates`, `/email-settings` | Sanction template + sender settings |
+| `emailTemplate.ts` | `/email-templates`, `/email-settings` | `get(key)` / `update(key, …)` for the `sanction` and `sanction_lift` templates, + sender settings |
 | `audit.ts` | `/auth/audit-logs` | Paginated, with date and role filters |
 
 **`lunchApi.createConfirmedLunch`** composes the whole meal-creation flow in one
@@ -351,8 +356,17 @@ useEffect(() => {
 
 ### Shared helpers instead of duplication
 
-- `utils/labels.ts` — `USER_TYPE_LABEL` / `userTypeLabel()` is the single source of
-  truth for person-type display strings.
+- `utils/labels.ts` — `USER_TYPE_LABEL` / `userTypeLabel()` and `ROLE_LABEL` /
+  `roleLabel()` are the single source of truth for person-type and role display
+  strings. `ROLE_LABEL` used to be copy-pasted into four screens that drifted apart,
+  which is how `ACCESO_DIRECTO` ended up unlabelled in some of them and not others.
+  An unknown value still falls through to the raw string rather than blanking the
+  cell.
+- `utils/sanctionDates.ts` — the suspension end-date window (today … today + 365)
+  and its validation, kept apart from the modals so both can share it and it can be
+  tested without rendering a form.
+- `utils/consumptionNotice.ts` — the "already ate today" wording, so the counter
+  screen and manual registration cannot describe the same situation differently.
 - `utils/cedula.ts` — `normalizeCedula()` before every lookup.
 - `utils/apiErrors.ts` — `errorMessage()` and status constants (`CONFLICT`…).
 - `utils/lunchRecalculation.ts` — mirrors the backend's rule-of-three so the form
@@ -418,7 +432,20 @@ here** — the bundle is public.
   accordingly.
 - Business rules the UI must respect (all enforced server-side too): one meal per
   person per day; at most one open session per sede; an active sanction blocks
-  registration with a `403` carrying the sanction; confirmed lunches are immutable.
+  registration with a `403` carrying the sanction; confirmed lunches are immutable;
+  a sanction's `end_date` may not exceed `MAX_SANCTION_DAYS` (365) from its start,
+  though a null one still means indefinite.
+- **The role arrives as `ACCESO_DIRECTO`.** It used to travel as `BENEFICIARIO` —
+  the enum member and its value diverged server-side — which is why every
+  `ROLE_LABEL` lookup missed. Migration `f9a0b1c2d3e4` renamed the value; the table
+  is still physically `beneficiaries`, so backend paths keep that word.
+- `GET /consumptions/check-by-document?document_id=&date=` answers **200 even for an
+  unknown person** (`acceso_directo_id: null`, `has_consumed: false`). Not having
+  eaten is a valid answer, not a 404, and the call never creates anybody — so it is
+  safe to fire on every lookup.
+- `PATCH /students/{id}` accepts **only** `gender`; any other field is a 422. That
+  is what makes the roster screen's read-only fields actually read-only, rather than
+  a convention the form happens to follow.
 
 ---
 
