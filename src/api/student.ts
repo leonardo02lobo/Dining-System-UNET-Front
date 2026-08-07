@@ -26,6 +26,10 @@ export function studentToIdentity(s: Student): AccesoDirectoIdentity {
     last_name,
     email: s.email || null,
     photo_url: s.avatar_url || null,
+    // Sin estos dos, el acceso directo se creaba con carrera y tipo vacíos y la
+    // columna "Carrera" salía en blanco en historial, registro manual y PDFs.
+    career: s.career || null,
+    user_type: s.user_type || 'STUDENT',
   }
 }
 
@@ -42,10 +46,13 @@ export const studentApi = {
       student.is_acceso_directo = true
       student.acceso_directo_id = ad.id
       // El acceso directo es la fuente autoritativa de tipo de usuario (docente,
-      // obrero, administrativo…) y puede tener una carrera más actualizada que
-      // el padrón. Solo se sobrescribe cuando trae valor.
+      // obrero, administrativo…). Solo se sobrescribe cuando trae valor.
       student.user_type = ad.user_type || student.user_type
-      student.career    = ad.career || student.career
+      // La carrera, en cambio, la manda el padrón: se recarga del CSV oficial cada
+      // semestre, mientras que la del acceso directo se escribió a mano una vez y
+      // queda obsoleta al cambiar de carrera. Para quien no es estudiante el padrón
+      // no tiene carrera, así que ahí sí vale la del acceso directo (su departamento).
+      student.career = student.career || ad.career || ''
     }
     return student
   },

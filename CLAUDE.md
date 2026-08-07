@@ -13,7 +13,7 @@ Four roles — **SUPER_ADMIN**, **ADMIN**, **TAQUILLERO** and **ACCESO_DIRECTO**
 - Person lookup, quick suspension and the suspended list
 - Service sessions per campus (*sede*) and their history
 - Manual registration by date, with printable listings
-- Direct-access people, external people, students CSV import, career catalogue
+- Direct-access people, external people, official student-roster import, career catalogue
 - Pantry inventory and meal planning with proportional ingredient scaling
 - Consumption / supply reports, attendance statistics and PDF·CSV export
 - User directory, per-user permission management, login audit, email template
@@ -76,7 +76,7 @@ Rust side: `tauri` 2, `tauri-plugin-opener`, `serde`/`serde_json`.
 │   ├── hooks/useBarcodeScanner.ts
 │   ├── pages/                # 26 route components (see §5)
 │   ├── types/                # 16 type modules mirroring the backend contracts
-│   ├── utils/                # csvImport, lunchRecalculation, pdf*, printManual, sessionStats,
+│   ├── utils/                # csvImport, rosterMerge, lunchRecalculation, pdf*, printManual, sessionStats,
 │   │                         # sound, toast, labels, cedula, apiErrors, chartPercent, downloadBlob
 │   ├── data/mockLunch.ts     # Demo data only (used by LunchTestPage)
 │   ├── test/setup.ts         # jest-dom matchers for Vitest
@@ -157,9 +157,9 @@ All authenticated routes render inside `Index` (Header + sidebar `NavBar` +
 | `/suspendidos` | `SuspendedListPage` | Currently suspended people; lift a suspension |
 | `/verificar-acceso-directo` | `VerifyAccesoDirectoPage` | Self-service verification screen for the `ACCESO_DIRECTO` role |
 | `/accesos_directos` | `AccesoDirectoPage` | CRUD of direct-access people |
-| `/accesos_directos/importar` | `AccesoDirectoImportPage` | CSV import of the student roster |
+| `/accesos_directos/importar` | `StudentImportPage` | Import of the official student roster: multi-file, auto-detected encoding/delimiter, merge, paged preview, chunked upload. The path keeps its historical prefix (twin of `_PERMISSIONS`) but the screen writes to `/students` |
 | `/gente-externa` | `ExternalPeoplePage` | CRUD of external people (jubilados / externos) |
-| `/usuarios` | `ListUser` | Staff account directory + CSV bulk import |
+| `/usuarios` | `ListUser` | Staff account directory. **No CSV import screen exists** — `userApi.bulkCreate` and the `UserBulk*` types are defined but unused |
 | `/inventario` | `InventoryPage` | Register supplies: categories, items, stock entries |
 | `/inventario/general` | `GeneralInventoryPage` | Read-only overview + PDF export |
 | `/inventario/reportes-consumo` | `ConsumptionReportPage` | Supply consumption report, CSV/PDF export |
@@ -250,7 +250,7 @@ Behaviour worth knowing:
 | `auth.ts` | `/auth`, `/users/me` | `login` posts the form then fetches `/users/me`; `logout`; `me` |
 | `user.ts` | `/users`, `/roles` | `userApi` CRUD + `bulkCreate`; `roleApi.list` |
 | `permissions.ts` | `/users/{id}/permissions` | `getByUser`, `update` |
-| `student.ts` | composite | `lookup` runs the roster lookup and the direct-access lookup **in parallel** (`Promise.allSettled`) and merges them; `registerDining` builds the consumption payload |
+| `student.ts` | composite | `lookup` runs the roster lookup and the direct-access lookup **in parallel** (`Promise.allSettled`) and merges them: the direct-access record wins on `user_type`, the **roster wins on `career`** (it is reloaded from the official CSV every term, the direct-access one was typed once). `studentToIdentity` must carry `career` and `user_type` — they feed `beneficiaries.career`, which is the column every report and career filter reads |
 | `externalStudent.ts` | `/students` | Name kept for backward compatibility; `mapExternalToStudent` adapts the roster row to the UI `Student` |
 | `acceso_directo.ts` | `/accesos_directos` | CRUD, `lookup`, `verify`, `bulkCreate` |
 | `externalPerson.ts` | `/external-people` | CRUD |
@@ -359,8 +359,19 @@ useEffect(() => {
   can preview quantities instantly (`POST /lunches/calculate` is the authority).
 - `utils/pdfLunch.ts`, `pdfInventory.ts`, `pdfSessionEntrants.ts`, `printManual.ts`
   — client-side jsPDF documents; `downloadBlob.ts` handles server-generated files.
-- `utils/csvImport.ts` — CSV parsing/validation shared by the student and user
-  import screens.
+- `utils/csvImport.ts` — the roster import core: `detectEncoding`/`decodeCsvBuffer`
+  (UTF-8/16/32 — the official files are **UTF-32BE with no BOM**, which
+  `FileReader.readAsText` cannot read), `detectDelimiter` (`,` vs `;`),
+  `autoMapColumns` (maps the official header `NACIONALIDAD,CEDULA,P_NOMBRE,
+  S_NOMBRE,P_APELLIDO,S_APELLIDO,EMAIL,COD_CARR,CARRERA,ESTADO,TIPO` in full, and
+  builds `full_name` from the four name columns), `parseActiveState` (`A`/`I` plus
+  the tolerant set; returns `null` on an unknown value so the row warns instead of
+  silently importing as inactive), `buildBulkItems`, `validateRow`, `chunk`.
+- `utils/rosterMerge.ts` — merges `Activos.csv` + `Inactivos.csv` into one row per
+  cédula. **The active record wins**; every discarded row is reported. Without this
+  the backend rejects the overlap as "cédula repetida dentro del archivo".
+- `utils/rosterRealFiles.verify.test.ts` — acceptance check that runs the whole
+  pipeline over the real CSVs in the project root, and skips when they are absent.
 - `utils/sessionStats.ts`, `chartPercent.ts` — chart data shaping.
 
 ### TypeScript strictness

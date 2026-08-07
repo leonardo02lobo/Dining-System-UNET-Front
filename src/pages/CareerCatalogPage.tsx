@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { careerApi } from '../api/career'
+import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
@@ -24,11 +25,14 @@ export function CareerCatalogPage() {
   const [loading, setLoading] = useState(false)
 
   const [newName, setNewName] = useState('')
+  const [newCode, setNewCode] = useState('')
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
 
   const [editTarget, setEditTarget] = useState<Career | null>(null)
   const [editName, setEditName] = useState('')
+  const [editCode, setEditCode] = useState('')
+  const [editActive, setEditActive] = useState(true)
   const [saving, setSaving] = useState(false)
   const [editError, setEditError] = useState('')
 
@@ -60,9 +64,10 @@ export function CareerCatalogPage() {
     setCreating(true)
     setCreateError('')
     try {
-      const created = await careerApi.create({ name: trimmed })
+      const created = await careerApi.create({ name: trimmed, code: newCode.trim() || null })
       setCareers((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name, 'es')))
       setNewName('')
+      setNewCode('')
       notify.success('Carrera creada correctamente.')
     } catch (err: any) {
       setCreateError(err?.message ?? 'No se pudo crear la carrera.')
@@ -74,6 +79,8 @@ export function CareerCatalogPage() {
   function openEditModal(career: Career) {
     setEditTarget(career)
     setEditName(career.name)
+    setEditCode(career.code ?? '')
+    setEditActive(career.is_active)
     setEditError('')
   }
 
@@ -88,7 +95,11 @@ export function CareerCatalogPage() {
     setSaving(true)
     setEditError('')
     try {
-      const updated = await careerApi.update(editTarget.id, { name: trimmed })
+      const updated = await careerApi.update(editTarget.id, {
+        name: trimmed,
+        code: editCode.trim() || null,
+        is_active: editActive,
+      })
       setCareers((prev) =>
         prev.map((c) => (c.id === updated.id ? updated : c)).sort((a, b) => a.name.localeCompare(b.name, 'es')),
       )
@@ -117,7 +128,21 @@ export function CareerCatalogPage() {
   }
 
   const columns: ColumnDef<Career>[] = [
+    {
+      key: 'code',
+      header: 'Código',
+      sortable: true,
+      // Las carreras creadas a mano no tienen código oficial.
+      render: (value) => (value ? String(value) : <span className="text-slate-300">—</span>),
+    },
     { key: 'name', header: 'Carrera', sortable: true },
+    {
+      key: 'is_active',
+      header: 'Estado',
+      render: (value) => (
+        <Badge variant={value ? 'success' : 'neutral'}>{value ? 'Activa' : 'Inactiva'}</Badge>
+      ),
+    },
     {
       key: 'created_at',
       header: 'Creada',
@@ -129,7 +154,7 @@ export function CareerCatalogPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Catálogo de Carreras"
-        subtitle="Carreras disponibles para los filtros de estadísticas del comedor"
+        subtitle="Carreras del padrón oficial. El código es el de Control de Estudios y es lo que empareja al estudiante con su carrera."
       />
 
       {canManage && (
@@ -143,6 +168,13 @@ export function CareerCatalogPage() {
                 void handleCreate()
               }}
             >
+              <Input
+                label="Código"
+                placeholder="Ej: 18000"
+                value={newCode}
+                onChange={(e) => setNewCode(e.target.value)}
+                className="sm:w-[160px]"
+              />
               <Input
                 label="Nombre"
                 placeholder="Ej: Ingeniería Civil"
@@ -209,16 +241,34 @@ export function CareerCatalogPage() {
           </>
         }
       >
-        <Input
-          label="Nombre"
-          value={editName}
-          error={editError}
-          onChange={(e) => {
-            setEditName(e.target.value)
-            if (editError) setEditError('')
-          }}
-          fullWidth
-        />
+        <div className="flex flex-col gap-3">
+          <Input
+            label="Nombre"
+            value={editName}
+            error={editError}
+            onChange={(e) => {
+              setEditName(e.target.value)
+              if (editError) setEditError('')
+            }}
+            fullWidth
+          />
+          <Input
+            label="Código (Control de Estudios)"
+            placeholder="Ej: 18000"
+            value={editCode}
+            onChange={(e) => setEditCode(e.target.value)}
+            fullWidth
+          />
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={editActive}
+              onChange={(e) => setEditActive(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-blue-600"
+            />
+            Carrera activa
+          </label>
+        </div>
       </Modal>
 
       <Modal

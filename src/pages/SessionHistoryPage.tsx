@@ -15,7 +15,16 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { Select } from '../components/ui/Select'
 import { BarChart, PieChart } from '../components/ui/Chart'
 import { Table, type ColumnDef } from '../components/ui/Table'
-import { CAREER_SET, careerKeyOf, careerStats, genderStats, roleStats, type StatBucket } from '../utils/sessionStats'
+import { careerApi } from '../api/career'
+import {
+  careerKeyOf,
+  careerOptionsFrom,
+  careerStats,
+  genderStats,
+  roleStats,
+  type CareerOption,
+  type StatBucket,
+} from '../utils/sessionStats'
 import type { Consumption } from '../types/consumption'
 import type { LunchSession } from '../types/lunchSession'
 import type { LunchResponse } from '../types/lunch'
@@ -104,11 +113,7 @@ const CHART_TYPE_OPTIONS = [
   { value: 'WORKER',         label: 'Obrero' },
 ]
 
-// Filtro de carrera (solo aplica a estudiantes): "Todas" + set fijo del issue #3.
-const CHART_CAREER_OPTIONS = [
-  { value: 'ALL', label: 'Todas las carreras' },
-  ...CAREER_SET.map((c) => ({ value: c.key, label: c.label })),
-]
+const ALL_CAREERS_OPTION = { value: 'ALL', label: 'Todas las carreras' }
 
 export function SessionHistoryPage() {
   const [dateFrom, setDateFrom] = useState(toIsoDate(30))
@@ -117,6 +122,9 @@ export function SessionHistoryPage() {
   const [sessions, setSessions] = useState<LunchSession[]>([])
   const [sessionsLoading, setSessionsLoading] = useState(false)
   const [sessionsError, setSessionsError] = useState('')
+
+  // Catálogo real de carreras (`GET /careers/`): alimenta el filtro y la gráfica.
+  const [careerOptions, setCareerOptions] = useState<CareerOption[]>([])
 
   const [selected, setSelected] = useState<LunchSession | null>(null)
   const [entrants, setEntrants] = useState<Consumption[]>([])
@@ -151,6 +159,17 @@ export function SessionHistoryPage() {
   useEffect(() => {
     void loadSessions()
   }, [loadSessions])
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        setCareerOptions(careerOptionsFrom(await careerApi.list()))
+      } catch {
+        // Sin catálogo, la gráfica agrupa todo en "Otras": no vale la pena molestar.
+        setCareerOptions([])
+      }
+    })()
+  }, [])
 
   const loadEntrants = useCallback(async (session: LunchSession, priorityOnly: boolean) => {
     setEntrantsLoading(true)
@@ -256,15 +275,24 @@ export function SessionHistoryPage() {
       list = list.filter((e) => (e.user_type ?? '').toUpperCase() === chartType)
     }
     if (chartType === 'STUDENT' && chartCareer !== 'ALL') {
-      list = list.filter((e) => careerKeyOf(e.career) === chartCareer)
+      list = list.filter((e) => careerKeyOf(e.career, careerOptions) === chartCareer)
     }
     return list
-  }, [entrants, chartType, chartCareer])
+  }, [entrants, chartType, chartCareer, careerOptions])
 
   // Datos de las gráficas de la sesión (issue #3), recalculados con la población filtrada.
   const genderData = useMemo(() => toPieData(genderStats(chartEntrants)), [chartEntrants])
   const roleData = useMemo(() => toPieData(roleStats(chartEntrants)), [chartEntrants])
-  const careerData = useMemo(() => toBarData(careerStats(chartEntrants), 'Estudiantes'), [chartEntrants])
+  const careerData = useMemo(
+    () => toBarData(careerStats(chartEntrants, careerOptions), 'Estudiantes'),
+    [chartEntrants, careerOptions],
+  )
+
+  // "Todas" + el catálogo real; sustituye al set fijo de 8 carreras.
+  const chartCareerOptions = useMemo(
+    () => [ALL_CAREERS_OPTION, ...careerOptions.map((c) => ({ value: c.key, label: c.label }))],
+    [careerOptions],
+  )
 
   // La gráfica por carrera solo aplica a estudiantes y sin una carrera concreta ya elegida.
   const showCareerChart = (chartType === 'ALL' || chartType === 'STUDENT') && chartCareer === 'ALL'
@@ -452,7 +480,7 @@ export function SessionHistoryPage() {
             {chartType === 'STUDENT' && (
               <Select
                 label="Carrera"
-                options={CHART_CAREER_OPTIONS}
+                options={chartCareerOptions}
                 value={chartCareer}
                 onChange={(e) => setChartCareer(e.target.value)}
                 className="w-full sm:w-56"
@@ -466,7 +494,7 @@ export function SessionHistoryPage() {
               ? 'entrantes de la sesión.'
               : `${CHART_TYPE_OPTIONS.find((o) => o.value === chartType)?.label.toLowerCase()}(s)${
                   chartType === 'STUDENT' && chartCareer !== 'ALL'
-                    ? ` de ${CHART_CAREER_OPTIONS.find((o) => o.value === chartCareer)?.label}`
+                    ? ` de ${chartCareerOptions.find((o) => o.value === chartCareer)?.label}`
                     : ''
                 }.`}
           </p>

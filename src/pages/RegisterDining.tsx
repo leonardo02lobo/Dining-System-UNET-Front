@@ -460,7 +460,9 @@ export function RegisterDining() {
     : activeSanction
       ? { text: `Usuario suspendido, no puede registrar consumo. Motivo: ${activeSanction.reason}`, tone: 'danger' }
       : student.is_suspended
-        ? { text: 'Este estudiante está suspendido y no puede registrar consumo.', tone: 'danger' }
+        // Sin sanción activa, `is_suspended` viene de `is_active: false` en el
+        // padrón: la persona no está inscrita este semestre, no está sancionada.
+        ? { text: 'Este estudiante no está activo en el padrón de la UNET y no puede registrar consumo.', tone: 'danger' }
         : !student.is_acceso_directo
           ? {
               text: 'Este usuario no tiene acceso directo. Se registrará su consumo y se dará de alta automáticamente.',
