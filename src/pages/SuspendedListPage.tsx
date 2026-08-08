@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { ShieldCheck } from 'lucide-react'
 import { sanctionApi } from '../api/sanction'
 import type { SuspendedAccesoDirecto } from '../types/sanction'
-import { useAuth } from '../context/AuthContext'
+import { useCan } from '../hooks/useCan'
 import { notify } from '../utils/toast'
 import { Table, type ColumnDef } from '../components/ui/Table'
 import { Badge } from '../components/ui/Badge'
@@ -13,8 +13,8 @@ import { SearchInput } from '../components/ui/SearchInput'
 import { userTypeLabel } from '../utils/labels'
 
 export function SuspendedListPage() {
-  const { user } = useAuth()
-  const canManage = user?.role.name === 'SUPER_ADMIN' || user?.role.name === 'ADMIN'
+  const { can } = useCan()
+  const canManage = can('/suspendidos')
 
   const [rows,    setRows]    = useState<SuspendedAccesoDirecto[]>([])
   const [total,   setTotal]   = useState(0)

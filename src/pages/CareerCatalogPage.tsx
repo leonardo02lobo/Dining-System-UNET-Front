@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useAuth } from '../context/AuthContext'
+import { useCan } from '../hooks/useCan'
 import { careerApi } from '../api/career'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
@@ -18,8 +18,8 @@ function formatDate(value: string) {
 }
 
 export function CareerCatalogPage() {
-  const { user } = useAuth()
-  const canManage = user?.role.name === 'SUPER_ADMIN' || user?.role.name === 'ADMIN'
+  const { can } = useCan()
+  const canManage = can('/admin/carreras')
 
   const [careers, setCareers] = useState<Career[]>([])
   const [loading, setLoading] = useState(false)

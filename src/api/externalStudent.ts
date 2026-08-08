@@ -5,6 +5,7 @@ import type {
   StudentBulkItem,
   StudentBulkResult,
   StudentGender,
+  StudentGenderBulkResult,
   StudentMissingResult,
   PaginatedStudents,
 } from '../types/student'
@@ -86,6 +87,20 @@ export const externalStudentApi = {
    */
   setGender: (id: number, gender: StudentGender | null): Promise<StudentPadronData> =>
     apiClient.patch<StudentPadronData>(`/students/${id}`, { gender }),
+
+  /**
+   * Clasifica el sexo de varios estudiantes en una sola petición.
+   *
+   * Cada fila lleva su propio valor: los sexos vienen mezclados y un valor común
+   * para todo el lote obligaría a recorrer cada página dos veces.
+   *
+   * La ruta tiene dos segmentos (`bulk/gender`) para no competir con
+   * `PATCH /students/{id}`, que interpretaría el texto como un id y daría 422.
+   */
+  bulkSetGender: (
+    items: Array<{ id: number; gender: StudentGender | null }>,
+  ): Promise<StudentGenderBulkResult> =>
+    apiClient.patch<StudentGenderBulkResult>('/students/bulk/gender', { items }),
 
   lookup: async (cedula: string): Promise<StudentPadronData> => {
     try {

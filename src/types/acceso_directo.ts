@@ -125,3 +125,30 @@ export interface PaginatedAccesosDirectos {
   items: AccesoDirecto[]
   total: number
 }
+
+/** Un ingreso registrado por una persona del módulo de accesos directos. */
+export interface AccesoDirectoRecentEntry {
+  consumption_id: number
+  acceso_directo_id: number
+  document_id: string
+  first_name: string
+  last_name: string
+  user_type: UserType | null
+  career: string | null
+  /** Nombre del motivo de acceso, no su id: la fila se pinta, no se enlaza. */
+  access_reason: string | null
+  is_priority: boolean
+  registered_at: string
+  consumption_date: string
+  is_manual: boolean
+  lunch_session_id: number
+  /** Nulos en un registro manual: su sesión no cuelga de ninguna sede. */
+  sede_id: number | null
+  sede_name: string | null
+}
+
+export interface PaginatedRecentEntries {
+  /** Cuenta todos los ingresos, no los devueltos: permite rotular "10 de 1.483". */
+  total: number
+  items: AccesoDirectoRecentEntry[]
+}

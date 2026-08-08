@@ -1,5 +1,5 @@
 import { ArrowUpDown } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Spinner } from './Spinner'
 
 export interface ColumnDef<T> {
@@ -10,6 +10,8 @@ export interface ColumnDef<T> {
   sortable?: boolean
 }
 
+export type RowKey = string | number
+
 interface TableProps<T extends object> {
   columns: ColumnDef<T>[]
   rows: T[]
@@ -18,6 +20,21 @@ interface TableProps<T extends object> {
   emptyMessage?: string
   onRowClick?: (row: T) => void
   actions?: (row: T) => ReactNode
+  /**
+   * Claves de las filas marcadas. La columna de selección se renderiza **solo**
+   * cuando llegan `selectedKeys` y `onSelectionChange`; sin ellas el componente se
+   * comporta exactamente igual que antes, que es lo que permite añadir esto sin
+   * tocar a las ocho pantallas que ya lo consumen.
+   */
+  selectedKeys?: RowKey[]
+  /**
+   * Nueva selección completa. El estado lo posee el padre: quien consume la
+   * selección necesita cruzarla con otros datos de su pantalla, y una copia
+   * interna acabaría divergiendo.
+   */
+  onSelectionChange?: (keys: RowKey[]) => void
+  /** Texto accesible de la casilla de una fila. Sin él, cincuenta casillas suenan igual. */
+  selectionLabel?: (row: T) => string
 }
 
 function getValue<T extends object>(row: T, key: keyof T | string): unknown {
@@ -32,9 +49,16 @@ export function Table<T extends object>({
   emptyMessage = 'No hay datos para mostrar',
   onRowClick,
   actions,
+  selectedKeys,
+  onSelectionChange,
+  selectionLabel,
 }: TableProps<T>) {
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const headerCheckbox = useRef<HTMLInputElement>(null)
+
+  const selectable = selectedKeys !== undefined && onSelectionChange !== undefined
+  const selected = new Set<RowKey>(selectedKeys ?? [])
 
   function handleSort(key: string) {
     if (sortKey === key) {
@@ -53,6 +77,37 @@ export function Table<T extends object>({
     return sortDir === 'asc' ? cmp : -cmp
   })
 
+  const visibleKeys = sorted.map((row) => getValue(row, keyField) as RowKey)
+  const allVisibleSelected = visibleKeys.length > 0 && visibleKeys.every((k) => selected.has(k))
+  const someVisibleSelected = visibleKeys.some((k) => selected.has(k))
+
+  // `indeterminate` no es un atributo HTML, solo una propiedad del elemento.
+  useEffect(() => {
+    if (headerCheckbox.current) {
+      headerCheckbox.current.indeterminate = someVisibleSelected && !allVisibleSelected
+    }
+  }, [someVisibleSelected, allVisibleSelected])
+
+  function toggleAllVisible() {
+    if (!onSelectionChange) return
+    // El alcance es la página visible a propósito: una acción que marcara filas que
+    // nadie ha visto convertiría la revisión en un trámite.
+    onSelectionChange(
+      allVisibleSelected
+        ? (selectedKeys ?? []).filter((k) => !visibleKeys.includes(k))
+        : [...new Set([...(selectedKeys ?? []), ...visibleKeys])],
+    )
+  }
+
+  function toggleRow(key: RowKey) {
+    if (!onSelectionChange) return
+    onSelectionChange(
+      selected.has(key)
+        ? (selectedKeys ?? []).filter((k) => k !== key)
+        : [...(selectedKeys ?? []), key],
+    )
+  }
+
   return (
     <div className="relative w-full overflow-x-auto rounded-lg border border-slate-200 bg-white">
       {loading && (
@@ -63,6 +118,18 @@ export function Table<T extends object>({
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50 text-left">
+            {selectable && (
+              <th className="w-10 px-3 py-2 sm:px-4 sm:py-3">
+                <input
+                  ref={headerCheckbox}
+                  type="checkbox"
+                  aria-label="Seleccionar todas las filas visibles"
+                  checked={allVisibleSelected}
+                  onChange={toggleAllVisible}
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+              </th>
+            )}
             {columns.map((col) => (
               <th
                 key={col.key as string}
@@ -94,7 +161,7 @@ export function Table<T extends object>({
           {sorted.length === 0 && !loading ? (
             <tr>
               <td
-                colSpan={columns.length + (actions ? 1 : 0)}
+                colSpan={columns.length + (actions ? 1 : 0) + (selectable ? 1 : 0)}
                 className="px-4 py-10 text-center text-slate-600"
               >
                 {emptyMessage}
@@ -118,6 +185,24 @@ export function Table<T extends object>({
                   onRowClick ? 'cursor-pointer hover:bg-blue-50/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500' : 'hover:bg-slate-50'
                 }`}
               >
+                {selectable && (
+                  // `stopPropagation` por el mismo motivo que en la columna de
+                  // acciones: en una tabla con filas clicables, marcar la casilla
+                  // abriría además el detalle de esa fila.
+                  <td className="px-3 py-2 sm:px-4 sm:py-3" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      aria-label={
+                        selectionLabel
+                          ? `Seleccionar ${selectionLabel(row)}`
+                          : 'Seleccionar fila'
+                      }
+                      checked={selected.has(getValue(row, keyField) as RowKey)}
+                      onChange={() => toggleRow(getValue(row, keyField) as RowKey)}
+                      className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    />
+                  </td>
+                )}
                 {columns.map((col) => (
                   <td key={col.key as string} className="px-3 py-2 text-slate-700 sm:px-4 sm:py-3">
                     {col.render
