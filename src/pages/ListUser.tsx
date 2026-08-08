@@ -6,6 +6,7 @@ import autoTable from 'jspdf-autotable'
 import { userApi, roleApi } from '../api/user'
 import type { UserAccount, Role } from '../types/user'
 import { useAuth } from '../context/AuthContext'
+import { useCan } from '../hooks/useCan'
 import { Table, type ColumnDef } from '../components/ui/Table'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
@@ -26,6 +27,7 @@ const ROLE_VARIANT: Record<RoleName, 'info' | 'warning' | 'neutral' | 'success'>
 
 export function ListUser() {
   const { user: currentUser } = useAuth()
+  const { can } = useCan()
 
   const [rows,          setRows]         = useState<UserAccount[]>([])
   const [roles,         setRoles]        = useState<Role[]>([])
@@ -151,8 +153,14 @@ export function ListUser() {
     },
   ]
 
-  const canEdit   = currentUser?.role.name !== 'TAQUILLERO'
-  const canDelete = currentUser?.role.name === 'SUPER_ADMIN'
+  // Crear cuentas es una operación de la pantalla: la concede el permiso.
+  const canManage = can('/usuarios')
+  // Editar y borrar cuentas ajenas son suelo por rol en el servidor (`PUT|DELETE
+  // /users/{id}` exigen SUPER_ADMIN), así que aquí se comprueba lo mismo. Antes
+  // ambas colgaban de `role !== 'TAQUILLERO'`, de modo que un ADMIN veía un botón
+  // de editar que siempre acababa en 403.
+  const canEditUser = currentUser?.role.name === 'SUPER_ADMIN'
+  const canDelete   = currentUser?.role.name === 'SUPER_ADMIN'
 
   return (
     <div>
@@ -161,7 +169,7 @@ export function ListUser() {
         subtitle={`${filtered.length} usuario${filtered.length !== 1 ? 's' : ''} encontrado${filtered.length !== 1 ? 's' : ''}`}
         actions={
           <>
-            {canEdit && (
+            {canManage && (
               <Button variant="primary" leftIcon={<UserPlus size={15} />} size="sm" onClick={openCreate}>
                 Nuevo Usuario
               </Button>
@@ -211,7 +219,7 @@ export function ListUser() {
         emptyMessage="No hay usuarios para los filtros seleccionados."
         actions={(row) => (
           <>
-            {canEdit && (
+            {canEditUser && (
               <button
                 type="button"
                 title="Editar"

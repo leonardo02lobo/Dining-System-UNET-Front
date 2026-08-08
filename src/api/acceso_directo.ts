@@ -6,6 +6,7 @@ import type {
   AccesoDirectoFilters,
   AccesoDirectoVerifyResult,
   PaginatedAccesosDirectos,
+  PaginatedRecentEntries,
   AccesoDirectoBulkItem,
   AccesoDirectoBulkResult,
 } from '../types/acceso_directo'
@@ -32,4 +33,10 @@ export const accesoDirectoApi = {
   lookup: (q: string)                                     => apiClient.get<AccesoDirecto>(`/accesos_directos/lookup?q=${encodeURIComponent(q)}`),
   verify: (document_id: string)                           => apiClient.get<AccesoDirectoVerifyResult>(`/accesos_directos/verify/${encodeURIComponent(document_id)}`),
   bulkCreate: (items: AccesoDirectoBulkItem[])            => apiClient.post<AccesoDirectoBulkResult>('/accesos_directos/bulk', { items }),
+
+  /** Últimos ingresos de personas del módulo. `onlyPriority` acota a las prioritarias. */
+  recentEntries: (limit = 10, onlyPriority = false) =>
+    apiClient.get<PaginatedRecentEntries>(
+      `/accesos_directos/recent-entries?limit=${limit}&only_priority=${onlyPriority}`,
+    ),
 }

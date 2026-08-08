@@ -1,13 +1,20 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Pencil, Trash2, UserPlus } from 'lucide-react'
+import { Clock, Pencil, RefreshCw, Trash2, UserPlus } from 'lucide-react'
 import { accesoDirectoApi } from '../api/acceso_directo'
 import { accessReasonApi } from '../api/accessReason'
-import type { AccesoDirecto, AccesoDirectoStatus, AccessReason, UserType } from '../types/acceso_directo'
-import { useAuth } from '../context/AuthContext'
+import type {
+  AccesoDirecto,
+  AccesoDirectoRecentEntry,
+  AccesoDirectoStatus,
+  AccessReason,
+  UserType,
+} from '../types/acceso_directo'
+import { useCan } from '../hooks/useCan'
 import { notify } from '../utils/toast'
 import { Table, type ColumnDef } from '../components/ui/Table'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
+import { Card } from '../components/ui/Card'
 import { PageHeader } from '../components/ui/PageHeader'
 import { SearchInput } from '../components/ui/SearchInput'
 import { Select } from '../components/ui/Select'
@@ -35,8 +42,135 @@ const USER_TYPE_VARIANT: Record<UserType, 'info' | 'warning' | 'neutral' | 'succ
   WORKER:         'success',
 }
 
+/** "Los últimos 10 que ingresaron". */
+const RECENT_LIMIT = 10
+
+interface RecentEntriesPanelProps {
+  entries: AccesoDirectoRecentEntry[]
+  total: number
+  loading: boolean
+  onlyPriority: boolean
+  onToggleOnlyPriority: () => void
+  onRefresh: () => void
+}
+
+/**
+ * Últimos ingresos de personas del módulo.
+ *
+ * Sin *polling*: el refresco cada 15 s de Registro al Comedor existe porque varias
+ * taquillas comparten sesión; esta es una pantalla de gestión y el botón basta.
+ */
+function RecentEntriesPanel({
+  entries,
+  total,
+  loading,
+  onlyPriority,
+  onToggleOnlyPriority,
+  onRefresh,
+}: RecentEntriesPanelProps) {
+  const columns: ColumnDef<AccesoDirectoRecentEntry>[] = [
+    {
+      key: 'first_name',
+      header: 'Persona',
+      render: (_, row) => (
+        <div className="flex flex-col">
+          <span className="font-medium text-slate-800">
+            {row.first_name} {row.last_name}
+          </span>
+          <span className="text-xs text-slate-500">{row.document_id}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'user_type',
+      header: 'Tipo',
+      render: (_, row) =>
+        row.user_type ? (
+          <Badge variant={USER_TYPE_VARIANT[row.user_type]}>
+            {USER_TYPE_LABEL[row.user_type]}
+          </Badge>
+        ) : (
+          <span className="text-slate-300">—</span>
+        ),
+    },
+    {
+      key: 'access_reason',
+      header: 'Motivo',
+      render: (_, row) =>
+        row.access_reason ? (
+          <Badge variant="info">{row.access_reason}</Badge>
+        ) : (
+          <span className="text-slate-300">—</span>
+        ),
+    },
+    {
+      key: 'sede_name',
+      header: 'Sede',
+      render: (_, row) =>
+        row.sede_name ? (
+          <span className="text-slate-600">{row.sede_name}</span>
+        ) : (
+          <span className="text-slate-300">—</span>
+        ),
+    },
+    {
+      key: 'is_manual',
+      header: 'Origen',
+      render: (_, row) => (
+        <Badge variant={row.is_manual ? 'warning' : 'success'}>
+          {row.is_manual ? 'Manual' : 'Taquilla'}
+        </Badge>
+      ),
+    },
+    {
+      key: 'registered_at',
+      header: 'Hora',
+      render: (_, row) => (
+        <span className="text-slate-500">
+          {new Date(row.registered_at).toLocaleTimeString()}
+        </span>
+      ),
+    },
+  ]
+
+  return (
+    <Card variant="outlined" padding="md" className="mb-6">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Clock size={16} className="text-slate-400" />
+          <span className="text-sm font-semibold text-slate-700">Últimos ingresos</span>
+          <span className="text-xs text-slate-500">
+            {entries.length} de {total}
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-xs text-slate-600">
+            <input
+              type="checkbox"
+              checked={onlyPriority}
+              onChange={onToggleOnlyPriority}
+              className="h-3.5 w-3.5 rounded border-slate-300"
+            />
+            Solo prioritarios
+          </label>
+          <Button variant="ghost" size="sm" onClick={onRefresh} leftIcon={<RefreshCw size={14} />}>
+            Refrescar
+          </Button>
+        </div>
+      </div>
+      <Table<AccesoDirectoRecentEntry>
+        columns={columns}
+        rows={entries}
+        keyField="consumption_id"
+        loading={loading}
+        emptyMessage="Todavía no hay ingresos registrados."
+      />
+    </Card>
+  )
+}
+
 export function AccesoDirectoPage() {
-  const { user: currentUser } = useAuth()
+  const { can } = useCan()
 
   const [rows,          setRows]         = useState<AccesoDirecto[]>([])
   const [total,         setTotal]        = useState(0)
@@ -51,7 +185,34 @@ export function AccesoDirectoPage() {
   const [deleteTarget,  setDeleteTarget] = useState<AccesoDirecto | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
 
-  const canManage = currentUser?.role.name === 'SUPER_ADMIN' || currentUser?.role.name === 'ADMIN'
+  // Panel de ingresos recientes: estado propio, deliberadamente desacoplado de los
+  // filtros del padrón. Son dos preguntas distintas —quién está dado de alta y
+  // quién acaba de entrar— y si el panel siguiera al buscador cambiaría al teclear.
+  const [recentEntries, setRecentEntries] = useState<AccesoDirectoRecentEntry[]>([])
+  const [recentTotal,   setRecentTotal]   = useState(0)
+  const [recentLoading, setRecentLoading] = useState(true)
+  const [onlyPriority,  setOnlyPriority]  = useState(false)
+
+  const canManage = can('/accesos_directos')
+
+  const refetchRecent = useCallback(async () => {
+    setRecentLoading(true)
+    try {
+      const result = await accesoDirectoApi.recentEntries(RECENT_LIMIT, onlyPriority)
+      setRecentEntries(result.items)
+      setRecentTotal(result.total)
+    } catch (err) {
+      // Un panel informativo caído no debe impedir gestionar el padrón, que es la
+      // función principal de la pantalla.
+      notify.error(err)
+      setRecentEntries([])
+      setRecentTotal(0)
+    } finally {
+      setRecentLoading(false)
+    }
+  }, [onlyPriority])
+
+  useEffect(() => { void refetchRecent() }, [refetchRecent])
 
   const refetch = useCallback(async () => {
     setLoading(true)
@@ -85,6 +246,12 @@ export function AccesoDirectoPage() {
   const openCreate = () => { setEditingRow(null); setFormOpen(true) }
   const openEdit   = (row: AccesoDirecto) => { setEditingRow(row); setFormOpen(true) }
 
+  /** Un alta o una edición cambian tanto el padrón como lo que el panel puede mostrar. */
+  const refetchAll = useCallback(async () => {
+    await refetch()
+    await refetchRecent()
+  }, [refetch, refetchRecent])
+
   const confirmDelete = async () => {
     if (!deleteTarget) return
     setDeleteLoading(true)
@@ -92,7 +259,7 @@ export function AccesoDirectoPage() {
       await accesoDirectoApi.remove(deleteTarget.id)
       setDeleteTarget(null)
       notify.success('Acceso directo eliminado.')
-      await refetch()
+      await refetchAll()
     } catch (err) {
       notify.error(err)
       setDeleteTarget(null)
@@ -194,6 +361,15 @@ export function AccesoDirectoPage() {
         }
       />
 
+      <RecentEntriesPanel
+        entries={recentEntries}
+        total={recentTotal}
+        loading={recentLoading}
+        onlyPriority={onlyPriority}
+        onToggleOnlyPriority={() => setOnlyPriority((v) => !v)}
+        onRefresh={() => { void refetchRecent() }}
+      />
+
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <SearchInput
           placeholder="Buscar por nombre o cédula..."
@@ -257,7 +433,7 @@ export function AccesoDirectoPage() {
       <AccesoDirectoFormModal
         open={formOpen}
         onClose={() => setFormOpen(false)}
-        onSave={refetch}
+        onSave={refetchAll}
         initial={editingRow}
       />
 

@@ -82,3 +82,20 @@ export interface StudentMissingResult {
   total: number
   items: StudentMissingItem[]
 }
+
+/** Una fila del resultado de `PATCH /students/bulk/gender`. */
+export interface StudentGenderBulkRow {
+  row:    number
+  id:     number
+  status: 'updated' | 'unchanged' | 'error'
+  error?: string | null
+}
+
+/** Sin `created`: el lote de sexo nunca da de alta a nadie. */
+export interface StudentGenderBulkResult {
+  total:     number
+  updated:   number
+  unchanged: number
+  failed:    number
+  results:   StudentGenderBulkRow[]
+}

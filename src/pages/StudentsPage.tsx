@@ -8,11 +8,12 @@ import { notify } from '../utils/toast'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
+import { Modal } from '../components/ui/Modal'
 import { PageHeader } from '../components/ui/PageHeader'
 import { SearchInput } from '../components/ui/SearchInput'
 import { Select } from '../components/ui/Select'
 import { Spinner } from '../components/ui/Spinner'
-import { Table, type ColumnDef } from '../components/ui/Table'
+import { Table, type ColumnDef, type RowKey } from '../components/ui/Table'
 
 /** Tamaño de página del padrón. El backend admite hasta 500 por petición. */
 const PAGE_SIZE = 50
@@ -67,8 +68,9 @@ export function StudentsPage() {
   const [activeState, setActiveState] = useState<'all' | 'true' | 'false'>('all')
   const [codCarr,     setCodCarr]     = useState('')
   // Cola de trabajo de clasificación: con 8.380 filas importadas sin sexo, buscarlas
-  // de una en una a ciegas no es un flujo, es una lotería.
-  const [onlyUnassigned, setOnlyUnassigned] = useState(false)
+  // de una en una a ciegas no es un flujo, es una lotería. Arranca **activo**: quien
+  // entra al padrón entra a clasificar, y así lo recién guardado desaparece de la vista.
+  const [onlyUnassigned, setOnlyUnassigned] = useState(true)
 
   // ── Listado ────────────────────────────────────────────────────────
   const [rows,    setRows]    = useState<StudentPadronData[]>([])
@@ -82,6 +84,14 @@ export function StudentsPage() {
   // ── Ficha seleccionada ─────────────────────────────────────────────
   const [selected, setSelected] = useState<StudentPadronData | null>(null)
   const [savingGender, setSavingGender] = useState(false)
+
+  // ── Clasificación masiva ───────────────────────────────────────────
+  // `pending` es la única fuente del "hay cambios sin guardar": id → sexo elegido.
+  const [pending, setPending] = useState<Map<number, StudentGender | null>>(new Map())
+  const [selectedIds, setSelectedIds] = useState<RowKey[]>([])
+  const [savingBulk, setSavingBulk] = useState(false)
+  // Acción aplazada mientras se confirma el descarte de los cambios pendientes.
+  const [confirmLeave, setConfirmLeave] = useState<(() => void) | null>(null)
 
   useEffect(() => {
     void (async () => {
@@ -124,8 +134,78 @@ export function StudentsPage() {
 
   // Cualquier cambio de filtro devuelve a la primera página: mantener el número de
   // página al estrechar el resultado deja al operador mirando una página vacía.
+  // Y si hay clasificaciones sin guardar, se pide confirmación antes: perder veinte
+  // filas hechas a mano en silencio sería peor que no tener la función.
   function resetPage<T>(setter: (value: T) => void) {
-    return (value: T) => { setter(value); setPage(0) }
+    return (value: T) => guardPending(() => { setter(value); setPage(0) })
+  }
+
+  /** Ejecuta `action`, pidiendo confirmación si hay cambios sin guardar. */
+  function guardPending(action: () => void) {
+    if (pending.size === 0) {
+      action()
+      return
+    }
+    setConfirmLeave(() => action)
+  }
+
+  function discardPending() {
+    setPending(new Map())
+    setSelectedIds([])
+  }
+
+  /**
+   * Asigna el sexo de una fila. No guarda: deja el valor pendiente y **marca la
+   * casilla**, porque elegir el sexo ya es la declaración de intención y exigir
+   * además una marca solo produciría trabajo perdido.
+   */
+  function setPendingGender(id: number, gender: StudentGender) {
+    setPending((prev) => {
+      const next = new Map(prev)
+      next.set(id, gender)
+      return next
+    })
+    setSelectedIds((prev) => (prev.includes(id) ? prev : [...prev, id]))
+  }
+
+  /** Desmarcar una fila descarta su valor pendiente. */
+  function handleSelectionChange(keys: RowKey[]) {
+    const kept = new Set(keys)
+    setSelectedIds(keys)
+    setPending((prev) => {
+      const next = new Map<number, StudentGender | null>()
+      prev.forEach((value, id) => { if (kept.has(id)) next.set(id, value) })
+      return next
+    })
+  }
+
+  async function handleBulkSave() {
+    if (pending.size === 0 || savingBulk) return
+    const items = [...pending].map(([id, gender]) => ({ id, gender }))
+    setSavingBulk(true)
+    try {
+      const result = await externalStudentApi.bulkSetGender(items)
+      // El número que importa es el de filas realmente cambiadas, no el de enviadas.
+      notify.success(
+        `${result.updated} estudiante${result.updated !== 1 ? 's' : ''} clasificado${result.updated !== 1 ? 's' : ''}.`,
+      )
+      if (result.failed > 0) {
+        // Un lote parcialmente aplicado anunciado como éxito es peor que un error.
+        const failedIds = result.results
+          .filter((r) => r.status === 'error')
+          .map((r) => String(r.id))
+          .join(', ')
+        notify.error(`No se pudieron clasificar ${result.failed} (ids: ${failedIds}).`)
+      }
+      discardPending()
+      await refetch()
+    } catch (err) {
+      // Se conservan los cambios pendientes: reintentar no debe costar volver a
+      // clasificar a mano todo lo que ya se había mirado.
+      notify.error(err)
+    } finally {
+      setSavingBulk(false)
+    }
   }
 
   const careerOptions = useMemo(
@@ -188,9 +268,42 @@ export function StudentsPage() {
     {
       key: 'gender',
       header: 'Sexo',
-      render: (_, row) => (
-        <Badge variant={row.gender ? 'info' : 'neutral'}>{genderLabel(row.gender)}</Badge>
-      ),
+      render: (_, row) => {
+        const isPending = pending.has(row.id)
+        const value = isPending ? pending.get(row.id) : row.gender
+        return (
+          // Dos botones y no un `Select`: dos opciones no justifican un desplegable
+          // y el objetivo es un clic por fila. `stopPropagation` para no abrir la
+          // ficha al clasificar desde el listado.
+          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+            {(['M', 'F'] as StudentGender[]).map((option) => {
+              const active = value === option
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  aria-pressed={active}
+                  aria-label={`${GENDER_LABEL[option]} para ${row.full_name}`}
+                  onClick={() => setPendingGender(row.id, option)}
+                  className={[
+                    'h-7 w-7 rounded border text-xs font-semibold transition-colors',
+                    active
+                      ? isPending
+                        ? 'border-amber-400 bg-amber-100 text-amber-800'
+                        : 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-slate-200 text-slate-400 hover:border-slate-300 hover:text-slate-600',
+                  ].join(' ')}
+                >
+                  {option}
+                </button>
+              )
+            })}
+            {isPending && (
+              <span className="ml-1 text-xs font-medium text-amber-700">sin guardar</span>
+            )}
+          </div>
+        )
+      },
     },
     {
       key: 'is_active',
@@ -219,6 +332,39 @@ export function StudentsPage() {
           {error}
         </div>
       )}
+
+      {/* `confirm()` está prohibido en el proyecto: falla en silencio dentro del
+          webview de Tauri, y `nativeDialogs.guard.test.ts` lo vigila. */}
+      <Modal
+        open={confirmLeave !== null}
+        onClose={() => setConfirmLeave(null)}
+        title="Tienes cambios sin guardar"
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" size="sm" onClick={() => setConfirmLeave(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => {
+                const action = confirmLeave
+                setConfirmLeave(null)
+                discardPending()
+                action?.()
+              }}
+            >
+              Descartar y continuar
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-600">
+          Tienes {pending.size} clasificación{pending.size !== 1 ? 'es' : ''} sin guardar.
+          Si continúas se perderá{pending.size !== 1 ? 'n' : ''}.
+        </p>
+      </Modal>
 
       {/* ── Filtros ──────────────────────────────────────────────── */}
       <div className="mb-4 flex flex-wrap items-end gap-3">
@@ -262,12 +408,34 @@ export function StudentsPage() {
             keyField="id"
             loading={loading}
             onRowClick={(row) => setSelected(row)}
+            selectedKeys={selectedIds}
+            onSelectionChange={handleSelectionChange}
+            selectionLabel={(row) => row.full_name}
             emptyMessage={
               onlyUnassigned
                 ? 'No queda ningún estudiante sin sexo asignado.'
                 : 'No hay estudiantes para los filtros seleccionados.'
             }
           />
+
+          {pending.size > 0 && (
+            <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 shadow-sm">
+              <span className="text-sm font-medium text-amber-900">
+                {pending.size} cambio{pending.size !== 1 ? 's' : ''} pendiente
+                {pending.size !== 1 ? 's' : ''}
+              </span>
+              <div className="flex items-center gap-2">
+                {/* Descartar no pregunta: es la acción reversible —basta volver a
+                    marcarlos—, mientras que guardar no lo es. */}
+                <Button variant="ghost" size="sm" disabled={savingBulk} onClick={discardPending}>
+                  Descartar
+                </Button>
+                <Button variant="primary" size="sm" loading={savingBulk} onClick={handleBulkSave}>
+                  Guardar
+                </Button>
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-500">
             <span>
@@ -286,7 +454,7 @@ export function StudentsPage() {
                 size="sm"
                 leftIcon={<ChevronLeft size={15} />}
                 disabled={page === 0 || loading}
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                onClick={() => guardPending(() => setPage((p) => Math.max(0, p - 1)))}
               >
                 Anterior
               </Button>
@@ -295,7 +463,7 @@ export function StudentsPage() {
                 size="sm"
                 rightIcon={<ChevronRight size={15} />}
                 disabled={page >= lastPage || loading}
-                onClick={() => setPage((p) => p + 1)}
+                onClick={() => guardPending(() => setPage((p) => p + 1))}
               >
                 Siguiente
               </Button>

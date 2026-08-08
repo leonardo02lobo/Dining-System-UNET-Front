@@ -63,21 +63,30 @@ describe('StudentsPage — cola de clasificación del sexo', () => {
 
   it('el filtro "Sin sexo asignado" lo resuelve el servidor, no la página cargada', async () => {
     const user = userEvent.setup()
+    // El filtro arranca activo, así que la primera consulta ya pide solo pendientes.
+    list.mockResolvedValue({ total: 1, items: [UNCLASSIFIED] })
     render(<StudentsPage />)
 
     expect(await screen.findByText('Frankly Bautista')).toBeInTheDocument()
-    expect(screen.getByText('Ana Pérez')).toBeInTheDocument()
-    expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ gender: undefined }))
+    expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ gender: 'none' }))
+    expect(screen.queryByText('Ana Pérez')).not.toBeInTheDocument()
 
-    // El servidor devuelve solo a los pendientes cuando llega `gender: 'none'`.
-    list.mockResolvedValue({ total: 1, items: [UNCLASSIFIED] })
+    // Al apagarlo, el servidor devuelve el padrón completo.
+    list.mockResolvedValue({ total: 2, items: [UNCLASSIFIED, CLASSIFIED] })
     await user.click(screen.getByLabelText('Sin sexo asignado'))
 
     await waitFor(() =>
-      expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ gender: 'none' })),
+      expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ gender: undefined })),
     )
-    expect(await screen.findByText('Frankly Bautista')).toBeInTheDocument()
-    expect(screen.queryByText('Ana Pérez')).not.toBeInTheDocument()
+    expect(await screen.findByText('Ana Pérez')).toBeInTheDocument()
+  })
+
+  it('la pantalla arranca en la cola de clasificación', async () => {
+    render(<StudentsPage />)
+
+    // Quien entra al padrón entra a clasificar: es el único campo que puede escribir.
+    expect(await screen.findByLabelText('Sin sexo asignado')).toBeChecked()
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ gender: 'none' }))
   })
 
   it('el total con el filtro puesto es el de pendientes, no el de la página', async () => {
@@ -88,12 +97,14 @@ describe('StudentsPage — cola de clasificación del sexo', () => {
     // Más pendientes que filas caben en una página: es el caso que el filtrado en
     // cliente no podía representar, porque solo veía las filas ya cargadas.
     list.mockResolvedValue({ total: 8375, items: [UNCLASSIFIED] })
+    // Se apaga y se vuelve a encender para forzar una consulta con el filtro puesto.
+    await user.click(screen.getByLabelText('Sin sexo asignado'))
     await user.click(screen.getByLabelText('Sin sexo asignado'))
 
     expect(await screen.findByText(/de 8375 estudiantes/)).toBeInTheDocument()
   })
 
-  it('activar el filtro vuelve a la primera página', async () => {
+  it('cambiar el filtro vuelve a la primera página', async () => {
     const user = userEvent.setup()
     list.mockResolvedValue({ total: 200, items: [UNCLASSIFIED, CLASSIFIED] })
     render(<StudentsPage />)
@@ -107,7 +118,9 @@ describe('StudentsPage — cola de clasificación del sexo', () => {
     await user.click(screen.getByLabelText('Sin sexo asignado'))
 
     await waitFor(() =>
-      expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ skip: 0, gender: 'none' })),
+      expect(list).toHaveBeenLastCalledWith(
+        expect.objectContaining({ skip: 0, gender: undefined }),
+      ),
     )
   })
 
@@ -170,6 +183,7 @@ describe('StudentsPage — cola de clasificación del sexo', () => {
     render(<StudentsPage />)
 
     expect(await screen.findByText('Servicio no disponible')).toBeInTheDocument()
-    expect(screen.getByText('No hay estudiantes para los filtros seleccionados.')).toBeInTheDocument()
+    // Con el filtro por defecto puesto, el vacío se anuncia como cola terminada.
+    expect(screen.getByText('No queda ningún estudiante sin sexo asignado.')).toBeInTheDocument()
   })
 })

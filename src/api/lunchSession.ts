@@ -1,8 +1,14 @@
 import { apiClient } from './client'
 import type { LunchSession, LunchSessionCreate } from '../types/lunchSession'
+import type { Sede } from '../types/sede'
 
 export interface PaginatedSessions {
   items: LunchSession[]
+  total: number
+}
+
+export interface PaginatedSedes {
+  items: Sede[]
   total: number
 }
 
@@ -19,9 +25,24 @@ export const lunchSessionApi = {
     }
   },
 
+  /**
+   * Sesiones abiertas, acotadas por el servidor al rol de quien pregunta: un
+   * taquillero recibe solo las que él abrió. No filtrar aquí.
+   */
   openList: () => apiClient.get<PaginatedSessions>('/lunch-sessions/open'),
 
+  /**
+   * Sedes activas sin sesión abierta. Alimenta el selector de apertura: con el
+   * listado de sesiones ya acotado por rol, el complemento no se puede calcular
+   * en el cliente sin dejar al taquillero eligiendo sedes ocupadas.
+   */
+  openableSedes: () => apiClient.get<PaginatedSedes>('/lunch-sessions/openable-sedes'),
+
   close: (id: number) => apiClient.put<LunchSession>(`/lunch-sessions/${id}/close`),
+
+  /** Cierre forzado de una sesión ajena (SUPER_ADMIN). Queda en auditoría. */
+  forceClose: (id: number, reason: string) =>
+    apiClient.put<LunchSession>(`/lunch-sessions/${id}/force-close`, { reason }),
 
   list: (skip = 0, limit = 50) =>
     apiClient.get<PaginatedSessions>(`/lunch-sessions/?skip=${skip}&limit=${limit}`),

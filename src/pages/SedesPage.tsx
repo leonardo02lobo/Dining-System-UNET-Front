@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { Pencil, Trash2, PlusCircle, MapPin } from 'lucide-react'
 import { sedesApi } from '../api/sedes'
 import type { Sede, SedeCreate, SedeUpdate } from '../types/sede'
-import { useAuth } from '../context/AuthContext'
+import { useCan } from '../hooks/useCan'
 import { notify } from '../utils/toast'
 import { Table, type ColumnDef } from '../components/ui/Table'
 import { Badge } from '../components/ui/Badge'
@@ -14,7 +14,7 @@ import { Input } from '../components/ui/Input'
 const EMPTY_FORM: SedeCreate = { name: '', description: '', address: '', is_active: true }
 
 export function SedesPage() {
-  const { user: currentUser } = useAuth()
+  const { can } = useCan()
   const [rows,          setRows]          = useState<Sede[]>([])
   const [total,         setTotal]         = useState(0)
   const [loading,       setLoading]       = useState(true)
@@ -26,7 +26,7 @@ export function SedesPage() {
   const [saving,        setSaving]        = useState(false)
   const [formError,     setFormError]     = useState<string | null>(null)
 
-  const canManage = currentUser?.role.name === 'SUPER_ADMIN' || currentUser?.role.name === 'ADMIN'
+  const canManage = can('/sedes')
 
   const refetch = useCallback(async () => {
     setLoading(true)

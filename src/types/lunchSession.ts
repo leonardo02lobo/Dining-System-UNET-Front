@@ -10,6 +10,12 @@ export interface LunchSession {
   closed_at: string | null
   opened_by_id: number | null
   closed_by_id: number | null
+  /**
+   * Nombre de quien abrió y de quien cerró. Sin ellos la pantalla solo puede
+   * deshabilitar el botón de cerrar sin decir por qué.
+   */
+  opened_by_name: string | null
+  closed_by_name: string | null
   sede_id: number | null
   sede?: Sede | null
   /** Platos planificados para el turno. `null` en sesiones sin planificación. */
