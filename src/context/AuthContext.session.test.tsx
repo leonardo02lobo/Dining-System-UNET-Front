@@ -30,6 +30,7 @@ function json(body: unknown) {
   return Promise.resolve({
     ok: true,
     status: 200,
+    headers: new Headers({ 'content-type': 'application/json' }),
     json: () => Promise.resolve(body),
   } as unknown as Response)
 }
