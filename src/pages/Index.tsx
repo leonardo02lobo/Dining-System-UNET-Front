@@ -4,6 +4,7 @@ import { Header } from '../components/layout/Header'
 import { Footer } from '../components/layout/Footer'
 import { NavBar } from '../components/ui/NavBar'
 import { LogoDecanato } from '../components/icons/LogoDecanato'
+import { ErrorBoundary } from '../components/ErrorBoundary'
 
 function HomeWatermark() {
   const { pathname } = useLocation()
@@ -22,6 +23,7 @@ function HomeWatermark() {
 
 export function Index() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { pathname } = useLocation()
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-white">
@@ -51,7 +53,11 @@ export function Index() {
               disponible (p. ej. Registro al Comedor, que no debe hacer scroll).
               Las páginas más altas siguen desbordando y `main` las desplaza. */}
           <div className="relative z-10 h-full">
-            <Outlet />
+            {/* Acotado al área de contenido: si una pantalla revienta, la cabecera y
+                el menú siguen en pie y se puede navegar a otra sin recargar. */}
+            <ErrorBoundary resetKey={pathname} scope="outlet">
+              <Outlet />
+            </ErrorBoundary>
           </div>
         </main>
       </div>

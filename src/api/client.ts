@@ -34,6 +34,16 @@ function doRefresh(): Promise<void> {
   return refreshPromise
 }
 
+function contentType(response: Response): string {
+  return response.headers?.get('content-type') ?? ''
+}
+
+/** Solo descarta lo que positivamente no es JSON: un content-type ausente se acepta. */
+function isNotJson(response: Response): boolean {
+  const ct = contentType(response)
+  return ct !== '' && !ct.includes('application/json')
+}
+
 async function request<T>(
   method: string,
   path: string,
@@ -61,6 +71,17 @@ async function request<T>(
   }
 
   if (response.status === 204) return undefined as T
+
+  // Un 2xx que no trae JSON no es una respuesta del backend: es el index.html que
+  // el SPA fallback del proxy devuelve cuando la ruta no llegó a la API. Sin esta
+  // guarda el JSON.parse fallido se colaba como dato válido y la pantalla reventaba
+  // con un `.filter is not a function` muy lejos del origen real del fallo.
+  if (response.ok && isNotJson(response)) {
+    throw {
+      message: 'Respuesta inválida del servidor: se esperaba JSON. Revisa el proxy de /api/v1.',
+      status: response.status,
+    } as ApiError
+  }
 
   const data = await response.json().catch(() => ({ message: 'Error de conexión con el servidor' }))
 
@@ -115,6 +136,15 @@ async function requestBlob(
       'Error del servidor'
 
     throw { message, status: response.status, details: data.details } as ApiError
+  }
+
+  // Misma trampa que en request(): un HTML con 200 se descargaría como si fuera
+  // el CSV/PDF pedido.
+  if (contentType(response).includes('text/html')) {
+    throw {
+      message: 'Respuesta inválida del servidor: se esperaba un archivo. Revisa el proxy de /api/v1.',
+      status: response.status,
+    } as ApiError
   }
 
   return response.blob()
