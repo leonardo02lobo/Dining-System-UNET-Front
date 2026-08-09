@@ -1,4 +1,12 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  type ReactNode,
+} from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authApi } from '../api/auth'
 import { permissionsApi, type Permission } from '../api/permissions'
@@ -26,8 +34,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading,     setLoading]     = useState(true)
   const navigate = useNavigate()
 
+  /**
+   * `navigate` cambia de identidad en cada cambio de ruta: `useNavigate()` lo
+   * memoiza con el pathname actual. Con `navigate` en las dependencias, `refetch`
+   * se recreaba en cada navegación y el efecto de arranque volvía a ejecutarse,
+   * de modo que abrir un submenú ponía `loading` en true otra vez y
+   * `ProtectedRoute` desmontaba toda la interfaz —cabecera, menú y pantalla— para
+   * dejar el spinner a pantalla completa mientras reconsultaba `/users/me` y los
+   * permisos. Ese es el pantallazo en blanco que se reportó tras el despliegue,
+   * y donde la red es lenta la pantalla se quedaba así varios segundos.
+   *
+   * La ref mantiene `refetch` y `logout` estables sin renunciar a navegar.
+   */
+  const navigateRef = useRef(navigate)
+  useEffect(() => {
+    navigateRef.current = navigate
+  }, [navigate])
+
   const refetch = useCallback((): Promise<void> => {
-    setLoading(true)
     return authApi
       .me()
       .then(async (u) => {
@@ -42,10 +66,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .catch(() => {
         setUser(null)
         setPermissions([])
-        navigate('/login')
+        navigateRef.current('/login')
       })
       .finally(() => setLoading(false))
-  }, [navigate])
+  }, [])
 
   const logout = useCallback(async () => {
     try {
@@ -55,9 +79,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setUser(null)
     setPermissions([])
-    navigate('/login')
-  }, [navigate])
+    navigateRef.current('/login')
+  }, [])
 
+  // Una sola vez, al montar: la sesión no se revalida al navegar.
   useEffect(() => {
     void refetch()
   }, [refetch])

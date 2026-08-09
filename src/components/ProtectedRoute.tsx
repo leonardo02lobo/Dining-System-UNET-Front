@@ -6,7 +6,11 @@ export function ProtectedRoute() {
   const { user, loading, permissions } = useAuth()
   const location = useLocation()
 
-  if (loading) {
+  // El spinner a pantalla completa es solo para el arranque, cuando todavía no hay
+  // nada que mostrar. Con una sesión ya cargada se sigue pintando la interfaz: una
+  // revalidación en segundo plano no debe vaciar la pantalla que el usuario está
+  // mirando, que es lo que producía el pantallazo en blanco al abrir un submenú.
+  if (loading && !user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />

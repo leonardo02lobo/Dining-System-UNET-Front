@@ -22,8 +22,10 @@ export function LoginPage() {
   const [apiError, setApiError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  // Redirigir si ya tiene sesión activa
-  if (!authLoading && user) return <Navigate to="/" replace />
+  // Redirigir si ya tiene sesión activa. A la ruta por defecto del rol, no a `/`:
+  // el inicio no tiene contenido propio —solo la marca de agua— y un taquillero
+  // enviado ahí se quedaba mirando una pantalla vacía.
+  if (!authLoading && user) return <Navigate to={DEFAULT_ROUTE[user.role.name] ?? '/'} replace />
 
   function validate(): boolean {
     const next: Partial<LoginCredentials> = {}
