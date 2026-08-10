@@ -68,6 +68,9 @@ export function StudentResultCard({
   suspensionCount,
 }: StudentResultCardProps) {
   const isSuspended = suspended ?? student?.is_suspended ?? false
+  // A la gente externa no se la sanciona: mostrar su contador de suspensiones sería
+  // prometer un historial que no existe.
+  const isExternal = student?.person_kind === 'external'
 
   const content = (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
@@ -82,7 +85,8 @@ export function StudentResultCard({
             {isSuspended ? 'Suspendido' : 'Activo'}
           </Badge>
         )}
-        {showSuspensionCount && (
+        {isExternal && <Badge variant="info">Persona externa</Badge>}
+        {showSuspensionCount && !isExternal && (
           student === null ? (
             <Badge variant="neutral">Suspensiones: {EMPTY_FIELD_PLACEHOLDER}</Badge>
           ) : suspensionCount != null && (
@@ -99,13 +103,26 @@ export function StudentResultCard({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <ReadOnlyField label="Documento" value={student?.cedula ?? ''} />
           <ReadOnlyField label="Nombre" value={student?.name ?? ''} />
-          <div className="sm:col-span-2">
-            <ReadOnlyField label="Carrera" value={student?.career ?? ''} />
-          </div>
+          {isExternal ? (
+            <>
+              <ReadOnlyField label="Carrera / Área" value={student?.career ?? ''} />
+              {/* Donde un estudiante muestra su tipo de usuario, una persona externa
+                  muestra su etiqueta: es lo que la clasifica. */}
+              <ReadOnlyField label="Etiqueta" value={student?.external_label ?? ''} />
+            </>
+          ) : (
+            <div className="sm:col-span-2">
+              <ReadOnlyField label="Carrera" value={student?.career ?? ''} />
+            </div>
+          )}
         </div>
 
         {showAccesoDirectoNotice && student !== null && (
-          student.is_acceso_directo ? (
+          isExternal ? (
+            <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700">
+              Persona externa registrada. Se registrará su consumo con su propia ficha.
+            </div>
+          ) : student.is_acceso_directo ? (
             <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
               Usuario con acceso directo
             </div>

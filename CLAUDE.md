@@ -163,7 +163,7 @@ All authenticated routes render inside `Index` (Header + sidebar `NavBar` +
 | `/accesos_directos` | `AccesoDirectoPage` | CRUD of direct-access people |
 | `/accesos_directos/importar` | `StudentImportPage` | Import of the official student roster: multi-file, auto-detected encoding/delimiter, merge, paged preview, chunked upload. The path keeps its historical prefix (twin of `_PERMISSIONS`) but the screen writes to `/students` |
 | `/estudiantes` | `StudentsPage` | The roster itself: paginated list with search / status / career / **"Sin sexo asignado"** filters, and a detail panel split into sections. Everything is read-only **except the sex**, which is the only field the CSV does not carry and the panel must supply |
-| `/gente-externa` | `ExternalPeoplePage` | CRUD of external people (jubilados / externos) |
+| `/gente-externa` | `ExternalPeoplePage` | CRUD of external people, classified by an **admin-managed label** (seeded *Jubilado* / *Externo*, plus whatever the operator creates for an event). Labels are created inline from the form. A SUPER_ADMIN-only action deactivates **everyone carrying a label** in one go, behind a modal that shows the count and requires typing the label's name |
 | `/usuarios` | `ListUser` | Staff account directory. **No CSV import screen exists** — `userApi.bulkCreate` and the `UserBulk*` types are defined but unused |
 | `/inventario` | `InventoryPage` | Register supplies: categories, items, stock entries |
 | `/inventario/general` | `GeneralInventoryPage` | Read-only overview + PDF export |
@@ -255,10 +255,11 @@ Behaviour worth knowing:
 | `auth.ts` | `/auth`, `/users/me` | `login` posts the form then fetches `/users/me`; `logout`; `me` |
 | `user.ts` | `/users`, `/roles` | `userApi` CRUD + `bulkCreate`; `roleApi.list` |
 | `permissions.ts` | `/users/{id}/permissions` | `getByUser`, `update` |
-| `student.ts` | composite | `lookup` runs the roster lookup and the direct-access lookup **in parallel** (`Promise.allSettled`) and merges them: the direct-access record wins on `user_type`, the **roster wins on `career`** (it is reloaded from the official CSV every term, the direct-access one was typed once). `studentToIdentity` must carry `career` and `user_type` — they feed `beneficiaries.career`, which is the column every report and career filter reads |
+| `student.ts` | composite | `lookup` runs **three** lookups in parallel (`Promise.allSettled`) — roster, direct access and external person — and fails only when all three fail. It used to throw as soon as the roster missed, which is why an external person was never found at the counter (and why the ArrowDown shortcut "did nothing": with no card on screen the listener was never even attached). `person_kind` travels explicitly on `Student`. Merge rules: the direct-access record wins on `user_type`, the **roster wins on `career`** (it is reloaded from the official CSV every term, the direct-access one was typed once). `studentToIdentity` must carry `career` and `user_type` — they feed `beneficiaries.career`, which is the column every report and career filter reads |
 | `externalStudent.ts` | `/students` | Name kept for backward compatibility; `mapExternalToStudent` adapts the roster row to the UI `Student`. `list`/`getById`/`setGender` back the roster screen — `setGender` is the **only** write the panel may make to a roster row |
 | `acceso_directo.ts` | `/accesos_directos` | CRUD, `lookup`, `verify`, `bulkCreate` |
-| `externalPerson.ts` | `/external-people` | CRUD |
+| `externalPerson.ts` | `/external-people` | CRUD + `lookup` (server returns **active people only**) |
+| `externalPersonLabel.ts` | `/external-people/labels` | Label catalogue CRUD + `deactivateAll` (bulk deactivation by label, SUPER_ADMIN) |
 | `accessReason.ts`, `career.ts`, `sedes.ts` | catalogues | |
 | `lunchSession.ts` | `/lunch-sessions` | `open`, `today` (404 → `null`), `openList`, `close`, `list`, `listByRange` |
 | `consumption.ts` | `/consumptions` | `register`, `check`, `list`, `sessionRecent`, `userStats`, manual CRUD, plus `checkByDocument` (resolves by cédula, so it also answers for someone who is not yet a direct-access person) and `daySummary` (every entry of a date, counter + manual) |
@@ -431,7 +432,10 @@ here** — the bundle is public.
   `/careers/`, `/access-reasons/`) — the corresponding API modules type them
   accordingly.
 - Business rules the UI must respect (all enforced server-side too): one meal per
-  person per day; at most one open session per sede; an active sanction blocks
+  person per day; an external person in `INACTIVE` state cannot be looked up **or**
+  register a consumption (that is what makes the bulk deactivation mean something);
+  registering an external person sends `external_person_id`, never the on-the-fly
+  `person` payload, which would duplicate them as a direct-access record; at most one open session per sede; an active sanction blocks
   registration with a `403` carrying the sanction; confirmed lunches are immutable;
   a sanction's `end_date` may not exceed `MAX_SANCTION_DAYS` (365) from its start,
   though a null one still means indefinite.

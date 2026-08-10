@@ -29,29 +29,39 @@ taquillero, porque deja de ser cierto.
 
 ### Requirement: El taquillero solo ve las sesiones que abrió
 
-La pantalla SHALL mostrar al `TAQUILLERO` únicamente las sesiones abiertas por él mismo, tal y como
-las devuelve `GET /lunch-sessions/open` para ese rol.
+La pantalla SHALL mostrar a quien **no** es SUPER_ADMIN ni ADMIN únicamente las sesiones abiertas por
+él mismo, tal y como las devuelve el servidor para ese usuario.
+
+El criterio SHALL ser "administrador o no", y no la enumeración de un rol: desde que cualquier rol
+puede recibir la pantalla, nombrar al taquillero deja fuera a los demás.
 
 El cliente NO SHALL filtrar por su cuenta el listado recibido. El servidor ya lo acota; duplicar la
-regla en la UI crearía una segunda fuente de verdad que puede divergir.
+regla crearía una segunda fuente de verdad que puede divergir.
 
-Cuando el taquillero no tenga ninguna sesión abierta, la pantalla SHALL mostrar un estado vacío que
-NO SHALL sugerir que existan sesiones abiertas de otros usuarios.
+Cuando el usuario no tenga ninguna sesión abierta, la pantalla SHALL mostrar un estado vacío que NO
+SHALL sugerir que existan sesiones abiertas de otros, y que SHALL distinguirse del mensaje de falta de
+acceso.
 
-La pantalla SHALL indicar al taquillero que solo se muestran las sesiones que él abrió, para que un
-listado vacío no se lea como "no hay servicio en ninguna sede".
+La pantalla SHALL indicar a quien no administra que solo se muestran las sesiones que él abrió, para
+que un listado vacío no se lea como "no hay servicio en ninguna sede".
 
-#### Scenario: Taquillero con una sesión propia
+#### Scenario: Usuario no administrador con una sesión propia
 
-- **GIVEN** tres sedes con sesión abierta, una de ellas abierta por el taquillero
-- **WHEN** el taquillero entra en la pantalla
+- **GIVEN** tres sedes con sesión abierta, una de ellas abierta por quien consulta
+- **WHEN** entra en la pantalla
 - **THEN** ve una única sesión, la suya
 - **AND** no ve la sede, la hora de apertura ni los platos de las otras dos
 
-#### Scenario: Taquillero sin sesión propia
+#### Scenario: Acceso directo con la pantalla concedida
+
+- **GIVEN** un usuario con rol `ACCESO_DIRECTO` y `/comedor/sesion`, que abrió una sesión
+- **WHEN** entra en la pantalla
+- **THEN** ve solo su sesión, igual que un taquillero
+
+#### Scenario: Sin sesión propia
 
 - **GIVEN** dos sedes con sesión abierta por otros usuarios
-- **WHEN** el taquillero entra en la pantalla
+- **WHEN** un usuario no administrador entra en la pantalla
 - **THEN** ve el estado vacío y la nota de que solo se muestran sus sesiones
 - **AND** el estado vacío no menciona ni insinúa las sesiones ajenas
 
@@ -59,7 +69,7 @@ listado vacío no se lea como "no hay servicio en ninguna sede".
 
 - **GIVEN** tres sedes con sesión abierta
 - **WHEN** un ADMIN entra en la pantalla
-- **THEN** ve las tres sesiones, como hasta ahora
+- **THEN** ve las tres sesiones
 
 ### Requirement: El historial no se pide para roles que no pueden verlo
 
@@ -134,3 +144,32 @@ cierra quien la abrió.
 - **THEN** el subtítulo no menciona ningún cooldown
 - **AND** enuncia la regla de una sesión abierta por sede y la de que cierra quien abre
 
+### Requirement: Abrir una sesión se ofrece a quien tiene la pantalla concedida
+
+`LunchSessionPage` SHALL ofrecer la acción de abrir sesión a todo usuario que tenga concedida la ruta
+`/comedor/sesion`, con independencia de su rol.
+
+La condición NO SHALL enumerar roles. Enumerarlos es lo que hacía que conceder la pantalla a un rol no
+previsto abriera una vista incapaz de operar.
+
+Cuando el usuario no tenga la ruta, la pantalla SHALL explicar que le falta el permiso, en lugar de
+afirmar que no tiene permisos "para abrir o cerrar sesiones" sin decir cuál.
+
+#### Scenario: Un acceso directo con la pantalla concedida puede abrir
+
+- **GIVEN** un usuario con rol `ACCESO_DIRECTO` y `/comedor/sesion` concedida
+- **WHEN** entra en la pantalla de sesión
+- **THEN** la acción de abrir sesión está disponible
+
+#### Scenario: El taquillero sigue pudiendo abrir
+
+- **GIVEN** un TAQUILLERO con sus rutas por defecto
+- **WHEN** entra en la pantalla
+- **THEN** la acción de abrir sesión está disponible
+
+#### Scenario: Sin la ruta concedida
+
+- **GIVEN** un usuario que llegó a la pantalla sin tener `/comedor/sesion`
+- **WHEN** se muestra la pantalla
+- **THEN** la acción de abrir no se ofrece
+- **AND** se explica qué pantalla necesita que le concedan

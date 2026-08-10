@@ -38,6 +38,12 @@ export interface AccesoDirectoIdentity {
 
 export interface ConsumptionCreate {
   acceso_directo_id?: number
+  /**
+   * Persona externa. Se envía **en vez** del alta al vuelo: mandar `person` para
+   * alguien que ya está registrado como externo crearía un acceso directo con su
+   * misma cédula, es decir, la misma persona en dos padrones y contada dos veces.
+   */
+  external_person_id?: number
   lunch_session_id?: number
   is_manual: boolean
   /** Si la persona no es acceso directo, se envían sus datos para crearla al vuelo. */
@@ -78,6 +84,13 @@ export interface ConsumptionCheckByDocument {
   has_consumed: boolean
   consumption: DayConsumptionRef | null
   active_sanction: Sanction | null
+  /**
+   * Opcionales a propósito: un servidor anterior a `be-gente-externa-en-comedor` no
+   * los trae, y la pantalla no debe romperse por eso. Sin ellos se pierde el aviso
+   * previo para la gente externa, no la pantalla.
+   */
+  external_person_id?: number | null
+  person_kind?: 'acceso_directo' | 'external' | null
 }
 
 /** Criterios de orden para el listado manual (espejo del backend) */

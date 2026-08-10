@@ -33,6 +33,16 @@ export interface UserUpdatePayload {
   role_id?: number
 }
 
+/**
+ * De dónde salió la persona que hay en pantalla.
+ *
+ * Viaja explícito y no se deduce de qué campos vinieron vacíos: "es externa" =
+ * `!is_acceso_directo && !career` funciona hasta que alguien registra a una persona
+ * externa con carrera, y la ficha, el registro y la suspensión toman tres decisiones
+ * distintas sobre lo mismo.
+ */
+export type PersonKind = 'roster' | 'acceso_directo' | 'external'
+
 /** Estudiante del sistema de comedor */
 export interface Student {
   cedula:          string
@@ -44,6 +54,11 @@ export interface Student {
   avatar_url?:     string
   is_acceso_directo:  boolean
   acceso_directo_id?: number
+  person_kind:        PersonKind
+  /** Identificador propio de la persona externa; es lo que se envía al registrar. */
+  external_person_id?: number
+  /** Etiqueta de la persona externa: ocupa el lugar del tipo de usuario en su ficha. */
+  external_label?:    string | null
   /** Sexo del padrón ('M'/'F'/null = sin clasificar). Se propaga al alta al vuelo. */
   gender?:         string | null
 }

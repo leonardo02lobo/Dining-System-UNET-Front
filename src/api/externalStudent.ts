@@ -33,6 +33,7 @@ export function mapExternalToStudent(data: StudentPadronData): Student {
     is_suspended:      !data.is_active,
     avatar_url:        data.photo_url ?? undefined,
     is_acceso_directo: false,
+    person_kind:       'roster',
     // Viaja hasta `studentToIdentity` para que el alta al vuelo escriba el sexo en
     // `beneficiaries.gender`, que es la columna que alimenta las estadísticas de
     // género. Sin este salto la clasificación del padrón sería decorativa.
