@@ -1,4 +1,3 @@
-export type ExternalPersonType = 'JUBILADO' | 'EXTERNO'
 export type ExternalPersonStatus = 'ACTIVE' | 'INACTIVE'
 
 export interface ExternalPerson {
@@ -9,7 +8,9 @@ export interface ExternalPerson {
   card_code: string | null
   email: string | null
   gender: string | null
-  person_type: ExternalPersonType
+  label_id: number
+  /** Nombre de la etiqueta, servido junto al id para pintar la fila sin otra consulta. */
+  label: string | null
   career: string | null
   photo_url: string | null
   status: ExternalPersonStatus
@@ -24,7 +25,7 @@ export interface ExternalPersonCreate {
   card_code?: string | null
   email?: string | null
   gender?: string | null
-  person_type: ExternalPersonType
+  label_id: number
   career?: string | null
   photo_url?: string | null
   status?: ExternalPersonStatus
@@ -36,7 +37,7 @@ export interface ExternalPersonUpdate {
   card_code?: string | null
   email?: string | null
   gender?: string | null
-  person_type?: ExternalPersonType
+  label_id?: number
   career?: string | null
   photo_url?: string | null
   status?: ExternalPersonStatus

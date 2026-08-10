@@ -123,7 +123,8 @@ export function ManualRegistrationPage() {
       const data = lookupResult.value
       setStudent(data)
       // Conteo de suspensiones (#8) para acceso directo; informativo, no bloquea.
-      if (data.acceso_directo_id) {
+      // A la gente externa no se la sanciona, así que ni se pregunta.
+      if (data.acceso_directo_id && data.person_kind !== 'external') {
         try {
           const history = await sanctionApi.history(data.acceso_directo_id)
           setSuspensionCount(history.total)
@@ -157,6 +158,18 @@ export function ManualRegistrationPage() {
 
   async function handleSave() {
     if (!student || !date) return
+    // `POST /consumptions/manual` no admite personas externas: solo resuelve por
+    // acceso directo o por alta al vuelo. Enviar `person` aquí crearía un acceso
+    // directo con su misma cédula, es decir, la misma persona en dos padrones. Se
+    // corta antes en vez de duplicarla en silencio.
+    if (student.person_kind === 'external') {
+      const msg =
+        'El registro manual todavía no admite personas externas. Regístrala desde ' +
+        'Registro al comedor con la sesión abierta.'
+      notify.error(msg)
+      setError(msg)
+      return
+    }
     setSaving(true)
     setError(null)
     try {

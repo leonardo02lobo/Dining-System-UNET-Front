@@ -21,6 +21,7 @@ const STUDENT: Student = {
   is_suspended: false,
   is_acceso_directo: true,
   acceso_directo_id: 7,
+  person_kind: 'acceso_directo',
 }
 
 const checkByDocument = vi.fn()

@@ -9,11 +9,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
  */
 
 const get = vi.fn()
+const post = vi.fn()
 
 vi.mock('./client', () => ({
   apiClient: {
     get: (url: string) => get(url),
-    post: vi.fn(),
+    post: (url: string, body: unknown) => post(url, body),
   },
 }))
 
@@ -30,14 +31,35 @@ const PADRON = {
   photo_url: null,
 }
 
-function mockLookups(padron: unknown, accesoDirecto: unknown | Error) {
+const NOT_FOUND = new Error('404')
+
+const EXTERNAL = {
+  id: 77,
+  first_name: 'Rosa',
+  last_name: 'Gómez',
+  document_id: '87654321',
+  card_code: null,
+  email: null,
+  gender: 'F',
+  label_id: 3,
+  label: 'Congreso Julio 2026',
+  career: null,
+  photo_url: null,
+  status: 'ACTIVE',
+  created_at: '2026-08-10T00:00:00Z',
+  updated_at: null,
+}
+
+function mockLookups(
+  padron: unknown,
+  accesoDirecto: unknown | Error,
+  external: unknown | Error = NOT_FOUND,
+) {
+  const settle = (v: unknown) => (v instanceof Error ? Promise.reject(v) : Promise.resolve(v))
   get.mockImplementation((url: string) => {
-    if (url.startsWith('/students/lookup')) {
-      return padron instanceof Error ? Promise.reject(padron) : Promise.resolve(padron)
-    }
-    return accesoDirecto instanceof Error
-      ? Promise.reject(accesoDirecto)
-      : Promise.resolve(accesoDirecto)
+    if (url.startsWith('/students/lookup')) return settle(padron)
+    if (url.startsWith('/external-people/lookup')) return settle(external)
+    return settle(accesoDirecto)
   })
 }
 
@@ -46,6 +68,7 @@ function mockLookups(padron: unknown, accesoDirecto: unknown | Error) {
 // terminar el test — añadiendo una llamada espuria sin argumentos.
 beforeEach(() => {
   get.mockReset()
+  post.mockReset()
 })
 
 describe('studentToIdentity', () => {
@@ -57,6 +80,7 @@ describe('studentToIdentity', () => {
     user_type: 'STUDENT',
     is_suspended: false,
     is_acceso_directo: false,
+    person_kind: 'roster',
   }
 
   it('carries the career so the implicit alta does not leave it null', () => {
@@ -112,8 +136,94 @@ describe('studentApi.lookup', () => {
     expect(student.is_acceso_directo).toBe(false)
   })
 
-  it('propagates a roster miss: nobody outside the padrón can be looked up', async () => {
-    mockLookups(new Error('no inscrito'), { id: 9, user_type: 'STUDENT', career: null })
+  it('resolves someone who is only a direct-access record, not in the roster', async () => {
+    // Antes esto lanzaba en cuanto el padrón fallaba, aunque la persona existiera.
+    mockLookups(new Error('no inscrito'), {
+      id: 9, document_id: '99999999', first_name: 'Luis', last_name: 'Ríos',
+      user_type: 'TEACHER', career: 'Departamento de Física',
+    })
+
+    const student = await studentApi.lookup('99999999')
+
+    expect(student.is_acceso_directo).toBe(true)
+    expect(student.acceso_directo_id).toBe(9)
+    expect(student.career).toBe('Departamento de Física')
+  })
+
+  it('resolves an external person the roster and direct access do not know', async () => {
+    // El fallo que originó el cambio: la persona externa existía y la taquilla
+    // decía que no la encontraba, porque nunca se consultaba su padrón.
+    mockLookups(new Error('no inscrito'), NOT_FOUND, EXTERNAL)
+
+    const student = await studentApi.lookup('87654321')
+
+    expect(student.person_kind).toBe('external')
+    expect(student.external_person_id).toBe(77)
+    expect(student.external_label).toBe('Congreso Julio 2026')
+    expect(student.name).toBe('Rosa Gómez')
+    expect(student.is_acceso_directo).toBe(false)
+  })
+
+  it('lets the direct-access record win over the external person', async () => {
+    // Nada impide que la misma cédula esté en los dos padrones. Gana el acceso
+    // directo: es la única clase de persona que puede arrastrar una sanción.
+    mockLookups(new Error('no inscrito'), {
+      id: 9, document_id: '87654321', first_name: 'Rosa', last_name: 'Gómez',
+      user_type: 'WORKER', career: null,
+    }, EXTERNAL)
+
+    const student = await studentApi.lookup('87654321')
+
+    expect(student.person_kind).toBe('acceso_directo')
+    expect(student.acceso_directo_id).toBe(9)
+    expect(student.external_person_id).toBeUndefined()
+  })
+
+  it('fails only when all three lookups fail', async () => {
+    mockLookups(new Error('no inscrito'), NOT_FOUND, NOT_FOUND)
     await expect(studentApi.lookup('99999999')).rejects.toThrow('no inscrito')
+  })
+})
+
+describe('studentApi.registerDining', () => {
+  it('sends the external id and never the on-the-fly alta', async () => {
+    // Mandar `person` para alguien ya registrado como externo crearía un acceso
+    // directo con su misma cédula: la misma persona en dos padrones.
+    await studentApi.registerDining({
+      cedula: '87654321',
+      date: '2026-08-10T12:00:00Z',
+      registered_by_id: 1,
+      session_id: 5,
+      external_person_id: 77,
+    })
+
+    expect(post).toHaveBeenCalledWith('/consumptions/', {
+      lunch_session_id: 5,
+      is_manual: false,
+      external_person_id: 77,
+    })
+  })
+
+  it('keeps the on-the-fly alta for a roster student', async () => {
+    await studentApi.registerDining({
+      cedula: '31419581',
+      date: '2026-08-10T12:00:00Z',
+      registered_by_id: 1,
+      session_id: 5,
+      person: studentToIdentity({
+        cedula: '31419581',
+        name: 'Frankly Bautista',
+        email: '',
+        career: 'Ingeniería En Informática',
+        user_type: 'STUDENT',
+        is_suspended: false,
+        is_acceso_directo: false,
+        person_kind: 'roster',
+      }),
+    })
+
+    const body = post.mock.calls[post.mock.calls.length - 1][1] as Record<string, unknown>
+    expect(body.person).toBeDefined()
+    expect(body.external_person_id).toBeUndefined()
   })
 })

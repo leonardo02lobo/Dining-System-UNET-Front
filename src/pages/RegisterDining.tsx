@@ -278,8 +278,9 @@ export function RegisterDining() {
       if (lookupResult.status === 'rejected') throw lookupResult.reason
       const data = lookupResult.value
       setStudent(data)
-      // Si es acceso directo, consultamos si tiene una suspensión activa y su histórico (#8)
-      if (data.acceso_directo_id) {
+      // Si es acceso directo, consultamos si tiene una suspensión activa y su histórico (#8).
+      // A la gente externa no se la sanciona, así que ni se pregunta.
+      if (data.acceso_directo_id && data.person_kind !== 'external') {
         try {
           const check = await consumptionApi.check(data.acceso_directo_id)
           setActiveSanction(check.active_sanction)
@@ -328,8 +329,14 @@ export function RegisterDining() {
         session_id:       session.id,
         is_manual:        false,
         acceso_directo_id: student.acceso_directo_id,
-        // Si no es acceso directo, se envían sus datos para el alta al vuelo (Issue 2).
-        person:           student.is_acceso_directo ? undefined : studentToIdentity(student),
+        // Persona externa: se envía su id, nunca el alta al vuelo, que la duplicaría
+        // como acceso directo con la misma cédula.
+        external_person_id: student.external_person_id,
+        // Si no es acceso directo ni externa, se envían sus datos para el alta al
+        // vuelo (Issue 2).
+        person:           student.is_acceso_directo || student.person_kind === 'external'
+          ? undefined
+          : studentToIdentity(student),
       })
       notify.success(`Consumo registrado para ${student.name}`)
       setStatusMessage({ text: `Consumo registrado para ${student.name}.`, tone: 'ok' })
@@ -433,7 +440,8 @@ export function RegisterDining() {
   const noSession = sedeId != null && session === null
   const registrationBlocked = noSedeSelected || noSession || sessionLoading
   const isSuspended = activeSanction !== null || (student?.is_suspended ?? false)
-  const canSuspend = !!student?.is_acceso_directo && activeSanction === null
+  const canSuspend =
+    !!student?.is_acceso_directo && student.person_kind !== 'external' && activeSanction === null
   // Ya comió: registrar de nuevo no puede salir bien, así que el botón se apaga
   // antes del intento. El modal de duplicado por 409 se conserva igualmente — es la
   // red que atrapa el caso de dos taquillas registrando a la vez, que ninguna
@@ -646,10 +654,16 @@ export function RegisterDining() {
                 <InlineField label="Documento" value={student?.cedula ?? ''} />
                 <InlineField label="Nombre" value={student?.name ?? ''} />
                 <InlineField label="Carrera" value={student?.career || (student ? '—' : '')} />
-                <InlineField
-                  label="Tipo Usuario"
-                  value={student?.user_type ? userTypeLabel(student.user_type) : ''}
-                />
+                {/* Una persona externa no sale del padrón universitario: no tiene
+                    tipo de usuario, la clasifica su etiqueta. Ocupa la misma casilla. */}
+                {student?.person_kind === 'external' ? (
+                  <InlineField label="Etiqueta" value={student.external_label ?? '—'} />
+                ) : (
+                  <InlineField
+                    label="Tipo Usuario"
+                    value={student?.user_type ? userTypeLabel(student.user_type) : ''}
+                  />
+                )}
                 <InlineField
                   label="Estatus del Usuario"
                   value={student ? (isSuspended ? 'Suspendido' : 'Activo') : ''}

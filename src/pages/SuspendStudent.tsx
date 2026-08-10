@@ -70,7 +70,8 @@ export function SuspendStudent() {
       const data = await studentApi.lookup(clean)
       setStudent(data)
       // Si es acceso directo, consultamos la sanción activa y el histórico.
-      if (data.acceso_directo_id) {
+      // A la gente externa no se la sanciona, así que ni se pregunta.
+      if (data.acceso_directo_id && data.person_kind !== 'external') {
         try {
           const check = await consumptionApi.check(data.acceso_directo_id)
           setActiveSanction(check.active_sanction)
@@ -160,7 +161,9 @@ export function SuspendStudent() {
   }
 
   const isSuspended = activeSanction !== null || (student?.is_suspended ?? false)
-  const canSuspend = !!student?.is_acceso_directo && activeSanction === null
+  const isExternal = student?.person_kind === 'external'
+  const canSuspend =
+    !!student?.is_acceso_directo && !isExternal && activeSanction === null
 
   return (
     <div>
@@ -229,6 +232,14 @@ export function SuspendStudent() {
               <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 Usuario suspendido.
                 <span className="mt-0.5 block text-xs text-red-600">Motivo: {activeSanction.reason}</span>
+              </div>
+            ) : isExternal ? (
+              // Se muestra la ficha, no se oculta: esconderla devolvería el "no la
+              // encuentra" que este cambio elimina. Lo que hay que decir es que no se
+              // la puede sancionar, no que no existe.
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                Es una persona externa y no puede ser suspendida. Para retirarle el acceso,
+                dale de baja desde la pantalla de Gente Externa.
               </div>
             ) : !student.is_acceso_directo ? (
               <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
