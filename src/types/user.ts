@@ -14,6 +14,9 @@ export interface UserAccount {
   role_id: number
   role: Role
   is_active: boolean
+  /** Sede asignada (`null` = sin asignar). Solo SUPER_ADMIN puede cambiarla. */
+  sede_id: number | null
+  sede_name: string | null
   created_at: string
   updated_at: string | null
 }
@@ -23,6 +26,7 @@ export interface UserCreatePayload {
   email: string
   password: string
   role_id: number
+  sede_id?: number | null
 }
 
 export interface UserUpdatePayload {
@@ -31,6 +35,7 @@ export interface UserUpdatePayload {
   password?: string
   is_active?: boolean
   role_id?: number
+  sede_id?: number | null
 }
 
 /**

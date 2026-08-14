@@ -7,18 +7,22 @@ Experimental del Táchira (UNET). A React 19 SPA that ships two ways: as a web a
 (Vite build, deployed to Vercel) and as a desktop app (Tauri 2 / Rust shell).
 
 Four roles — **SUPER_ADMIN**, **ADMIN**, **TAQUILLERO** and **ACCESO_DIRECTO** —
-drive 27 screens covering:
+drive 28 screens covering:
 
-- Meal registration at the counter, driven by a USB barcode/ID-card scanner, with
-  an up-front warning when the person already ate that day
-- Person lookup, quick suspension (with a capped end date) and the suspended list
+- One dining screen that consults and registers: a USB barcode/ID-card scanner drives it,
+  every lookup states today's consumption and sanction status explicitly, and an up-front
+  warning blocks the button when the person already ate that day
+- Quick suspension (with a capped end date) and the suspended list
 - Service sessions per campus (*sede*) and their history
 - Manual registration by date, the day's full entry list, and printable listings
 - Direct-access people, external people, official student-roster import, the roster
   screen where sex is classified, career catalogue
 - Pantry inventory and meal planning with proportional ingredient scaling
 - Consumption / supply reports, attendance statistics and PDF·CSV export
-- User directory, per-user permission management, login audit, email templates
+- User directory, per-user permission management, email templates
+- Two audit screens that answer two different questions: the login audit (**who came in**)
+  and the process history per person (**what they did**), plus *Mi Actividad*, where anyone
+  can read their own trail
 
 The backend is the FastAPI service in
 [`../Dining-System-UNET-Backend`](../Dining-System-UNET-Backend).
@@ -68,20 +72,22 @@ Rust side: `tauri` 2, `tauri-plugin-opener`, `serde`/`serde_json`.
 │   │   ├── layout/           # Header, Footer
 │   │   ├── inventory/        # Inventory tables, filters, toolbar, summary panel, stock alerts
 │   │   ├── lunch/            # Lunch form, ingredients table, recalculation table, plate stepper
+│   │   ├── audit/            # Process-history table, filters, expandable entry detail, per-session processes
 │   │   ├── reports/          # Report table, charts, date filters, attendance panels
 │   │   ├── statistics/       # Attendance charts by career / date / gender / person type
 │   │   ├── icons/            # UNET and Decanato logos (SVG + embedded data)
-│   │   ├── ProtectedRoute.tsx  SedeSelector.tsx  StudentResultCard.tsx
+│   │   ├── ProtectedRoute.tsx  SedeSelector.tsx  StudentResultCard.tsx  PersonDayStatus.tsx
 │   │   ├── AccesoDirectoFormModal.tsx  UserFormModal.tsx  CareerInput.tsx
 │   │   ├── EmailTemplateEditor.tsx   # One template editor, parameterised by key
 │   ├── config/routeAccess.ts # ROUTE_ACCESS, DEFAULT_ROUTE, canAccess() — the client-side gate
 │   ├── context/AuthContext.tsx  # The only React context: user + permissions + loading
 │   ├── hooks/useBarcodeScanner.ts
-│   ├── pages/                # 27 route components (see §5)
+│   ├── pages/                # 28 route components (see §5)
 │   ├── types/                # 16 type modules mirroring the backend contracts
 │   ├── utils/                # csvImport, rosterMerge, lunchRecalculation, pdf*, printManual, sessionStats,
 │   │                         # sound, toast, labels, cedula, apiErrors, chartPercent, downloadBlob,
-│   │                         # sanctionDates (end-date window), consumptionNotice (shared warning text)
+│   │                         # sanctionDates (end-date window), consumptionNotice (shared warning text),
+│   │                         # auditLabels (action/resource labels + parseBrowser, shared by both audit screens)
 │   ├── data/mockLunch.ts     # Demo data only (used by LunchTestPage)
 │   ├── test/setup.ts         # jest-dom matchers for Vitest
 │   ├── App.tsx · main.tsx · index.css
@@ -152,8 +158,7 @@ All authenticated routes render inside `Index` (Header + sidebar `NavBar` +
 | `/login` | `LoginPage` | Standalone login form, no shell |
 | `/` | `Index` | Layout shell; the home view shows a watermark only |
 | `/comedor/sesion` | `LunchSessionPage` | Open/close the service session for a sede, set planned plate count |
-| `/comedor/consultar` | `CheckConsumes` | Look up a person and see whether they already ate today + sanction status |
-| `/comedor/registrar` | `RegisterDining` | The counter screen: scan or type a cédula, register the meal, see the session counter and the last 10 entrants. Warns **before** registering when the person already ate today, and blocks the button |
+| `/comedor/registrar` | `RegisterDining` | **The single dining screen: it always consults, and registers when it can.** Scan or type a cédula and the person's card appears with two explicit statements — today's consumption and sanction status — stated in the affirmative when they are fine. Registering is the action on top: session counter, last 10 entrants, quick suspension, ArrowDown shortcut. Searching never depends on a sede or an open session; only registering does. `/comedor/consultar` redirects here, and its permission grants a **read-only mode** of this same screen (no register, no suspend, no counter) |
 | `/comedor/reporte` | `ReportsPage` | Consumption report with charts |
 | `/comedor/historial` | `SessionHistoryPage` | Past sessions with attendance breakdown and printable entrant lists |
 | `/comedor/registro-manual` | `ManualRegistrationPage` | Add/edit/delete registrations attached to a date; printable listing. Second tab lists **every** entry of that date (counter + manual), and the duplicate warning uses the **selected** date, not today |
@@ -171,15 +176,22 @@ All authenticated routes render inside `Index` (Header + sidebar `NavBar` +
 | `/inventario/crear` | `CreateLunchPage` | Build a meal: pick ingredients, scale by plate count, validate stock, confirm |
 | `/inventario/plantillas` | `LunchTemplatesPage` | Reusable recipe templates |
 | `/inventario/pruebas-almuerzo` | `LunchTestPage` | Sandbox to try the scaling maths without persisting |
-| `/auditoria` | `LoginAuditPage` | Login audit log with date/role filters |
+| `/auditoria` | `LoginAuditPage` | **Who came in, and what they did in each session.** Login audit with date/role filters; every row shows its `process_count` and **expands** into that session's processes, headed by the login's IP, device and full user agent — the only things that tell two sessions of the same person apart. The processes are fetched on expand (fifty rows would be fifty queries to read one) and keyed by **session id**, never by a time window around the login. Expanding demands `/auditoria/procesos`, since it is another person's trail; without it the rows don't expand and a note says which permission is missing |
+| `/auditoria/procesos` | `ProcessHistoryPage` | **What each person did**: the process trail, person-first (the selected person travels in the URL as `?usuario=<id>`; with none, it shows all movement). Filters by person / action / resource / date range / text, with the action and resource options coming from the server's catalogue. Each row expands **inside the table** into the before/after of every changed field plus method, route, IP and device. CSV·PDF export honours the active filters, not the visible page. Reached in one click from the *Ver historial* action on each row of `/usuarios` |
+| `/mi-actividad` | `MyActivityPage` | Your own process history. Open to **any** session — see §6 |
 | `/admin/permisos` | `PermissionsPage` | Per-user route permission toggles (SUPER_ADMIN) |
 | `/admin/plantilla-correo` | `EmailTemplatePage` | Two tabs — **suspension** and **lift** — each editing its template's subject/body with live preview, plus the shared sender settings. Placeholders come from the server, since each template admits a different set |
 | `/sedes` | `SedesPage` | Campus CRUD |
 | `/admin/carreras` | `CareerCatalogPage` | Career catalogue used by statistics filters |
 
 **Legacy redirects** kept alive in `App.tsx`: `/dashboard` → `/`,
-`/checkConsumes` → `/comedor/consultar`, `/registerDining` → `/comedor/registrar`,
-`/listUser` → `/usuarios`, `/loginAudit` → `/auditoria`.
+`/checkConsumes` and `/comedor/consultar` → `/comedor/registrar`,
+`/registerDining` → `/comedor/registrar`, `/listUser` → `/usuarios`,
+`/loginAudit` → `/auditoria`.
+
+> `/comedor/consultar` no longer names a screen, but it is **still a permission**: eight
+> backend endpoints accept it in their `require_any_permission`, so deleting it would cut
+> off anyone who only holds it. It now grants the read-only mode of `/comedor/registrar`.
 
 ---
 
@@ -190,8 +202,9 @@ All authenticated routes render inside `Index` (Header + sidebar `NavBar` +
 Authentication is entirely cookie-based. The backend sets `unet_access_token`
 (HttpOnly), `unet_refresh_token` (HttpOnly, scoped to the refresh path) and
 `unet_user_role` (readable by JS). **Nothing is stored in localStorage or
-sessionStorage** except one non-sensitive key: `selected_sede_id`, which remembers
-the counter operator's chosen sede between browser sessions.
+sessionStorage — not one key.** `selected_sede_id` used to be the single exception;
+it disappeared when the sede stopped being something the operator picks and became
+`user.sede_id`, assigned to the account and enforced by the server.
 
 `AuthContext` is the only React context. On mount it calls `authApi.me()`
 (`GET /users/me` with `noRefresh: true` so a logged-out visitor isn't bounced
@@ -210,9 +223,38 @@ failure it clears state and navigates to `/login`.
 per-user permission from the backend wins; otherwise the static `ROUTE_ACCESS`
 role list decides; a route absent from the table is open.
 
+**The sede is assigned, not chosen.** `User` carries `sede_id`/`sede_name` from
+`GET /users/me`. The counter screen labels it and never offers a selector; the server
+imposes it on every counter operation (`resolve_operating_sede_id` in `app/api/deps.py`)
+and answers **403** to a non-admin without one. That 403 is why the screen checks
+`user.sede_id` up front instead of discovering it on the first request — and why this
+one check asks about the **role** (`is_admin`'s twin) rather than a permission: it
+mirrors exactly who the server exempts. Only SUPER_ADMIN can assign it, from
+`/usuarios`.
+
+**Opening a screen and operating in it are two questions.** `canOpen` adds the
+`ROUTE_ALIASES` table on top of `canAccess` — today only
+`'/comedor/registrar': ['/comedor/consultar']`. `ProtectedRoute` and `NavBar` use
+`canOpen`; every *action* keeps asking `canAccess`/`useCan().can` for the exact permission
+its endpoint requires. Folding the aliases into `canAccess` would turn a consult-only
+permission into a register permission inside the client, and the server's 403 would be the
+first anyone heard of the difference. It also matters that `canOpen` gates the route:
+`/comedor/registrar` is `DEFAULT_ROUTE.TAQUILLERO`, so a consult-only user bounced off it
+would be bounced straight back to it.
+
 > `ROUTE_ACCESS` is the **twin of `_PERMISSIONS` in the backend's
 > `app/db/init_db.py`**. A new protected screen must be added to both, or the
 > permission simply won't exist server-side.
+
+**One deliberate gap in that parity: `/mi-actividad`.** It is *not* in `ROUTE_ACCESS`, and
+`canAccess` returns `true` for uncatalogued routes, so any session can open it. That mirrors
+the server: `GET /audit-logs/me` demands nothing beyond an active session and always answers
+with the caller's own trail. Catalogue it and it becomes revocable from *Gestión de
+Permisos* without the server honouring the revocation — a screen denied by the client over
+data the API keeps serving. Besides, taking away someone's ability to see what they
+themselves did is not a decision this system should offer. The reason is written next to the
+table so a later parity review doesn't "fix" it. For the same reason its navbar entry sits in
+the footer, next to *Cerrar Sesión*, instead of inside a permission-filtered group.
 
 All of this is UX gating only — the backend enforces the same rules with
 `require_role` / `require_permission`.
@@ -269,7 +311,7 @@ Behaviour worth knowing:
 | `reports.ts` | `/reports`, `/consumption-reports` | JSON reports + CSV/PDF blobs |
 | `statistics.ts` | `/statistics` | Attendance by period / by session, with demographic filters |
 | `emailTemplate.ts` | `/email-templates`, `/email-settings` | `get(key)` / `update(key, …)` for the `sanction` and `sanction_lift` templates, + sender settings |
-| `audit.ts` | `/auth/audit-logs` | Paginated, with date and role filters |
+| `audit.ts` | `/auth/audit-logs`, `/audit-logs` | `auditApi` is the login audit (date/role filters). `processHistoryApi` is the process trail: `list` (any person, or one session via `login_audit_id`), `listMine` (**strips `user_id`** — the server scopes it to the caller anyway), `filterCatalog` and `export('csv'\|'pdf')`, which sends the filters **without** the page window because whoever exports from page 3 is not asking for page 3 |
 
 **`lunchApi.createConfirmedLunch`** composes the whole meal-creation flow in one
 call: create → add ingredients → refetch → recalculate → validate stock → confirm.
@@ -321,8 +363,7 @@ arriving faster than `maxGapMs` (default 60 ms) accumulate in a ref buffer; `Ent
 finalises the scan and fires `onScan` if the buffer reached `minLength` (default 6).
 Modifier keys and keystrokes while focus is on an `input`/`textarea` are ignored so
 manual typing still works. The callback lives in a ref, so an inline arrow function
-doesn't re-attach the listener. Used by `RegisterDining`, `CheckConsumes` and
-`SuspendStudent`.
+doesn't re-attach the listener. Used by `RegisterDining` and `SuspendStudent`.
 
 ### No native dialogs
 
@@ -367,7 +408,17 @@ useEffect(() => {
   and its validation, kept apart from the modals so both can share it and it can be
   tested without rendering a form.
 - `utils/consumptionNotice.ts` — the "already ate today" wording, so the counter
-  screen and manual registration cannot describe the same situation differently.
+  screen and manual registration cannot describe the same situation differently. It
+  also owns `isOtherSedeConsumption`: eating in **another sede** leads with the where
+  ("Ya consumió hoy en otra sede: X"), because that is the one thing the operator
+  cannot find out on their own, and buried at the end of the sentence it read exactly
+  like a same-sede duplicate. Missing either sede name means *unknown*, never *other*.
+- `utils/auditLabels.ts` — the display layer of the process trail: action and resource
+  labels, the `Badge` variant per action family, field names, `entrySummary()` (which
+  degrades to action + resource so a not-yet-enriched entry is still readable) and
+  `parseBrowser()`, moved here from `LoginAuditPage` so the two audit screens cannot
+  describe the same `user_agent` differently. A code with no known label is shown **raw** —
+  a history that hides what it can't name stops being a history.
 - `utils/cedula.ts` — `normalizeCedula()` before every lookup.
 - `utils/apiErrors.ts` — `errorMessage()` and status constants (`CONFLICT`…).
 - `utils/lunchRecalculation.ts` — mirrors the backend's rule-of-three so the form

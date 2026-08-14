@@ -63,18 +63,24 @@ vi.mock('../api/lunchSession', () => ({
   },
 }))
 
-// Se usa el `SedeSelector` real con su catálogo simulado: una sola sede activa hace
-// que la pantalla la seleccione sola y deje de bloquear el registro. Un doble que
-// invoque `onLoaded` en el cuerpo del render dispara un setState del padre durante el
-// render y deja el árbol en bucle — la prueba se cuelga sin decir por qué.
-vi.mock('../api/sedes', () => ({
-  sedesApi: {
-    list: () => Promise.resolve({ total: 1, items: [{ id: 1, name: 'Paramillo', is_active: true }] }),
-  },
-}))
+// Ya no hace falta doblar el catálogo de sedes: la pantalla no lo consulta. La sede
+// viene en la cuenta y el servidor la impone en cada operación.
 
 vi.mock('../context/AuthContext', () => ({
-  useAuth: () => ({ user: { id: 1, name: 'Taquillero', role: { name: 'TAQUILLERO' } } }),
+  useAuth: () => ({
+    user: {
+      id: 1,
+      name: 'Taquillero',
+      role: { name: 'TAQUILLERO' },
+      // Sin sede asignada, quien no administra no registra: la pantalla lo bloquea
+      // antes de que el servidor lo rechace con un 403.
+      sede_id: 1,
+      sede_name: 'Paramillo',
+    },
+    // `useCan` lee los permisos efectivos del contexto: sin la lista, la pantalla no
+    // podría decidir si ofrece registrar. Vacía = mandan las rutas por defecto del rol.
+    permissions: [],
+  }),
 }))
 
 vi.mock('../utils/toast', () => ({
@@ -90,12 +96,22 @@ vi.mock('../utils/sound', () => ({
 import { RegisterDining } from './RegisterDining'
 
 async function searchExternal(user: ReturnType<typeof userEvent.setup>) {
-  // La sede y la sesión se resuelven de forma asíncrona; hasta entonces el campo y
-  // el botón están deshabilitados y escribir en ellos no haría nada.
-  await waitFor(() => expect(screen.getByRole('button', { name: 'REGISTRA' })).toBeEnabled())
+  // Buscar ya no depende de la sede ni de la sesión, así que no hay nada que esperar
+  // antes de escribir: la consulta es válida a cualquier hora.
   await user.type(screen.getByLabelText('Cedula / Pasaporte / Carnet'), '87654321')
-  await user.click(screen.getByRole('button', { name: 'REGISTRA' }))
+  await user.click(screen.getByRole('button', { name: 'Buscar' }))
   await waitFor(() => expect(screen.getByDisplayValue('Rosa Gómez')).toBeInTheDocument())
+}
+
+/**
+ * Registrar sí depende de la sesión, que se resuelve de forma asíncrona. El atajo de
+ * flechas no se arma hasta que el botón está operativo, así que este es el punto de
+ * sincronización de las pruebas que registran.
+ */
+async function waitForRegisterReady() {
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Registrar Consumo' })).toBeEnabled(),
+  )
 }
 
 describe('RegisterDining — persona externa', () => {
@@ -138,6 +154,7 @@ describe('RegisterDining — persona externa', () => {
     render(<RegisterDining />)
 
     await searchExternal(user)
+    await waitForRegisterReady()
     await user.keyboard('{ArrowDown}')
 
     await waitFor(() => expect(registerDining).toHaveBeenCalled())
@@ -152,6 +169,7 @@ describe('RegisterDining — persona externa', () => {
     render(<RegisterDining />)
 
     await searchExternal(user)
+    await waitForRegisterReady()
     await user.keyboard('{ArrowDown}')
 
     await waitFor(() => expect(registerDining).toHaveBeenCalled())
@@ -159,6 +177,8 @@ describe('RegisterDining — persona externa', () => {
   })
 
   it('no pide la sanción activa ni el histórico de una persona externa', async () => {
+    // `checkByDocument` ya trae la sanción activa: la llamada a `check/{id}` sobraba
+    // para todo el mundo, no solo para la gente externa.
     const user = userEvent.setup()
     render(<RegisterDining />)
 
@@ -208,6 +228,7 @@ describe('RegisterDining — persona externa', () => {
     render(<RegisterDining />)
 
     await searchExternal(user)
+    await waitForRegisterReady()
     await user.keyboard('{ArrowDown}')
 
     // Se pierde el aviso previo, no la pantalla: el 409 sigue siendo la red.

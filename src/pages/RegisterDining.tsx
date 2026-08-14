@@ -1,20 +1,17 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { ScanLine, Ban, AlertTriangle } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { ScanLine, Ban, AlertTriangle, UserSearch, Eye } from 'lucide-react'
 import { studentApi, studentToIdentity } from '../api/student'
 import { lunchSessionApi } from '../api/lunchSession'
 import { consumptionApi } from '../api/consumption'
 import { sanctionApi } from '../api/sanction'
 import { normalizeCedula } from '../utils/cedula'
 import { errorMessage, CONFLICT } from '../utils/apiErrors'
-import { userTypeLabel } from '../utils/labels'
-import { previousConsumptionMessage } from '../utils/consumptionNotice'
 import { maxSanctionEndDate, todayISO, validateSanctionEndDate } from '../utils/sanctionDates'
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner'
+import { useCan } from '../hooks/useCan'
 import type { Student } from '../types/user'
-import type { Consumption, DayConsumptionRef } from '../types/consumption'
+import type { Consumption, ConsumptionCheckByDocument } from '../types/consumption'
 import type { LunchSession } from '../types/lunchSession'
-import type { Sanction } from '../types/sanction'
-import type { Sede } from '../types/sede'
 import { notify } from '../utils/toast'
 import { playSound, DUPLICATE_ALERT_SOUND, DUPLICATE_ALERT_DURATION_MS } from '../utils/sound'
 import { useAuth } from '../context/AuthContext'
@@ -24,12 +21,8 @@ import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { Table, type ColumnDef } from '../components/ui/Table'
 import { StudentResultCard } from '../components/StudentResultCard'
+import { PersonDayStatus } from '../components/PersonDayStatus'
 import { Spinner } from '../components/ui/Spinner'
-import { SedeSelector } from '../components/SedeSelector'
-
-// Única clave persistida en localStorage del proyecto: recuerda la sede elegida
-// por el taquillero entre sesiones del navegador (no es información sensible).
-const SEDE_STORAGE_KEY = 'selected_sede_id'
 
 // Cantidad de personas recientes mostradas en la pestaña "Últimos registros" (issue #7).
 const RECENT_LIMIT = 10
@@ -39,12 +32,6 @@ const SESSION_POLL_MS = 15_000
 
 type TabKey = 'registro' | 'ultimos'
 
-function readStoredSedeId(): number | null {
-  const raw = localStorage.getItem(SEDE_STORAGE_KEY)
-  const parsed = raw ? Number(raw) : NaN
-  return Number.isFinite(parsed) ? parsed : null
-}
-
 /** Formatea la hora de registro (ISO) como HH:mm local para la lista de últimos. */
 function formatRegisteredTime(value: string): string {
   const date = new Date(value)
@@ -53,8 +40,8 @@ function formatRegisteredTime(value: string): string {
 }
 
 /** Fecha del turno en el formato del sistema anterior: 14-May-2026. */
-function formatSessionDate(value?: string): string {
-  const date = value ? new Date(`${value}T00:00:00`) : new Date()
+function formatSessionDate(value: string): string {
+  const date = new Date(`${value}T00:00:00`)
   if (Number.isNaN(date.getTime())) return '—'
   const day = String(date.getDate()).padStart(2, '0')
   const month = date.toLocaleDateString('es-VE', { month: 'short' }).replace('.', '')
@@ -62,76 +49,80 @@ function formatSessionDate(value?: string): string {
   return `${day}-${capitalized}-${date.getFullYear()}`
 }
 
-/** Campo de solo lectura con la etiqueta encima (fila superior del formulario). */
-function StackedField({ label, children }: { label: string; children: ReactNode }) {
+/**
+ * Dato de solo lectura del turno. Solo se monta con valor: un recuadro gris vacío
+ * ocupa exactamente el mismo alto que uno lleno y no dice nada, y en esta pantalla
+ * el alto está contado.
+ */
+function TurnoField({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-1">
       <span className="text-[13px] font-semibold text-slate-500">{label}</span>
-      {children}
-    </div>
-  )
-}
-
-/** Campo de solo lectura con la etiqueta a la izquierda (ficha de la persona). */
-function InlineField({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
-      <span className="text-sm text-slate-600 sm:w-40 sm:flex-shrink-0">{label}</span>
-      <input
-        readOnly
-        value={value}
-        className="h-9 w-full min-w-0 rounded-md border border-slate-200 bg-slate-100 px-3 text-sm text-slate-700 outline-none"
-      />
+      <div className="flex h-10 w-full items-center rounded-md border border-slate-200 bg-slate-100 px-3 text-sm font-medium tabular-nums text-slate-700">
+        {value}
+      </div>
     </div>
   )
 }
 
 /**
- * Foto de la persona consultada. No se usa `Avatar` porque su tamaño es fijo y
- * mucho mayor (hasta 320px) del que pide este formulario.
+ * Pantalla única de comedor: **toda búsqueda consulta** —quién es la persona, si ya
+ * comió hoy y su estado de sanción— y registrar es la acción que se ofrece encima.
+ *
+ * Antes esto eran dos pantallas. `/comedor/consultar` resolvía lo mismo con llamadas
+ * distintas (solo el padrón de estudiantes, y el consumo por `acceso_directo_id`), así
+ * que respondía distinto a la misma cédula: una persona externa que sí había comido
+ * salía como "no hay registro de consumo asociado". La que sobrevive es esta, que busca
+ * en los tres padrones y resuelve el consumo por cédula; lo que se trajo de la otra es
+ * **cómo enseña a la persona**: la ficha compartida y las dos afirmaciones de estado.
+ *
+ * `/comedor/consultar` sigue existiendo como **permiso** —ocho endpoints del backend lo
+ * aceptan— y concede el modo de solo consulta de esta misma pantalla.
  */
-function PersonPhoto({ name, src }: { name?: string; src?: string }) {
-  return (
-    <div
-      title={name}
-      className="relative flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-100 text-2xl"
-    >
-      {src ? (
-        <img alt={name ?? 'Usuario'} src={src} className="absolute inset-0 h-full w-full object-cover" />
-      ) : (
-        <span className="select-none font-semibold text-slate-400">
-          {name ? name[0].toUpperCase() : '?'}
-        </span>
-      )}
-    </div>
-  )
-}
-
-/** Caja compacta de solo lectura para el contador de consumos del turno. */
-function CounterBox({ value }: { value: string }) {
-  return (
-    <input
-      readOnly
-      value={value}
-      className="h-10 w-full rounded-md border border-slate-200 bg-slate-100 px-3 text-sm font-semibold tabular-nums text-slate-700 outline-none"
-    />
-  )
-}
-
 export function RegisterDining() {
   const { user } = useAuth()
+  const { can } = useCan()
+  // Capacidad, no rol: es el mismo permiso que exige `POST /consumptions/`. Sin él la
+  // pantalla sigue sirviendo para consultar, que es para lo que se concede
+  // `/comedor/consultar`.
+  const canRegister = can('/comedor/registrar')
+
+  /**
+   * Sede de la cuenta. Ya no se elige: la asigna un administrador y el servidor la
+   * impone en cada operación de taquilla.
+   *
+   * Aquí sí se pregunta por el rol y no por un permiso, a diferencia del resto de la
+   * pantalla: es el mismo criterio "administrador o no" que aplica `is_admin` en el
+   * servidor para eximir de la regla de sede. Preguntarlo distinto que él daría una
+   * pantalla que se contradice con el 403 que la va a rechazar.
+   */
+  const isAdmin = user?.role.name === 'SUPER_ADMIN' || user?.role.name === 'ADMIN'
+  const sedeMissing = !isAdmin && (user?.sede_id ?? null) == null
+
   const [tab,        setTab]        = useState<TabKey>('registro')
   // La pestaña "Últimos registros" actúa como un modal a efectos del escáner/atajo:
   // mientras esté activa, un escaneo o ArrowDown/ArrowUp no debe reemplazar/registrar
   // a la persona en pantalla (ver comentarios de `useBarcodeScanner` y el atajo abajo).
   const recentOpen = tab === 'ultimos'
-  const [sedeId,     setSedeId]     = useState<number | null>(readStoredSedeId)
-  const [sedes,      setSedes]      = useState<Sede[]>([])
   const [session,    setSession]    = useState<LunchSession | null | undefined>(undefined)
   const [cedula,     setCedula]     = useState('')
   const [student,    setStudent]    = useState<Student | null>(null)
   const [loading,    setLoading]    = useState(false)
   const [saving,     setSaving]     = useState(false)
+
+  /**
+   * Estado del día y de la sanción, tal como los devuelve `check-by-document`.
+   *
+   * `null` con persona en pantalla significa **no se pudo comprobar**, y así se dice.
+   * Presentar un fallo como "no ha consumido" es la clase de mentira que el operador
+   * solo descubre cuando el servidor rechaza el registro.
+   */
+  const [check, setCheck] = useState<ConsumptionCheckByDocument | null>(null)
+
+  // Motivo por el que no hay persona en pantalla (no encontrada, error de red). Vive
+  // aparte del estado de la última acción: uno habla de la persona, el otro de lo que
+  // acaba de hacer el operador.
+  const [searchError, setSearchError] = useState<string | null>(null)
 
   // Barra de estado inferior del formulario (campo sin etiqueta del sistema anterior):
   // refleja el resultado de la última acción sin depender solo del toast.
@@ -149,13 +140,7 @@ export function RegisterDining() {
   // Conteo histórico de suspensiones de la persona consultada (issue #8).
   const [suspensionCount, setSuspensionCount] = useState<number | null>(null)
 
-  // Consumo previo del día de la persona consultada. Se resuelve en la propia
-  // consulta, antes de que el taquillero intente registrarla: descubrirlo por el 409
-  // del POST significa descubrirlo después de haber intentado servir el plato.
-  const [priorConsumption, setPriorConsumption] = useState<DayConsumptionRef | null>(null)
-
   // Suspensión rápida (problemáticas 29 y 30)
-  const [activeSanction, setActiveSanction] = useState<Sanction | null>(null)
   const [suspendOpen,    setSuspendOpen]    = useState(false)
   const [suspendReason,  setSuspendReason]  = useState('')
   // Fecha de fin de la suspensión. `indefinite` es una casilla propia y no "campo
@@ -178,20 +163,26 @@ export function RegisterDining() {
   useEffect(() => () => duplicateSoundStop.current?.(), [])
 
   useEffect(() => {
-    if (sedeId == null) {
+    if (sedeMissing) {
       setSession(null)
       return
     }
     setSession(undefined)
-    lunchSessionApi.today(sedeId)
+    // Sin parámetro: la sede la impone el servidor a partir de la cuenta. Pasarla
+    // desde aquí sería volver a dejar que el cliente la eligiera, que es justo lo que
+    // permitía registrar media fila en el comedor equivocado.
+    lunchSessionApi.today()
       .then((s) => setSession(s))
       .catch(() => setSession(null))
-  }, [sedeId])
+  }, [sedeMissing])
 
   // Carga el total de registros de la sesión (#6) y las últimas personas (#7).
   // Silenciosa: son datos informativos y no deben interrumpir el flujo de registro.
+  //
+  // Solo con permiso de registro: `session/{id}/recent` no admite `/comedor/consultar`,
+  // así que en modo consulta esto sería un 403 cada 15 segundos.
   const loadSessionData = useCallback(async () => {
-    if (!session) return
+    if (!session || !canRegister) return
     try {
       const res = await consumptionApi.sessionRecent(session.id, RECENT_LIMIT)
       setSessionCount(res.total)
@@ -199,46 +190,24 @@ export function RegisterDining() {
     } catch {
       /* ignore: contador/últimas son best-effort */
     }
-  }, [session])
+  }, [session, canRegister])
 
   // Al cambiar de sede/sesión: recarga o resetea el contador y las últimas personas.
   useEffect(() => {
-    if (!session) {
+    if (!session || !canRegister) {
       setSessionCount(null)
       setRecentEntrants([])
       return
     }
     void loadSessionData()
-  }, [session, loadSessionData])
+  }, [session, canRegister, loadSessionData])
 
   // Polling periódico para reflejar registros de otros taquilleros de la misma sede.
   useEffect(() => {
-    if (!session) return
+    if (!session || !canRegister) return
     const id = window.setInterval(() => { void loadSessionData() }, SESSION_POLL_MS)
     return () => window.clearInterval(id)
-  }, [session, loadSessionData])
-
-  function handleSedeChange(id: number | null) {
-    setSedeId(id)
-    if (id != null) {
-      localStorage.setItem(SEDE_STORAGE_KEY, String(id))
-    } else {
-      localStorage.removeItem(SEDE_STORAGE_KEY)
-    }
-  }
-
-  function handleSedesLoaded(loaded: Sede[]) {
-    setSedes(loaded)
-    if (sedeId != null && !loaded.some((s) => s.id === sedeId)) {
-      // La sede guardada ya no existe o no está activa
-      setSedeId(null)
-      localStorage.removeItem(SEDE_STORAGE_KEY)
-      return
-    }
-    if (sedeId == null && loaded.length === 1) {
-      handleSedeChange(loaded[0].id)
-    }
-  }
+  }, [session, canRegister, loadSessionData])
 
   // ── Scanner USB: captura entrada rápida de teclado ──────────────
   // Deshabilitado mientras haya un modal abierto: un escaneo detrás de un modal
@@ -251,52 +220,55 @@ export function RegisterDining() {
     { enabled: !duplicateOpen && !suspendOpen && !recentOpen },
   )
 
-  // ── Búsqueda (manual o por scanner) ─────────────────────────────
+  // ── Consulta (manual o por scanner) ─────────────────────────────
+  // NO depende de la sede ni de la sesión: consultar a una persona es válido a
+  // cualquier hora, y que el campo estuviera deshabilitado sin sesión abierta es
+  // justamente lo que obligaba a existir a una segunda pantalla.
   async function triggerSearch(value: string) {
     const clean = normalizeCedula(value)
     if (!clean) return
     setCedula(clean)
     setLoading(true)
+    setSearchError(null)
     setStatusMessage(null)
     setStudent(null)
-    setActiveSanction(null)
+    setCheck(null)
     setSuspensionCount(null)
-    setPriorConsumption(null)
     setDuplicateOpen(false)  // una nueva consulta cierra el aviso de duplicado anterior
     try {
-      // La verificación de consumo del día va **en paralelo** con la búsqueda: se
-      // resuelve por cédula, así que no depende de que la persona sea acceso directo
-      // ni del resultado del lookup. Si falla, la ficha se muestra igualmente y el
-      // rechazo del servidor sigue siendo el último guardia.
+      // El estado del día va **en paralelo** con la búsqueda: se resuelve por cédula,
+      // así que no depende de que la persona sea acceso directo ni del resultado del
+      // lookup. Y trae ya la sanción activa, de modo que una sola llamada responde por
+      // las dos cajas de estado.
       const [lookupResult, checkResult] = await Promise.allSettled([
         studentApi.lookup(clean),
         consumptionApi.checkByDocument(clean),
       ])
-      if (checkResult.status === 'fulfilled' && checkResult.value.has_consumed) {
-        setPriorConsumption(checkResult.value.consumption)
-      }
       if (lookupResult.status === 'rejected') throw lookupResult.reason
       const data = lookupResult.value
       setStudent(data)
-      // Si es acceso directo, consultamos si tiene una suspensión activa y su histórico (#8).
-      // A la gente externa no se la sanciona, así que ni se pregunta.
+      // `null` si falló: `PersonDayStatus` lo dice como "no se pudo comprobar" en vez
+      // de afirmar que la persona no ha comido.
+      setCheck(checkResult.status === 'fulfilled' ? checkResult.value : null)
+      // Conteo histórico de suspensiones (#8). A la gente externa no se la sanciona,
+      // así que ni se pregunta. Informativo: si falla, no bloquea la consulta.
       if (data.acceso_directo_id && data.person_kind !== 'external') {
-        try {
-          const check = await consumptionApi.check(data.acceso_directo_id)
-          setActiveSanction(check.active_sanction)
-        } catch {
-          // Si la consulta de sanción falla, continuamos sin bloquear la búsqueda
-        }
         try {
           const history = await sanctionApi.history(data.acceso_directo_id)
           setSuspensionCount(history.total)
         } catch {
-          // El conteo de suspensiones es informativo: si falla, no bloquea la búsqueda
+          /* ignore: el conteo es informativo */
         }
       }
     } catch (err: any) {
-      const msg = err.message ?? 'Error al consultar el estudiante'
-      setStatusMessage({ text: msg, tone: 'error' })
+      // El 404 del padrón de estudiantes decía "no está inscrito en la UNET", pero a
+      // estas alturas la búsqueda ya ha mirado en los tres padrones: el mensaje tiene
+      // que hablar de la búsqueda que de verdad se hizo.
+      setSearchError(
+        err?.status === 404
+          ? `No se encontró a nadie con la cédula ${clean} en el padrón de estudiantes, en accesos directos ni en gente externa.`
+          : err?.message ?? 'Error al consultar a la persona',
+      )
     } finally {
       setLoading(false)
     }
@@ -312,9 +284,9 @@ export function RegisterDining() {
   function clearPerson() {
     setCedula('')
     setStudent(null)
-    setActiveSanction(null)
+    setCheck(null)
     setSuspensionCount(null)
-    setPriorConsumption(null)
+    setSearchError(null)
   }
 
   // ── Registrar consumo ────────────────────────────────────────────
@@ -417,8 +389,10 @@ export function RegisterDining() {
         end_date: suspendIndefinite ? null : suspendEndDate,
       })
       // Solo refleja la sanción en la ficha visible si sigue siendo la misma persona.
+      // Se escribe sobre el resultado de la comprobación, que es la única fuente que
+      // leen las cajas de estado: dos fuentes para el mismo hecho acaban discrepando.
       if (student?.acceso_directo_id === suspendTarget.acceso_directo_id) {
-        setActiveSanction(sanction)
+        setCheck((c) => (c ? { ...c, active_sanction: sanction } : c))
       }
       setSuspendOpen(false)
       // Usa `suspendTarget` (la persona congelada al abrir el modal), no `student`:
@@ -435,18 +409,33 @@ export function RegisterDining() {
     }
   }
 
-  const noSedeSelected = sedeId == null
-  const sessionLoading = sedeId != null && session === undefined
-  const noSession = sedeId != null && session === null
-  const registrationBlocked = noSedeSelected || noSession || sessionLoading
+  const sessionLoading = !sedeMissing && session === undefined
+  const noSession = !sedeMissing && session === null
+  // Sede que se rotula: la de la cuenta y, para un administrador sin asignar, la de la
+  // sesión que el servidor haya resuelto. Es también con la que se compara el consumo
+  // previo para saber si ocurrió en otro municipio.
+  const currentSedeName = user?.sede_name ?? session?.sede?.name ?? null
+  const activeSanction = check?.active_sanction ?? null
   const isSuspended = activeSanction !== null || (student?.is_suspended ?? false)
   const canSuspend =
-    !!student?.is_acceso_directo && student.person_kind !== 'external' && activeSanction === null
+    canRegister && !!student?.is_acceso_directo && student.person_kind !== 'external' && activeSanction === null
   // Ya comió: registrar de nuevo no puede salir bien, así que el botón se apaga
   // antes del intento. El modal de duplicado por 409 se conserva igualmente — es la
   // red que atrapa el caso de dos taquillas registrando a la vez, que ninguna
   // consulta previa puede prevenir.
-  const alreadyConsumed = priorConsumption !== null
+  const alreadyConsumed = check?.has_consumed === true
+
+  // Un solo motivo, el que de verdad manda. Un botón apagado sin explicación obliga al
+  // operador a adivinar cuál de las condiciones falla.
+  const registerBlockedReason: string | null =
+    !canRegister      ? 'Tu permiso sobre esta pantalla es de solo consulta.'
+    : sedeMissing     ? 'Tu cuenta no tiene una sede asignada.'
+    : sessionLoading  ? 'Comprobando la sesión de la sede…'
+    : noSession       ? 'No hay una sesión de servicio abierta en esta sede.'
+    : activeSanction  ? 'La persona tiene una sanción activa.'
+    : student?.is_suspended ? 'La persona no está activa en el padrón de la UNET.'
+    : alreadyConsumed ? 'La persona ya registró su consumo hoy.'
+    : null
 
   // Mueve el foco a la ficha del estudiante al consultarlo: solo para anunciarla a
   // lectores de pantalla (el atajo de flechas de abajo ya no depende de este foco,
@@ -463,8 +452,8 @@ export function RegisterDining() {
   // un INPUT: el campo de cédula es justo donde el foco queda tras escanear/consultar, y
   // no tiene semántica propia de ArrowUp/ArrowDown.
   useEffect(() => {
-    const canRegister = !!student && !isSuspended && !registrationBlocked && !alreadyConsumed && !saving
-    if (!canRegister || suspendOpen || duplicateOpen || recentOpen) return
+    const canRegisterNow = !!student && registerBlockedReason === null && !saving
+    if (!canRegisterNow || suspendOpen || duplicateOpen || recentOpen) return
 
     function onArrowRegister(e: KeyboardEvent) {
       if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
@@ -476,7 +465,7 @@ export function RegisterDining() {
 
     window.addEventListener('keydown', onArrowRegister)
     return () => window.removeEventListener('keydown', onArrowRegister)
-  }, [student, isSuspended, registrationBlocked, alreadyConsumed, saving, suspendOpen, duplicateOpen, recentOpen])
+  }, [student, registerBlockedReason, saving, suspendOpen, duplicateOpen, recentOpen])
 
   // Columnas de la pestaña "últimas N personas" (issue #7).
   const recentColumns: ColumnDef<Consumption>[] = [
@@ -498,37 +487,21 @@ export function RegisterDining() {
   // Un solo aviso de configuración del turno: antes se podían apilar varios y
   // el alto de la pantalla se desbordaba. Se muestra el que realmente bloquea.
   const blockingNotice: { text: string; tone: 'info' | 'warn' } | null =
-    sedes.length === 0 && !sessionLoading
-      ? { text: 'No hay sedes activas registradas. Contacta a un administrador.', tone: 'warn' }
-      : noSedeSelected && sedes.length > 0
-        ? { text: 'Selecciona la sede donde estás registrando para comenzar.', tone: 'info' }
-        : noSession
-          ? {
-              text: 'No hay una sesión de servicio activa en esta sede. Un administrador debe abrirla antes de registrar consumos.',
-              tone: 'warn',
-            }
-          : null
+    sedeMissing
+      ? {
+          text: 'Tu cuenta no tiene una sede asignada, así que no puedes registrar consumos. Pídele a un administrador que te asigne la sede en la que trabajas. Mientras tanto puedes consultar a cualquier persona.',
+          tone: 'warn',
+        }
+      : noSession
+        ? {
+            text: 'No hay una sesión de servicio abierta en esta sede. Puedes consultar a cualquier persona; para registrar consumos, un administrador debe abrirla.',
+            tone: 'warn',
+          }
+        : null
 
-  // Ídem para la persona consultada: se muestra únicamente el aviso más grave.
-  const personNotice: { text: string; tone: 'danger' | 'warn' } | null = !student
-    ? null
-    : activeSanction
-      ? { text: `Usuario suspendido, no puede registrar consumo. Motivo: ${activeSanction.reason}`, tone: 'danger' }
-      : student.is_suspended
-        // Sin sanción activa, `is_suspended` viene de `is_active: false` en el
-        // padrón: la persona no está inscrita este semestre, no está sancionada.
-        ? { text: 'Este estudiante no está activo en el padrón de la UNET y no puede registrar consumo.', tone: 'danger' }
-        : !student.is_acceso_directo
-          ? {
-              text: 'Este usuario no tiene acceso directo. Se registrará su consumo y se dará de alta automáticamente.',
-              tone: 'warn',
-            }
-          : suspensionCount != null && suspensionCount > 0
-            ? {
-                text: `Esta persona ha sido suspendida ${suspensionCount} ${suspensionCount === 1 ? 'vez' : 'veces'}.`,
-                tone: 'warn',
-              }
-            : null
+  const tabs: Array<[TabKey, string]> = canRegister
+    ? [['registro', 'CONSULTA Y REGISTRO'], ['ultimos', 'ULTIMOS REGISTROS']]
+    : [['registro', 'CONSULTA']]
 
   return (
     // h-full + overflow-hidden: la pantalla ocupa exactamente el alto disponible
@@ -536,12 +509,9 @@ export function RegisterDining() {
     <div className="flex h-full flex-col overflow-hidden">
       {/* ── Título y pestañas en una sola franja para ahorrar alto ──── */}
       <div className="flex flex-shrink-0 flex-wrap items-end justify-between gap-2">
-        <h1 className="text-lg font-bold text-slate-800">Registro al Comedor</h1>
+        <h1 className="text-lg font-bold text-slate-800">Comedor: Consulta y Registro</h1>
         <div className="flex gap-1 rounded-t-md bg-[#03216A] px-1 pt-1">
-          {([
-            ['registro', 'REGISTRO DE ACCESO AL COMEDOR'],
-            ['ultimos',  'ULTIMOS REGISTROS'],
-          ] as const).map(([key, label]) => (
+          {tabs.map(([key, label]) => (
             <button
               key={key}
               type="button"
@@ -578,48 +548,58 @@ export function RegisterDining() {
             />
           </div>
         ) : (
-          <div className="flex min-h-0 flex-1 flex-col gap-4">
-            {/* Válvula de seguridad: en pantallas muy bajas el contenido se
-                desplaza aquí dentro, nunca la página completa. */}
-            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-              {/* ── Datos del turno: fecha, sede y consumos ──────────── */}
-              <div className="grid flex-shrink-0 grid-cols-1 gap-3 sm:grid-cols-3">
-                <StackedField label="Fecha:">
-                  <input
-                    readOnly
-                    value={formatSessionDate(session?.date)}
-                    className="h-10 w-full rounded-md border border-slate-200 bg-slate-100 px-3 text-sm text-slate-700 outline-none"
-                  />
-                </StackedField>
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
+            {/* Dos columnas desde `lg`: el turno y la búsqueda a la izquierda, la
+                persona a la derecha. La ficha compartida es más alta que la rejilla de
+                campos que sustituye, y a lo ancho es donde queda sitio. */}
+            <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto lg:grid-cols-[minmax(300px,360px)_1fr] lg:overflow-hidden">
 
-                <SedeSelector value={sedeId} onChange={handleSedeChange} onLoaded={handleSedesLoaded} label="Sede:" />
-
-                <StackedField label="Consumos del Turno:">
-                  <CounterBox value={sessionCount != null ? String(sessionCount) : ''} />
-                </StackedField>
-              </div>
-
-              {/* Un único aviso a la vez: apilarlos desbordaba el alto útil. */}
-              {blockingNotice && (
-                <div
-                  className={[
-                    'flex-shrink-0 rounded-md border px-3 py-2 text-sm',
-                    blockingNotice.tone === 'info'
-                      ? 'border-blue-200 bg-blue-50 text-blue-700'
-                      : 'border-amber-200 bg-amber-50 text-amber-700',
-                  ].join(' ')}
-                >
-                  {blockingNotice.text}
+              {/* ── Columna izquierda: turno y búsqueda ───────────────── */}
+              <div className="flex flex-col gap-3 lg:min-h-0 lg:overflow-y-auto">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                  {/* Rótulo, no selector: el taquillero trabaja donde trabaja. La
+                      respuesta era siempre la misma, así que no era una elección — era
+                      una configuración en el sitio equivocado, con la posibilidad de
+                      equivocarse incluida y sin ningún aviso cuando ocurría. */}
+                  {currentSedeName && <TurnoField label="Sede:" value={currentSedeName} />}
+                  {/* Fecha y contador solo con turno: sin sesión no hay nada que contar,
+                      y un recuadro vacío no es un dato, es un hueco. */}
+                  {session && <TurnoField label="Fecha:" value={formatSessionDate(session.date)} />}
+                  {session && canRegister && sessionCount != null && (
+                    <TurnoField label="Consumos del Turno:" value={String(sessionCount)} />
+                  )}
                 </div>
-              )}
 
-              {/* ── Documento + acción principal, con la foto a la derecha ── */}
-              <div className="flex flex-shrink-0 items-start justify-between gap-4 border-t border-slate-200 pt-4">
-                <div className="flex-1">
+                {blockingNotice && (
+                  <div
+                    className={[
+                      'rounded-md border px-3 py-2 text-sm',
+                      blockingNotice.tone === 'info'
+                        ? 'border-blue-200 bg-blue-50 text-blue-700'
+                        : 'border-amber-200 bg-amber-50 text-amber-700',
+                    ].join(' ')}
+                  >
+                    {blockingNotice.text}
+                  </div>
+                )}
+
+                {!canRegister && (
+                  <div className="flex items-start gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+                    <Eye size={16} className="mt-0.5 flex-shrink-0" />
+                    <span>
+                      Modo consulta: puedes buscar personas y ver su estado, pero no registrar
+                      consumos ni suspender.
+                    </span>
+                  </div>
+                )}
+
+                {/* ── Documento ─────────────────────────────────────────
+                    Sin `disabled`: consultar no depende de la sede ni de la sesión. */}
+                <div className="border-t border-slate-200 pt-3">
                   <label htmlFor="cedula-register" className="text-sm font-semibold text-slate-800">
                     Cedula / Pasaporte / Carnet
                   </label>
-                  <div className="mt-1.5 flex items-end gap-3">
+                  <div className="mt-1.5 flex items-end gap-2">
                     <Input
                       id="cedula-register"
                       placeholder="Ingrese Carnet o Documento de Identidad."
@@ -627,17 +607,15 @@ export function RegisterDining() {
                       onChange={(e) => setCedula(e.target.value)}
                       onKeyDown={handleKeyDown}
                       fullWidth
-                      disabled={registrationBlocked}
                       className="h-10 border-green-500 focus:border-green-600 focus:ring-green-500/15"
                     />
                     <Button
                       variant="secondary"
                       onClick={handleSearch}
                       loading={loading}
-                      disabled={registrationBlocked}
                       className="h-10 flex-shrink-0 border-green-600 text-green-700 hover:bg-green-50"
                     >
-                      REGISTRA
+                      Buscar
                     </Button>
                   </div>
                   <p className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-400">
@@ -645,89 +623,84 @@ export function RegisterDining() {
                     El lector enviará el código automáticamente al pasar el carnet.
                   </p>
                 </div>
-
-                <PersonPhoto name={student?.name} src={student?.avatar_url} />
               </div>
 
-              {/* ── Ficha de la persona, en dos columnas para ahorrar alto ── */}
-              <div className="grid flex-shrink-0 grid-cols-1 gap-x-6 gap-y-2 lg:grid-cols-2">
-                <InlineField label="Documento" value={student?.cedula ?? ''} />
-                <InlineField label="Nombre" value={student?.name ?? ''} />
-                <InlineField label="Carrera" value={student?.career || (student ? '—' : '')} />
-                {/* Una persona externa no sale del padrón universitario: no tiene
-                    tipo de usuario, la clasifica su etiqueta. Ocupa la misma casilla. */}
-                {student?.person_kind === 'external' ? (
-                  <InlineField label="Etiqueta" value={student.external_label ?? '—'} />
-                ) : (
-                  <InlineField
-                    label="Tipo Usuario"
-                    value={student?.user_type ? userTypeLabel(student.user_type) : ''}
-                  />
-                )}
-                <InlineField
-                  label="Estatus del Usuario"
-                  value={student ? (isSuspended ? 'Suspendido' : 'Activo') : ''}
-                />
-                {loading && (
-                  <div className="flex items-center gap-2 text-sm text-slate-400">
+              {/* ── Columna derecha: la persona ───────────────────────── */}
+              <div
+                ref={cardContainerRef}
+                tabIndex={-1}
+                aria-live="polite"
+                className="flex flex-col gap-3 outline-none lg:min-h-0 lg:overflow-y-auto"
+              >
+                {loading ? (
+                  <div className="flex items-center gap-2.5 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
                     <Spinner size="sm" />
                     Consultando…
                   </div>
+                ) : student ? (
+                  <>
+                    <StudentResultCard
+                      student={student}
+                      suspended={isSuspended}
+                      suspensionCount={suspensionCount}
+                      bare
+                    />
+                    <PersonDayStatus student={student} check={check} currentSedeName={currentSedeName} />
+                  </>
+                ) : searchError ? (
+                  <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                    {searchError}
+                  </div>
+                ) : (
+                  // Estado vacío: **una** línea. Antes esto era una ficha entera de
+                  // marcadores y cinco campos grises en blanco, que ocupaban el alto de
+                  // una ficha llena sin decir nada.
+                  <div className="flex items-center gap-2.5 rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-sm text-slate-500">
+                    <UserSearch size={16} className="flex-shrink-0" />
+                    Escanea un carnet o escribe una cédula para ver a la persona.
+                  </div>
                 )}
               </div>
-
-              {/* Campo sin etiqueta del sistema anterior: resultado de la última acción */}
-              <div
-                role="status"
-                className={[
-                  'flex-shrink-0 rounded-md border px-3 py-2 text-sm transition',
-                  statusMessage ? statusTone[statusMessage.tone] : 'border-slate-200 bg-slate-100',
-                ].join(' ')}
-              >
-                {statusMessage?.text ?? ' '}
-              </div>
-
-              {/* Aviso de consumo previo. Va en su propio bloque y no dentro de la
-                  cascada de `personNotice` porque nunca debe quedar tapado por otro
-                  aviso: es el dato que evita el intento de registro. */}
-              {student && priorConsumption && (
-                <div className="flex flex-shrink-0 items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                  <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
-                  <span>{previousConsumptionMessage(priorConsumption)}</span>
-                </div>
-              )}
-
-              {/* Aviso propio de la persona consultada (uno solo, el más grave) */}
-              {personNotice && (
-                <div
-                  className={[
-                    'flex-shrink-0 rounded-md border px-3 py-2 text-sm',
-                    personNotice.tone === 'danger'
-                      ? 'border-red-200 bg-red-50 text-red-700'
-                      : 'border-amber-200 bg-amber-50 text-amber-700',
-                  ].join(' ')}
-                >
-                  {personNotice.text}
-                </div>
-              )}
             </div>
 
-            {/* ── Acciones: ancladas al pie de la tarjeta ─────────────── */}
-            {student && (
-              <div className="flex flex-shrink-0 justify-end gap-3 border-t border-slate-100 pt-3">
-                <Button variant="ghost" size="sm" onClick={clearPerson} disabled={saving}>
+            {/* Resultado de la última acción. Solo con mensaje: la caja llevaba un
+                espacio (' ') dentro para reservar alto, es decir, un hueco disfrazado
+                de contenido. */}
+            {statusMessage && (
+              <div
+                role="status"
+                className={`flex-shrink-0 rounded-md border px-3 py-2 text-sm ${statusTone[statusMessage.tone]}`}
+              >
+                {statusMessage.text}
+              </div>
+            )}
+
+            {/* ── Acciones: sitio fijo al pie de la tarjeta ─────────────
+                Se deshabilitan, no se desmontan: una botonera que aparece y desaparece
+                mueve todo lo que tiene encima justo cuando el operador va a pulsar. */}
+            {canRegister && (
+              <div className="flex flex-shrink-0 items-center justify-end gap-3 border-t border-slate-100 pt-3">
+                {student && registerBlockedReason && (
+                  <span className="mr-auto text-xs text-slate-500">{registerBlockedReason}</span>
+                )}
+                <Button variant="ghost" size="sm" onClick={clearPerson} disabled={!student || saving}>
                   Limpiar
                 </Button>
-                {canSuspend && (
-                  <Button variant="danger" size="sm" leftIcon={<Ban size={15} />} onClick={openSuspend} disabled={saving}>
-                    Suspender
-                  </Button>
-                )}
+                <Button
+                  variant="danger"
+                  size="sm"
+                  leftIcon={<Ban size={15} />}
+                  onClick={openSuspend}
+                  disabled={!canSuspend || saving}
+                >
+                  Suspender
+                </Button>
                 <Button
                   variant="primary"
                   size="sm"
                   loading={saving}
-                  disabled={isSuspended || registrationBlocked || alreadyConsumed}
+                  disabled={!student || registerBlockedReason !== null}
+                  title={registerBlockedReason ?? undefined}
                   onClick={handleRegister}
                 >
                   Registrar Consumo

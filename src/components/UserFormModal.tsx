@@ -8,6 +8,8 @@ import { Select } from './ui/Select'
 import { Button } from './ui/Button'
 import type { ApiError } from '../types/auth'
 import { roleLabel } from '../utils/labels'
+import { SedeSelector } from './SedeSelector'
+import { useAuth } from '../context/AuthContext'
 
 interface Props {
   open: boolean
@@ -25,7 +27,16 @@ const STATUS_OPTIONS = [
 const EMPTY = { name: '', email: '', password: '', role_id: '', is_active: 'true' }
 
 export function UserFormModal({ open, onClose, onSave, initial, roles }: Props) {
+  const { user } = useAuth()
+  // Asignar la sede de otra cuenta es una operación de administración: el servidor solo
+  // se la admite a un SUPER_ADMIN (`PUT /users/{id}` va por suelo de rol, no por permiso
+  // de pantalla). Ofrecer el campo a quien no puede guardarlo es prometer un 403.
+  const canAssignSede = user?.role.name === 'SUPER_ADMIN'
+
   const [form,     setForm]     = useState(EMPTY)
+  // Fuera de `form` porque es un número y no una cadena de formulario; `null` es
+  // "sin asignar", que es un valor con significado propio y no un campo vacío.
+  const [sedeId,   setSedeId]   = useState<number | null>(null)
   const [errors,   setErrors]   = useState<Record<string, string>>({})
   const [apiError, setApiError] = useState<string | null>(null)
   const [loading,  setLoading]  = useState(false)
@@ -43,6 +54,7 @@ export function UserFormModal({ open, onClose, onSave, initial, roles }: Props) 
           }
         : { ...EMPTY, role_id: roles[0] ? String(roles[0].id) : '' },
     )
+    setSedeId(initial?.sede_id ?? null)
     setErrors({})
     setApiError(null)
   }, [open, initial, roles])
@@ -80,6 +92,9 @@ export function UserFormModal({ open, onClose, onSave, initial, roles }: Props) 
           role_id:   Number(form.role_id),
           is_active: form.is_active === 'true',
         }
+        // Solo se envía si esta cuenta puede asignarla: mandar `sede_id` sin poder
+        // hacerlo convertiría una edición normal de nombre en un 403.
+        if (canAssignSede) payload.sede_id = sedeId
         if (form.password) payload.password = form.password
         await userApi.update(initial.id, payload)
       } else {
@@ -89,6 +104,7 @@ export function UserFormModal({ open, onClose, onSave, initial, roles }: Props) 
           password: form.password,
           role_id:  Number(form.role_id),
         }
+        if (canAssignSede) payload.sede_id = sedeId
         await userApi.create(payload)
       }
       onSave()
@@ -163,6 +179,25 @@ export function UserFormModal({ open, onClose, onSave, initial, roles }: Props) 
           error={errors.role_id}
           fullWidth
         />
+        {canAssignSede ? (
+          <div className="flex flex-col gap-1">
+            <SedeSelector value={sedeId} onChange={setSedeId} label="Sede asignada" />
+            <p className="text-xs text-slate-500">
+              Determina en qué comedor puede registrar consumos. Sin sede asignada, la
+              cuenta puede consultar pero no registrar.
+            </p>
+          </div>
+        ) : initial ? (
+          // En lectura para quien no puede asignarla: un ADMIN necesita *ver* por qué
+          // una cuenta no registra, aunque el cambio sea de un SUPER_ADMIN.
+          <div className="flex flex-col gap-1">
+            <span className="text-[13px] font-semibold text-slate-900">Sede asignada</span>
+            <div className="flex h-10 items-center rounded-md border border-slate-200 bg-slate-100 px-3 text-sm text-slate-600">
+              {initial.sede_name ?? 'Sin asignar'}
+            </div>
+            <p className="text-xs text-slate-500">Solo un SUPER_ADMIN puede cambiarla.</p>
+          </div>
+        ) : null}
         {initial && (
           <Select
             label="Estado"

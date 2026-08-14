@@ -13,7 +13,7 @@ import type {
 /**
  * Padrón de estudiantes del backend (`/students`). Reemplaza al antiguo servicio
  * Node externo. Se conserva el nombre `externalStudentApi` para no tocar los
- * consumidores (RegisterDining, CheckConsumes, SuspendStudent, ManualRegistration).
+ * consumidores (RegisterDining, SuspendStudent, ManualRegistration).
  */
 
 // Alias de compatibilidad con el nombre anterior del shape.
