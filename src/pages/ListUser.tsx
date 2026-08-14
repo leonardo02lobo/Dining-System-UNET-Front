@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { FileDown, UserPlus } from 'lucide-react'
-import { Pencil, Trash2 } from 'lucide-react'
+import { History, Pencil, Trash2 } from 'lucide-react'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { userApi, roleApi } from '../api/user'
@@ -28,6 +29,7 @@ const ROLE_VARIANT: Record<RoleName, 'info' | 'warning' | 'neutral' | 'success'>
 export function ListUser() {
   const { user: currentUser } = useAuth()
   const { can } = useCan()
+  const navigate = useNavigate()
 
   const [rows,          setRows]         = useState<UserAccount[]>([])
   const [roles,         setRoles]        = useState<Role[]>([])
@@ -143,6 +145,19 @@ export function ListUser() {
       ),
     },
     {
+      key: 'sede_name',
+      header: 'Sede',
+      sortable: true,
+      // "Sin asignar" en ámbar y no una celda vacía: para una cuenta de taquilla es un
+      // estado que la deja sin poder registrar, no un dato que falte por rellenar.
+      render: (_, row) =>
+        row.sede_name ? (
+          <span className="text-slate-600">{row.sede_name}</span>
+        ) : (
+          <Badge variant="warning">Sin asignar</Badge>
+        ),
+    },
+    {
       key: 'is_active',
       header: 'Estado',
       render: (_, row) => (
@@ -161,6 +176,10 @@ export function ListUser() {
   // de editar que siempre acababa en 403.
   const canEditUser = currentUser?.role.name === 'SUPER_ADMIN'
   const canDelete   = currentUser?.role.name === 'SUPER_ADMIN'
+  // Ver el historial de otra persona lo concede el permiso de su pantalla. Solo se ofrece
+  // a quien puede abrirla: un camino que termina rebotando a la ruta por defecto es peor
+  // que no ofrecer el camino.
+  const canSeeHistory = can('/auditoria/procesos')
 
   return (
     <div>
@@ -219,6 +238,17 @@ export function ListUser() {
         emptyMessage="No hay usuarios para los filtros seleccionados."
         actions={(row) => (
           <>
+            {canSeeHistory && (
+              <button
+                type="button"
+                title="Ver historial de procesos"
+                aria-label={`Ver historial de procesos de ${row.name}`}
+                className="rounded p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
+                onClick={() => navigate(`/auditoria/procesos?usuario=${row.id}`)}
+              >
+                <History size={14} />
+              </button>
+            )}
             {canEditUser && (
               <button
                 type="button"

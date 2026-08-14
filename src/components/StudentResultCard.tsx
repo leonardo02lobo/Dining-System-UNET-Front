@@ -7,11 +7,13 @@ import type { Student } from '../types/user'
 
 interface StudentResultCardProps {
   /**
-   * Persona consultada. Puede ser `null` para dejar la ficha visible desde el
-   * inicio con los campos vacíos, de modo que la zona de información no aparezca
-   * de golpe tras la búsqueda (ver `CheckConsumes`).
+   * Persona consultada. Obligatoria: la ficha solo se monta cuando hay alguien que
+   * mostrar. El antiguo modo `null` dibujaba la ficha entera en blanco —marcadores
+   * `—`, avatar vacío, insignia "Sin consultar"— para que la zona no apareciera de
+   * golpe; ocupaba alto en una pantalla que debe caber sin scroll y enseñaba a mirar
+   * sin leer. El estado vacío es ahora una sola línea, y vive en la pantalla.
    */
-  student: Student | null
+  student: Student
   /** Estado mostrado en el badge. Por defecto usa `student.is_suspended`. */
   suspended?: boolean
   /** Muestra el aviso de "acceso directo" vs. "alta al vuelo". Por defecto true. */
@@ -34,28 +36,25 @@ interface StudentResultCardProps {
   suspensionCount?: number | null
 }
 
-/** Marcador mostrado en los campos mientras no hay ninguna persona consultada. */
-const EMPTY_FIELD_PLACEHOLDER = '—'
-
-function ReadOnlyField({ label, value }: { label: string; value: string }) {
+/**
+ * Campo de la ficha. Un campo sin valor **no se dibuja**: un recuadro vacío ocupa el
+ * mismo alto que uno lleno sin decir nada, y la ficha solo existe cuando hay persona,
+ * así que un hueco aquí es un dato que falta, no un estado de espera.
+ */
+function ReadOnlyField({ label, value }: { label: string; value: string | null | undefined }) {
+  if (!value) return null
   return (
     <div className="flex flex-col gap-1">
       <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
-      {/* Con `value` vacío el input muestra el placeholder: así la ficha ocupa
-          el mismo espacio antes y después de la consulta. */}
-      <Input value={value} placeholder={EMPTY_FIELD_PLACEHOLDER} readOnly fullWidth />
+      <Input value={value} readOnly fullWidth />
     </div>
   )
 }
 
 /**
  * Ficha compartida de un estudiante/acceso directo consultado. Unifica la
- * presentación que antes duplicaban `RegisterDining`, `CheckConsumes` y el
- * registro manual: avatar, estado, datos y ranuras para avisos/acciones.
- *
- * Con `student = null` se dibuja la misma ficha en blanco (campos con marcador y
- * estado neutro), para que la zona de información esté presente desde el inicio
- * y solo se rellene al consultar, sin saltos de maquetación.
+ * presentación de la pantalla de comedor, la suspensión y el registro manual:
+ * avatar, estado, datos y ranuras para avisos/acciones.
  */
 export function StudentResultCard({
   student,
@@ -67,57 +66,47 @@ export function StudentResultCard({
   bare = false,
   suspensionCount,
 }: StudentResultCardProps) {
-  const isSuspended = suspended ?? student?.is_suspended ?? false
+  const isSuspended = suspended ?? student.is_suspended
   // A la gente externa no se la sanciona: mostrar su contador de suspensiones sería
   // prometer un historial que no existe.
-  const isExternal = student?.person_kind === 'external'
+  const isExternal = student.person_kind === 'external'
 
   const content = (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
       <div className="flex flex-col items-center gap-3">
-        <Avatar name={student?.name} src={student?.avatar_url} shape="square" />
-        {/* Sin persona consultada el estado es desconocido: un badge neutro evita
-            afirmar "Activo" sobre alguien que todavía no se ha buscado. */}
-        {student === null ? (
-          <Badge variant="neutral">Sin consultar</Badge>
-        ) : (
-          <Badge variant={isSuspended ? 'danger' : 'success'}>
-            {isSuspended ? 'Suspendido' : 'Activo'}
-          </Badge>
-        )}
+        <Avatar name={student.name} src={student.avatar_url} shape="square" />
+        <Badge variant={isSuspended ? 'danger' : 'success'}>
+          {isSuspended ? 'Suspendido' : 'Activo'}
+        </Badge>
         {isExternal && <Badge variant="info">Persona externa</Badge>}
-        {showSuspensionCount && !isExternal && (
-          student === null ? (
-            <Badge variant="neutral">Suspensiones: {EMPTY_FIELD_PLACEHOLDER}</Badge>
-          ) : suspensionCount != null && (
-            <Badge variant={suspensionCount > 0 ? 'warning' : 'neutral'}>
-              {suspensionCount > 0
-                ? `Suspendido ${suspensionCount} ${suspensionCount === 1 ? 'vez' : 'veces'}`
-                : 'Sin suspensiones'}
-            </Badge>
-          )
+        {showSuspensionCount && !isExternal && suspensionCount != null && (
+          <Badge variant={suspensionCount > 0 ? 'warning' : 'neutral'}>
+            {suspensionCount > 0
+              ? `Suspendido ${suspensionCount} ${suspensionCount === 1 ? 'vez' : 'veces'}`
+              : 'Sin suspensiones'}
+          </Badge>
         )}
       </div>
 
       <div className="flex flex-1 flex-col gap-3">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <ReadOnlyField label="Documento" value={student?.cedula ?? ''} />
-          <ReadOnlyField label="Nombre" value={student?.name ?? ''} />
+          <ReadOnlyField label="Documento" value={student.cedula} />
+          <ReadOnlyField label="Nombre" value={student.name} />
           {isExternal ? (
             <>
-              <ReadOnlyField label="Carrera / Área" value={student?.career ?? ''} />
+              <ReadOnlyField label="Carrera / Área" value={student.career} />
               {/* Donde un estudiante muestra su tipo de usuario, una persona externa
                   muestra su etiqueta: es lo que la clasifica. */}
-              <ReadOnlyField label="Etiqueta" value={student?.external_label ?? ''} />
+              <ReadOnlyField label="Etiqueta" value={student.external_label} />
             </>
           ) : (
             <div className="sm:col-span-2">
-              <ReadOnlyField label="Carrera" value={student?.career ?? ''} />
+              <ReadOnlyField label="Carrera" value={student.career} />
             </div>
           )}
         </div>
 
-        {showAccesoDirectoNotice && student !== null && (
+        {showAccesoDirectoNotice && (
           isExternal ? (
             <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700">
               Persona externa registrada. Se registrará su consumo con su propia ficha.

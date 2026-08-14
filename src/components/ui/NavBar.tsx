@@ -1,8 +1,8 @@
-import { ChevronDown, Lock, RotateCcw } from 'lucide-react'
+import { ChevronDown, History, Lock, RotateCcw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { canAccess } from '../../config/routeAccess'
+import { canOpen } from '../../config/routeAccess'
 import { Button } from './Button'
 import { Modal } from './Modal'
 
@@ -21,8 +21,10 @@ const navGroups: NavGroup[] = [
     label: 'Comedor',
     items: [
       { to: '/comedor/sesion',           label: 'Sesión de Servicio de alimentación'  },
-      { to: '/comedor/consultar',        label: 'Consultar Consumo'   },
-      { to: '/comedor/registrar',        label: 'Registro al Comedor' },
+      // Una sola entrada: consultar y registrar son la misma pantalla. Dos entradas
+      // para el mismo destino devolvían la pregunta —"¿cuál abro?"— que la unificación
+      // elimina.
+      { to: '/comedor/registrar',        label: 'Comedor: Consulta y Registro' },
       { to: '/comedor/reporte',          label: 'Reporte de Comedor'  },
       { to: '/comedor/historial',        label: 'Historial de Sesiones' },
       { to: '/comedor/registro-manual',  label: 'Registro Manual'     },
@@ -49,6 +51,7 @@ const navGroups: NavGroup[] = [
     label: 'Administración',
     items: [
       { to: '/auditoria',            label: 'Auditoría de Acceso'  },
+      { to: '/auditoria/procesos',   label: 'Historial de Procesos' },
       { to: '/admin/permisos',       label: 'Gestión de Permisos'  },
       { to: '/admin/plantilla-correo', label: 'Plantilla de Correo' },
       { to: '/accesos_directos/importar', label: 'Importar Estudiantes (CSV)'   },
@@ -103,7 +106,7 @@ export function NavBar({ onNavigate }: NavBarProps = {}) {
       <div className="flex flex-1 flex-col overflow-y-auto">
         {navGroups.map((group) => {
           const visible = group.items.filter((item) =>
-            role ? canAccess(item.to, role, permissions) : false
+            role ? canOpen(item.to, role, permissions) : false
           )
           if (visible.length === 0) return null
 
@@ -151,6 +154,26 @@ export function NavBar({ onNavigate }: NavBarProps = {}) {
           )
         })}
       </div>
+
+      {/* Fuera de los grupos: `/mi-actividad` no está catalogada, así que `canOpen` la
+          daría por visible a todo el mundo y el grupo Administración aparecería para un
+          taquillero con esta única entrada dentro. Aquí, junto a la sesión, además es
+          donde encaja "lo mío". */}
+      <NavLink
+        to="/mi-actividad"
+        end
+        onClick={onNavigate}
+        className={({ isActive }) =>
+          `flex items-center gap-2 px-4 py-3 text-base font-bold transition-colors ${
+            isActive
+              ? 'text-blue-600 bg-blue-50'
+              : 'text-slate-800 hover:bg-slate-50'
+          }`
+        }
+      >
+        <History size={20} className="text-blue-500 flex-shrink-0" />
+        Mi Actividad
+      </NavLink>
 
       <button
         type="button"

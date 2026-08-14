@@ -4,7 +4,6 @@ import { AuthProvider } from './context/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { LoginPage } from './pages/LoginPage'
 import { Index } from './pages/Index'
-import { CheckConsumes } from './pages/CheckConsumes'
 import { RegisterDining } from './pages/RegisterDining'
 import { ListUser } from './pages/ListUser'
 import { LoginAuditPage } from './pages/LoginAuditPage'
@@ -29,6 +28,8 @@ import { SedesPage } from './pages/SedesPage'
 import { SuspendedListPage } from './pages/SuspendedListPage'
 import { SuspendStudent } from './pages/SuspendStudent'
 import { CareerCatalogPage } from './pages/CareerCatalogPage'
+import { ProcessHistoryPage } from './pages/ProcessHistoryPage'
+import { MyActivityPage } from './pages/MyActivityPage'
 
 export default function App() {
   return (
@@ -41,7 +42,11 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Index />}>
               <Route path="dashboard" element={<Navigate to="/" replace />} />
-              <Route path="comedor/consultar" element={<CheckConsumes />} />
+              {/* Consultar y registrar son una sola pantalla: toda búsqueda muestra la
+                  ficha completa y registrar es la acción que se ofrece encima. El permiso
+                  `/comedor/consultar` sigue vivo (lo aceptan ocho endpoints del backend) y
+                  ahora concede el modo de solo consulta de esta misma pantalla. */}
+              <Route path="comedor/consultar" element={<Navigate to="/comedor/registrar" replace />} />
               <Route path="comedor/registrar" element={<RegisterDining />} />
               <Route path="comedor/reporte" element={<ReportsPage />} />
               <Route path="comedor/historial" element={<SessionHistoryPage />} />
@@ -56,6 +61,11 @@ export default function App() {
               <Route path="inventario/pruebas-almuerzo" element={<LunchTestPage />} />
               <Route path="usuarios" element={<ListUser />} />
               <Route path="auditoria" element={<LoginAuditPage />} />
+              <Route path="auditoria/procesos" element={<ProcessHistoryPage />} />
+              {/* Fuera de `ROUTE_ACCESS` a propósito: ver lo que uno mismo hizo no es una
+                  pantalla que un administrador deba poder revocar. Ver el comentario en
+                  `config/routeAccess.ts`. */}
+              <Route path="mi-actividad" element={<MyActivityPage />} />
               <Route path="comedor/suspender" element={<SuspendStudent />} />
               <Route path="suspendidos" element={<SuspendedListPage />} />
               <Route path="comedor/sesion" element={<LunchSessionPage />} />
@@ -70,7 +80,7 @@ export default function App() {
               <Route path="sedes" element={<SedesPage />} />
               <Route path="admin/carreras" element={<CareerCatalogPage />} />
 
-              <Route path="checkConsumes" element={<Navigate to="/comedor/consultar" replace />} />
+              <Route path="checkConsumes" element={<Navigate to="/comedor/registrar" replace />} />
               <Route path="registerDining" element={<Navigate to="/comedor/registrar" replace />} />
               <Route path="listUser" element={<Navigate to="/usuarios" replace />} />
               <Route path="loginAudit" element={<Navigate to="/auditoria" replace />} />

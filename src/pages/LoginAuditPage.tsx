@@ -7,6 +7,11 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Select } from '../components/ui/Select'
+// `parseBrowser` es compartido con el historial de procesos: las dos pantallas de
+// auditoría leen el mismo dato y dos copias acabarían diciendo cosas distintas.
+import { parseBrowser } from '../utils/auditLabels'
+import { SessionProcesses } from '../components/audit/SessionProcesses'
+import { useCan } from '../hooks/useCan'
 
 const PAGE_SIZE = 50
 
@@ -15,16 +20,6 @@ function formatDate(iso: string): string {
     dateStyle: 'short',
     timeStyle: 'medium',
   })
-}
-
-function parseBrowser(ua: string | null): string {
-  if (!ua) return '—'
-  if (/Edg\//.test(ua))              return 'Edge'
-  if (/Firefox\//.test(ua))          return 'Firefox'
-  if (/Chrome\//.test(ua))           return 'Chrome'
-  if (/Safari\//.test(ua))           return 'Safari'
-  if (/curl|python-requests|axios/.test(ua)) return 'API Client'
-  return ua.slice(0, 30) + '…'
 }
 
 const ROLE_MAP: Record<string, { label: string; variant: BadgeVariant }> = {
@@ -40,6 +35,13 @@ const roleOptions = [
 ]
 
 export function LoginAuditPage() {
+  // Desplegar un ingreso muestra el rastro de procesos de otra persona, así que exige el
+  // mismo permiso que la pantalla que lo muestra en grande. Quien solo tenga `/auditoria`
+  // ve quién entró —que es lo que ese permiso concede— y se lo dice una nota, en vez de un
+  // botón que acabaría en 403.
+  const { can } = useCan()
+  const canSeeProcesses = can('/auditoria/procesos')
+
   const [rows,       setRows]       = useState<LoginAuditEntry[]>([])
   const [total,      setTotal]      = useState(0)
   const [page,       setPage]       = useState(0)
@@ -86,7 +88,14 @@ export function LoginAuditPage() {
       key: 'user_name',
       header: 'Usuario',
       sortable: true,
-      render: (_, row) => <span className="font-medium text-slate-800">{row.user_name}</span>,
+      render: (_, row) => (
+        <div className="space-y-0.5">
+          <div className="font-medium text-slate-800">{row.user_name}</div>
+          {row.user_id === null && (
+            <div className="text-xs text-slate-400">cuenta eliminada</div>
+          )}
+        </div>
+      ),
     },
     {
       key: 'user_email',
@@ -121,6 +130,15 @@ export function LoginAuditPage() {
       ),
     },
     {
+      key: 'process_count',
+      header: 'Procesos',
+      render: (_, row) => (
+        <Badge variant={row.process_count > 0 ? 'info' : 'neutral'}>
+          {row.process_count}
+        </Badge>
+      ),
+    },
+    {
       key: 'logged_at',
       header: 'Fecha y Hora',
       sortable: true,
@@ -134,7 +152,11 @@ export function LoginAuditPage() {
     <div>
       <PageHeader
         title="Auditoría de Acceso"
-        subtitle={`${total} registro${total !== 1 ? 's' : ''} en total`}
+        subtitle={
+          canSeeProcesses
+            ? `${total} inicio${total !== 1 ? 's' : ''} de sesión — despliega uno para ver qué se hizo en él`
+            : `${total} registro${total !== 1 ? 's' : ''} en total`
+        }
       />
 
       {/* Barra de filtros */}
@@ -173,12 +195,23 @@ export function LoginAuditPage() {
         </div>
       )}
 
+      {!canSeeProcesses && (
+        <div className="mb-4 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          Para ver qué se hizo en cada sesión hace falta el permiso del Historial de
+          Procesos. Esta pantalla muestra quién entró y desde dónde.
+        </div>
+      )}
+
       <Table<LoginAuditEntry>
         columns={columns}
         rows={rows}
         keyField="id"
         loading={loading}
         emptyMessage="No hay registros de inicio de sesión para los filtros seleccionados."
+        renderExpanded={
+          canSeeProcesses ? (row) => <SessionProcesses session={row} /> : undefined
+        }
+        expandLabel={(row) => `la sesión de ${row.user_name} del ${formatDate(row.logged_at)}`}
       />
 
       {/* Paginación — siempre visible */}

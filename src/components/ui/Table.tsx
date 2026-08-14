@@ -1,5 +1,5 @@
-import { ArrowUpDown } from 'lucide-react'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { ArrowUpDown, ChevronDown, ChevronRight } from 'lucide-react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Spinner } from './Spinner'
 
 export interface ColumnDef<T> {
@@ -35,6 +35,16 @@ interface TableProps<T extends object> {
   onSelectionChange?: (keys: RowKey[]) => void
   /** Texto accesible de la casilla de una fila. Sin él, cincuenta casillas suenan igual. */
   selectionLabel?: (row: T) => string
+  /**
+   * Detalle que se despliega **dentro** de la tabla, bajo la fila.
+   *
+   * Se renderiza solo cuando llega, igual que la columna de selección: sin él el
+   * componente se comporta exactamente como antes. En un modal, comparar dos entradas
+   * seguidas obliga a cerrar y reabrir; el detalle en la propia lista no.
+   */
+  renderExpanded?: (row: T) => ReactNode
+  /** Texto accesible del botón que despliega una fila. */
+  expandLabel?: (row: T) => string
 }
 
 function getValue<T extends object>(row: T, key: keyof T | string): unknown {
@@ -52,9 +62,12 @@ export function Table<T extends object>({
   selectedKeys,
   onSelectionChange,
   selectionLabel,
+  renderExpanded,
+  expandLabel,
 }: TableProps<T>) {
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const [expanded, setExpanded] = useState<Set<RowKey>>(new Set())
   const headerCheckbox = useRef<HTMLInputElement>(null)
 
   const selectable = selectedKeys !== undefined && onSelectionChange !== undefined
@@ -99,6 +112,15 @@ export function Table<T extends object>({
     )
   }
 
+  function toggleExpanded(key: RowKey) {
+    setExpanded((current) => {
+      const next = new Set(current)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
   function toggleRow(key: RowKey) {
     if (!onSelectionChange) return
     onSelectionChange(
@@ -118,6 +140,7 @@ export function Table<T extends object>({
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50 text-left">
+            {renderExpanded && <th className="w-10 px-3 py-2 sm:px-4 sm:py-3" />}
             {selectable && (
               <th className="w-10 px-3 py-2 sm:px-4 sm:py-3">
                 <input
@@ -161,16 +184,24 @@ export function Table<T extends object>({
           {sorted.length === 0 && !loading ? (
             <tr>
               <td
-                colSpan={columns.length + (actions ? 1 : 0) + (selectable ? 1 : 0)}
+                colSpan={
+                  columns.length
+                  + (actions ? 1 : 0)
+                  + (selectable ? 1 : 0)
+                  + (renderExpanded ? 1 : 0)
+                }
                 className="px-4 py-10 text-center text-slate-600"
               >
                 {emptyMessage}
               </td>
             </tr>
           ) : (
-            sorted.map((row) => (
+            sorted.map((row) => {
+              const rowKey = getValue(row, keyField) as RowKey
+              const isExpanded = expanded.has(rowKey)
+              return (
+              <Fragment key={String(rowKey)}>
               <tr
-                key={String(getValue(row, keyField))}
                 onClick={() => onRowClick?.(row)}
                 onKeyDown={(e) => {
                   if (!onRowClick) return
@@ -185,6 +216,23 @@ export function Table<T extends object>({
                   onRowClick ? 'cursor-pointer hover:bg-blue-50/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500' : 'hover:bg-slate-50'
                 }`}
               >
+                {renderExpanded && (
+                  <td className="px-3 py-2 sm:px-4 sm:py-3" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      onClick={() => toggleExpanded(rowKey)}
+                      aria-expanded={isExpanded}
+                      aria-label={
+                        expandLabel
+                          ? `${isExpanded ? 'Ocultar' : 'Ver'} detalle de ${expandLabel(row)}`
+                          : `${isExpanded ? 'Ocultar' : 'Ver'} detalle`
+                      }
+                      className="rounded p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
+                    >
+                      {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                    </button>
+                  </td>
+                )}
                 {selectable && (
                   // `stopPropagation` por el mismo motivo que en la columna de
                   // acciones: en una tabla con filas clicables, marcar la casilla
@@ -216,7 +264,19 @@ export function Table<T extends object>({
                   </td>
                 )}
               </tr>
-            ))
+              {renderExpanded && isExpanded && (
+                <tr className="border-b border-slate-100 bg-slate-50/70 last:border-0">
+                  <td
+                    colSpan={columns.length + (actions ? 1 : 0) + (selectable ? 1 : 0) + 1}
+                    className="px-3 py-3 sm:px-4 sm:py-4"
+                  >
+                    {renderExpanded(row)}
+                  </td>
+                </tr>
+              )}
+              </Fragment>
+              )
+            })
           )}
         </tbody>
       </table>

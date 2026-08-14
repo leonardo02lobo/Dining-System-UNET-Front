@@ -1,6 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { canAccess, DEFAULT_ROUTE } from '../config/routeAccess'
+import { canOpen, DEFAULT_ROUTE } from '../config/routeAccess'
 
 export function ProtectedRoute() {
   const { user, loading, permissions } = useAuth()
@@ -20,7 +20,11 @@ export function ProtectedRoute() {
 
   if (!user) return <Navigate to="/login" replace />
 
-  if (!canAccess(location.pathname, user.role.name, permissions)) {
+  // `canOpen`, no `canAccess`: hay pantallas que admiten más de un permiso con
+  // capacidad distinta (comedor se abre con `/comedor/registrar` o `/comedor/consultar`).
+  // Con `canAccess` aquí, un usuario de solo consulta rebotaría a su ruta por defecto —
+  // que es esta misma pantalla— y quedaría dando vueltas.
+  if (!canOpen(location.pathname, user.role.name, permissions)) {
     return <Navigate to={DEFAULT_ROUTE[user.role.name]} replace />
   }
 
