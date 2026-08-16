@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Student } from '../types/user'
+import { todayISO } from '../utils/sanctionDates'
 
 /**
  * El caso que originó el cambio: se registra a una persona en Gente Externa, llega a
@@ -57,9 +58,14 @@ vi.mock('../api/sanction', () => ({
   sanctionApi: { history: (id: number) => history(id), quickCreate: vi.fn() },
 }))
 
+// La sesión abierta es **la de hoy**, no una fecha fija: la pantalla bloquea el registro
+// cuando el turno sobrevivió a su fecha (QA-TEST#1 ALTO-1), así que una fecha escrita a
+// mano convertiría estas pruebas en algo que caduca al día siguiente de escribirlas.
+// `todayISO()` se llama dentro de la factoría porque `vi.mock` se iza por encima de
+// cualquier constante del módulo.
 vi.mock('../api/lunchSession', () => ({
   lunchSessionApi: {
-    today: () => Promise.resolve({ id: 5, date: '2026-08-10', status: 'OPEN', sede_id: 1 }),
+    today: () => Promise.resolve({ id: 5, date: todayISO(), status: 'OPEN', sede_id: 1 }),
   },
 }))
 
