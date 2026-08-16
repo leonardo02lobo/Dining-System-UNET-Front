@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Student } from '../types/user'
 import type { Permission } from '../api/permissions'
+import { todayISO } from '../utils/sanctionDates'
 
 /**
  * La pantalla de comedor consulta siempre y registra cuando puede.
@@ -66,7 +67,9 @@ vi.mock('../api/student', () => ({
 
 vi.mock('../api/consumption', () => ({
   consumptionApi: {
-    checkByDocument: (documentId: string) => checkByDocument(documentId),
+    // Reenvía también la fecha: el doble se quedaba con la cédula, así que ninguna
+    // prueba podía ver contra qué día se estaba preguntando.
+    checkByDocument: (documentId: string, date?: string) => checkByDocument(documentId, date),
     sessionRecent: (id: number, limit: number) => sessionRecent(id, limit),
   },
 }))
@@ -150,7 +153,10 @@ describe('Comedor unificado', () => {
     checkByDocument.mockResolvedValue(NO_CONSUMPTION)
     sessionRecent.mockResolvedValue({ total: 3, items: [] })
     history.mockResolvedValue({ total: 0, items: [] })
-    today.mockResolvedValue({ id: 5, date: '2026-08-11', status: 'OPEN', sede_id: 1 })
+    // Fecha de hoy, no una fija: la pantalla bloquea el registro cuando el turno
+    // sobrevivió a su fecha (QA-TEST#1 ALTO-1) y una fecha escrita a mano haría que
+    // estas pruebas caducaran al día siguiente.
+    today.mockResolvedValue({ id: 5, date: todayISO(), status: 'OPEN', sede_id: 1 })
   })
 
   describe('la consulta no depende del turno', () => {
@@ -173,6 +179,61 @@ describe('Comedor unificado', () => {
 
       expect(screen.getByLabelText('Cedula / Pasaporte / Carnet')).toBeEnabled()
       expect(screen.getByRole('button', { name: 'Buscar' })).toBeEnabled()
+    })
+  })
+
+  // QA-TEST#1 ALTO-1 y ALTO-2. El consumo se fecha con `session.date`, así que un turno
+  // que sobrevivió a su fecha archiva la comida de hoy en el día en que se abrió — fuera
+  // del reporte del día en que se sirvió— y deja a quien comió aquel día sin poder
+  // repetir. Antes de esto la pantalla seguía registrando sin decir nada.
+  describe('una sesión que sobrevivió a su fecha', () => {
+    const STALE = { id: 5, date: '2026-08-06', status: 'OPEN', sede_id: 1 }
+
+    it('no permite registrar y explica qué hacer', async () => {
+      today.mockResolvedValue(STALE)
+      const user = userEvent.setup()
+      await renderScreen()
+
+      await search(user, '12345678', 'Ana Pérez')
+
+      expect(screen.getByRole('button', { name: 'Registrar Consumo' })).toBeDisabled()
+      // Nombra la fecha del turno y la acción concreta: sin eso el operador no puede
+      // deducir por qué dejó de registrar una sesión que sigue diciendo "abierta".
+      expect(screen.getByText(/no de hoy/)).toBeInTheDocument()
+      expect(screen.getByText(/Ciérrala/)).toBeInTheDocument()
+    })
+
+    it('consulta el estado del día contra la fecha de la sesión, no contra hoy', async () => {
+      today.mockResolvedValue(STALE)
+      const user = userEvent.setup()
+      await renderScreen()
+
+      await search(user, '12345678', 'Ana Pérez')
+
+      // Preguntar por `hoy` respondía por un día distinto del que aplica el servidor:
+      // la ficha afirmaba "no ha consumido" y el registro devolvía 409 acto seguido.
+      expect(checkByDocument).toHaveBeenCalledWith('12345678', '2026-08-06')
+    })
+
+    it('sin sesión abierta no inventa una fecha de turno', async () => {
+      today.mockResolvedValue(null)
+      const user = userEvent.setup()
+      await renderScreen()
+
+      await search(user, '12345678', 'Ana Pérez')
+
+      // Sin turno no hay nada contra lo que comparar: decide el servidor (hoy).
+      expect(checkByDocument).toHaveBeenCalledWith('12345678', undefined)
+    })
+
+    it('la sesión del día sigue permitiendo registrar', async () => {
+      const user = userEvent.setup()
+      await renderScreen()
+
+      await search(user, '12345678', 'Ana Pérez')
+
+      expect(screen.getByRole('button', { name: 'Registrar Consumo' })).toBeEnabled()
+      expect(screen.queryByText(/no de hoy/)).not.toBeInTheDocument()
     })
   })
 
