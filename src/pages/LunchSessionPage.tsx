@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCan } from '../hooks/useCan'
 import { notify } from '../utils/toast'
 import { errorMessage, CONFLICT } from '../utils/apiErrors'
+import { todayISO } from '../utils/sanctionDates'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -62,6 +63,17 @@ export function LunchSessionPage() {
   // `isAdmin` y el rol sobreviven solo donde el servidor también razona por rol: la
   // excepción de las sesiones sin propietario y el cierre forzado (suelo por rol).
   const canForce = (s: LunchSession) => role === 'SUPER_ADMIN' && !canClose(s)
+
+  // Sesión que sobrevivió a su fecha. El servidor las cierra al arrancar
+  // (`crud_lunch_session.close_stale`), pero un proceso que lleva días levantado no
+  // vuelve a pasar por ahí: mientras tanto esta es la única señal de que el turno
+  // abierto ya no es el de hoy.
+  const isStale = (s: LunchSession) => s.date < todayISO()
+  const staleDays = (s: LunchSession) =>
+    Math.round(
+      (new Date(`${todayISO()}T00:00:00`).getTime() - new Date(`${s.date}T00:00:00`).getTime())
+      / 86_400_000,
+    )
 
   useEffect(() => {
     void fetchOpenSessions()
@@ -373,7 +385,7 @@ export function LunchSessionPage() {
                   >
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2">
-                        <Badge variant="success">Abierta</Badge>
+                        <Badge variant={isStale(s) ? 'danger' : 'success'}>Abierta</Badge>
                         <span className="text-sm font-semibold text-slate-800">{sedeName(s)}</span>
                       </div>
                       <span className="text-xs text-slate-500">
@@ -382,6 +394,16 @@ export function LunchSessionPage() {
                         {s.opened_at && ` · Abierta a las ${new Date(s.opened_at).toLocaleTimeString()}`}
                         {s.opened_by_name && ` · por ${s.opened_by_name}`}
                       </span>
+                      {/* Una sesión de otro día sigue diciendo "Abierta" y no se distingue
+                          de la de hoy. Se señala aquí porque esta es la pantalla donde se
+                          arregla: en taquilla solo se puede leer el aviso, no cerrarla. */}
+                      {isStale(s) && (
+                        <span className="text-xs font-medium text-red-600">
+                          Quedó abierta desde el {s.date} ({staleDays(s)}{' '}
+                          {staleDays(s) === 1 ? 'día' : 'días'}). Los consumos que se registren
+                          se archivan con esa fecha, no con la de hoy: ciérrala y abre la de hoy.
+                        </span>
+                      )}
                       {!canClose(s) && (
                         <span className="text-xs text-slate-400">
                           Solo {s.opened_by_name ?? 'quien la abrió'} puede cerrar esta sesión.

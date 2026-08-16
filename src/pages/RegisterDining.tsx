@@ -240,9 +240,17 @@ export function RegisterDining() {
       // así que no depende de que la persona sea acceso directo ni del resultado del
       // lookup. Y trae ya la sanción activa, de modo que una sola llamada responde por
       // las dos cajas de estado.
+      //
+      // La fecha que se consulta es la **de la sesión**, no la de hoy. El duplicado que
+      // el servidor rechaza se mide contra `session.date` (`POST /consumptions/`), así
+      // que preguntar por `date.today()` respondía por un día distinto del que aplica:
+      // con una sesión que sobrevive a su fecha, la ficha afirmaba "no ha consumido" y
+      // el registro devolvía 409 acto seguido. Sin sesión abierta no hay turno contra el
+      // que comparar y se omite: el servidor asume hoy, que es lo correcto para una
+      // consulta informativa.
       const [lookupResult, checkResult] = await Promise.allSettled([
         studentApi.lookup(clean),
-        consumptionApi.checkByDocument(clean),
+        consumptionApi.checkByDocument(clean, session?.date),
       ])
       if (lookupResult.status === 'rejected') throw lookupResult.reason
       const data = lookupResult.value
@@ -272,6 +280,27 @@ export function RegisterDining() {
     } finally {
       setLoading(false)
     }
+  }
+
+  /**
+   * Vuelve a preguntar solo por el estado del día, sin rehacer el lookup ni tocar la
+   * persona en pantalla. Se usa tras un 409: la ficha ya es correcta, lo que quedó
+   * obsoleto es la caja que dice si comió.
+   */
+  async function refreshDayStatus(documentId: string) {
+    try {
+      setCheck(await consumptionApi.checkByDocument(normalizeCedula(documentId), session?.date))
+    } catch {
+      // Se deja el estado anterior: `PersonDayStatus` ya sabe decir "no se pudo
+      // comprobar", y un fallo aquí no debe borrar lo que sí se sabe de la persona.
+    }
+  }
+
+  /** Aviso de duplicado: nombra la fecha del turno cuando no es la de hoy. */
+  function duplicateNoticeText(name: string): string {
+    return staleSession && session
+      ? `${name} ya registró su consumo en esta sesión (${formatSessionDate(session.date)}).`
+      : `${name} ya registró su consumo hoy.`
   }
 
   function handleSearch() { void triggerSearch(cedula) }
@@ -320,7 +349,15 @@ export function RegisterDining() {
       if (err?.status === 409) {
         // Consumo duplicado: aviso con los datos del usuario + sonido de alerta ~10 s.
         // Al terminar el sonido el aviso se cierra solo (y limpia para el siguiente).
-        setStatusMessage({ text: `${student.name} ya registró su consumo hoy.`, tone: 'warn' })
+        //
+        // "hoy" solo es cierto mientras la sesión sea del día. Con un turno que sobrevive
+        // a su fecha el consumo previo es de otro día, y decir "hoy" mandaba al taquillero
+        // a buscar un registro que no existe en la fecha de hoy.
+        setStatusMessage({ text: duplicateNoticeText(student.name), tone: 'warn' })
+        // La ficha se quedaba afirmando "no ha consumido" detrás del modal que acababa de
+        // decir lo contrario. Se vuelve a preguntar por el estado —ahora contra la fecha
+        // de la sesión— para que las dos afirmaciones no puedan discrepar.
+        void refreshDayStatus(student.cedula)
         setDuplicateOpen(true)
         duplicateSoundStop.current?.() // corta una alerta previa si aún sonaba
         duplicateSoundStop.current = playSound(
@@ -411,6 +448,13 @@ export function RegisterDining() {
 
   const sessionLoading = !sedeMissing && session === undefined
   const noSession = !sedeMissing && session === null
+  // Sesión que sobrevivió a su fecha (nadie la cerró al terminar el día).
+  //
+  // Importa porque el consumo se fecha con `session.date`, no con la fecha real: seguir
+  // registrando aquí archiva la comida de hoy bajo el día en que se abrió el turno, y la
+  // deja fuera del reporte del día en que de verdad se sirvió. Es un turno que hay que
+  // cerrar, no un turno en el que trabajar.
+  const staleSession = !!session && session.date !== todayISO()
   // Sede que se rotula: la de la cuenta y, para un administrador sin asignar, la de la
   // sesión que el servidor haya resuelto. Es también con la que se compara el consumo
   // previo para saber si ocurrió en otro municipio.
@@ -432,6 +476,7 @@ export function RegisterDining() {
     : sedeMissing     ? 'Tu cuenta no tiene una sede asignada.'
     : sessionLoading  ? 'Comprobando la sesión de la sede…'
     : noSession       ? 'No hay una sesión de servicio abierta en esta sede.'
+    : staleSession    ? 'La sesión abierta no es la de hoy.'
     : activeSanction  ? 'La persona tiene una sanción activa.'
     : student?.is_suspended ? 'La persona no está activa en el padrón de la UNET.'
     : alreadyConsumed ? 'La persona ya registró su consumo hoy.'
@@ -486,7 +531,7 @@ export function RegisterDining() {
 
   // Un solo aviso de configuración del turno: antes se podían apilar varios y
   // el alto de la pantalla se desbordaba. Se muestra el que realmente bloquea.
-  const blockingNotice: { text: string; tone: 'info' | 'warn' } | null =
+  const blockingNotice: { text: string; tone: 'info' | 'warn' | 'error' } | null =
     sedeMissing
       ? {
           text: 'Tu cuenta no tiene una sede asignada, así que no puedes registrar consumos. Pídele a un administrador que te asigne la sede en la que trabajas. Mientras tanto puedes consultar a cualquier persona.',
@@ -497,7 +542,14 @@ export function RegisterDining() {
             text: 'No hay una sesión de servicio abierta en esta sede. Puedes consultar a cualquier persona; para registrar consumos, un administrador debe abrirla.',
             tone: 'warn',
           }
-        : null
+        : staleSession && session
+          ? {
+              // Dice la fecha del turno y qué hacer, porque el operador no tiene forma de
+              // deducir por qué la pantalla dejó de registrar: la sesión sigue "abierta".
+              text: `Esta sesión es del ${formatSessionDate(session.date)}, no de hoy. Los consumos que se registren aquí quedarían archivados en esa fecha y no aparecerían en el reporte de hoy. Ciérrala en «Sesión de Servicio de alimentación» y abre la de hoy antes de seguir.`,
+              tone: 'error',
+            }
+          : null
 
   const tabs: Array<[TabKey, string]> = canRegister
     ? [['registro', 'CONSULTA Y REGISTRO'], ['ultimos', 'ULTIMOS REGISTROS']]
@@ -576,7 +628,9 @@ export function RegisterDining() {
                       'rounded-md border px-3 py-2 text-sm',
                       blockingNotice.tone === 'info'
                         ? 'border-blue-200 bg-blue-50 text-blue-700'
-                        : 'border-amber-200 bg-amber-50 text-amber-700',
+                        : blockingNotice.tone === 'error'
+                          ? 'border-red-300 bg-red-50 font-medium text-red-700'
+                          : 'border-amber-200 bg-amber-50 text-amber-700',
                     ].join(' ')}
                   >
                     {blockingNotice.text}
