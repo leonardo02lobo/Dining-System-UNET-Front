@@ -30,6 +30,7 @@ import { SuspendStudent } from './pages/SuspendStudent'
 import { CareerCatalogPage } from './pages/CareerCatalogPage'
 import { ProcessHistoryPage } from './pages/ProcessHistoryPage'
 import { MyActivityPage } from './pages/MyActivityPage'
+import { NotFoundPage } from './pages/NotFoundPage'
 
 export default function App() {
   return (
@@ -84,6 +85,12 @@ export default function App() {
               <Route path="registerDining" element={<Navigate to="/comedor/registrar" replace />} />
               <Route path="listUser" element={<Navigate to="/usuarios" replace />} />
               <Route path="loginAudit" element={<Navigate to="/auditoria" replace />} />
+
+              {/* Comodín, y va último: sin él React Router no encontraba nada para una
+                  dirección desconocida y dejaba el hueco del layout en blanco con un
+                  `No routes matched location` en consola. Dentro de `Index` para que la
+                  barra de navegación siga a la vista y se pueda salir de aquí. */}
+              <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Route>
         </Routes>
