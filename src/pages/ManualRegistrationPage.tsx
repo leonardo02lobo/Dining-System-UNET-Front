@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Search, Save, RotateCcw, Printer, Pencil, Trash2 } from 'lucide-react'
 import { studentApi, studentToIdentity } from '../api/student'
-import { accesoDirectoApi } from '../api/acceso_directo'
 import { consumptionApi } from '../api/consumption'
 import { sanctionApi } from '../api/sanction'
 import { normalizeCedula } from '../utils/cedula'
@@ -20,7 +19,7 @@ import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
 import { Table, type ColumnDef } from '../components/ui/Table'
 import { StudentResultCard } from '../components/StudentResultCard'
-import { userTypeLabel } from '../utils/labels'
+import { personClassLabel } from '../utils/labels'
 import { previousConsumptionMessage } from '../utils/consumptionNotice'
 
 /** Fecha local de hoy en formato YYYY-MM-DD (sin desfase de zona horaria). */
@@ -158,26 +157,19 @@ export function ManualRegistrationPage() {
 
   async function handleSave() {
     if (!student || !date) return
-    // `POST /consumptions/manual` no admite personas externas: solo resuelve por
-    // acceso directo o por alta al vuelo. Enviar `person` aquí crearía un acceso
-    // directo con su misma cédula, es decir, la misma persona en dos padrones. Se
-    // corta antes en vez de duplicarla en silencio.
-    if (student.person_kind === 'external') {
-      const msg =
-        'El registro manual todavía no admite personas externas. Regístrala desde ' +
-        'Registro al comedor con la sesión abierta.'
-      notify.error(msg)
-      setError(msg)
-      return
-    }
     setSaving(true)
     setError(null)
     try {
-      // Si no es acceso directo, se envían sus datos para el alta al vuelo (Issue 2).
+      // Una persona externa se registra con **su** identificador. Enviar `person` aquí
+      // crearía un acceso directo con su misma cédula, es decir, la misma persona en dos
+      // padrones y contada dos veces; por eso el alta al vuelo queda como último recurso
+      // y solo para quien no está en ninguna de las dos tablas (Issue 2).
       await consumptionApi.registerManual(
-        student.is_acceso_directo && student.acceso_directo_id
-          ? { date, acceso_directo_id: student.acceso_directo_id }
-          : { date, person: studentToIdentity(student) },
+        student.person_kind === 'external' && student.external_person_id
+          ? { date, external_person_id: student.external_person_id }
+          : student.is_acceso_directo && student.acceso_directo_id
+            ? { date, acceso_directo_id: student.acceso_directo_id }
+            : { date, person: studentToIdentity(student) },
       )
       notify.success(`Registro manual exitoso para ${student.name}`)
       handleClear()
@@ -224,21 +216,35 @@ export function ManualRegistrationPage() {
 
   async function confirmEdit() {
     if (!editTarget) return
-    const payload: { acceso_directo_id?: number; date?: string } = {}
+    const payload: { acceso_directo_id?: number; external_person_id?: number; date?: string } = {}
     if (editDate && editDate !== editTarget.date) payload.date = editDate
 
     const cleanCedula = normalizeCedula(editCedula)
     if (cleanCedula && cleanCedula !== editTarget.document_id) {
+      // Se resuelve con la búsqueda de tres orígenes de la propia pantalla, no solo
+      // contra los accesos directos: si no, reasignar una fila a una persona externa
+      // sería "no se encontró" aunque esté registrada.
       try {
-        const ad = await accesoDirectoApi.lookup(cleanCedula)
-        payload.acceso_directo_id = ad.id
+        const person = await studentApi.lookup(cleanCedula)
+        if (person.person_kind === 'external' && person.external_person_id) {
+          payload.external_person_id = person.external_person_id
+        } else if (person.acceso_directo_id) {
+          payload.acceso_directo_id = person.acceso_directo_id
+        } else {
+          notify.error('Esa persona todavía no está registrada; regístrala antes de reasignar.')
+          return
+        }
       } catch {
-        notify.error('No se encontró un acceso directo con esa cédula.')
+        notify.error('No se encontró ninguna persona con esa cédula.')
         return
       }
     }
 
-    if (payload.date === undefined && payload.acceso_directo_id === undefined) {
+    if (
+      payload.date === undefined &&
+      payload.acceso_directo_id === undefined &&
+      payload.external_person_id === undefined
+    ) {
       setEditTarget(null)
       return
     }
@@ -332,9 +338,17 @@ export function ManualRegistrationPage() {
     {
       key: 'user_type',
       header: 'Tipo',
-      render: (_, row) => (
-        <Badge variant="info">{row.user_type ? userTypeLabel(row.user_type) : '—'}</Badge>
-      ),
+      // Una fila de gente externa lleva su etiqueta y un color distinto: leída como un
+      // tipo del padrón, «Jornada Deportiva» parecería una carrera o un rol del sistema.
+      render: (_, row) => {
+        const isExternal = row.external_person_id != null
+        return (
+          <Badge variant={isExternal ? 'neutral' : 'info'}>
+            {personClassLabel(row) ?? '—'}
+            {isExternal && <span className="ml-1 text-slate-400">· externa</span>}
+          </Badge>
+        )
+      },
     },
     {
       key: 'career',
@@ -608,8 +622,8 @@ export function ManualRegistrationPage() {
           />
           <Input
             id="edit-cedula"
-            label="Cédula del acceso directo"
-            hint="Cambia la cédula para reasignar el registro a otra persona."
+            label="Cédula de la persona"
+            hint="Cambia la cédula para reasignar el registro a otra persona, sea acceso directo o externa."
             value={editCedula}
             onChange={(e) => setEditCedula(e.target.value)}
             leftIcon={<Search size={16} />}

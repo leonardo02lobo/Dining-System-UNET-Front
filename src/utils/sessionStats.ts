@@ -100,19 +100,38 @@ export function careerStats(entrants: Consumption[], options: CareerOption[]): S
 const ROLE_ORDER = ['STUDENT', 'TEACHER', 'ADMINISTRATIVE', 'WORKER'] as const
 
 /**
- * Conteo por rol (issue #3). Los 4 roles pedidos usan las etiquetas de `labels.ts`;
- * las personas sin rol (externos/jubilados, `user_type` nulo) se agrupan como
- * "Externo" (solo si aparecen), según la decisión de producto.
+ * Conteo por rol (issue #3). Los 4 roles del padrón usan las etiquetas de `labels.ts`;
+ * la gente externa se agrupa **por su etiqueta**, un sector por etiqueta, detrás de los
+ * cuatro roles.
+ *
+ * El `else` que volcaba a todo el que no era del padrón en un único sector "Externo"
+ * venía de cuando había dos tipos fijos de externo. Con etiquetas que crea quien
+ * administra, ese sector amontonaba a los jubilados, a los cuarenta de una jornada
+ * deportiva y a una comisión de visita: la gráfica decía "hubo 47 externos" cuando la
+ * pregunta que se le hace es de qué grupo eran.
+ *
+ * Las filas sin ninguna de las dos clasificaciones —que no deberían existir— caen en
+ * "Sin clasificar" en vez de desaparecer del recuento: una gráfica cuyos sectores no
+ * suman el total de entrantes engaña más que una con un sector sobrante.
  */
 export function roleStats(entrants: Consumption[]): StatBucket[] {
   const counts: Record<string, number> = { STUDENT: 0, TEACHER: 0, ADMINISTRATIVE: 0, WORKER: 0 }
-  let externo = 0
+  // Map y no objeto: el nombre de la etiqueta lo escribió una persona y conserva su
+  // caja y sus acentos tal cual, sin colisionar con las claves de los roles.
+  const byLabel = new Map<string, number>()
+  let unclassified = 0
   for (const e of entrants) {
     const ut = (e.user_type ?? '').toUpperCase()
-    if (ut in counts) counts[ut]++
-    else externo++
+    if (ut in counts) {
+      counts[ut]++
+      continue
+    }
+    const label = e.person_type?.trim()
+    if (label) byLabel.set(label, (byLabel.get(label) ?? 0) + 1)
+    else unclassified++
   }
   const buckets: StatBucket[] = ROLE_ORDER.map((r) => ({ label: USER_TYPE_LABEL[r], count: counts[r] }))
-  if (externo > 0) buckets.push({ label: 'Externo', count: externo })
+  for (const [label, count] of byLabel) buckets.push({ label, count })
+  if (unclassified > 0) buckets.push({ label: 'Sin clasificar', count: unclassified })
   return buckets
 }

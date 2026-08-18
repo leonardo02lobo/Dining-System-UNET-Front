@@ -1,5 +1,5 @@
 import type { DayConsumption } from '../types/consumption'
-import { userTypeLabel } from './labels'
+import { personClassLabel } from './labels'
 import { notify } from './toast'
 
 /** Escapa texto para insertarlo de forma segura en el HTML de impresión. */
@@ -39,7 +39,7 @@ export function printManualList(date: string, rows: DayConsumption[]): void {
         <td class="num">${i + 1}</td>
         <td>${escapeHtml(r.document_id)}</td>
         <td>${escapeHtml(`${r.first_name} ${r.last_name}`)}</td>
-        <td>${escapeHtml(r.user_type ? userTypeLabel(r.user_type) : '—')}</td>
+        <td>${escapeHtml(personClassLabel(r) ?? '—')}</td>
         <td>${escapeHtml(r.career ?? '—')}</td>
         <td>${formatTime(r.registered_at)}</td>
       </tr>`,

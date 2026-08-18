@@ -1,8 +1,5 @@
-# historial-sesiones-filtro-rol Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change fe-issues-reunion-14-07. Update Purpose after archive.
-## Requirements
 ### Requirement: Filtro por rol en los entrantes de la sesión
 
 El detalle de entrantes de una sesión SHALL ofrecer un control para **filtrar por rol**
@@ -62,4 +59,3 @@ cuyos sectores no suman el total de entrantes engaña más que una con un sector
 - **WHEN** se abre la gráfica por rol
 - **THEN** hay un sector «Jubilado» y otro «Congreso», con sus recuentos separados
 - **AND** los sectores suman el total de entrantes graficados
-

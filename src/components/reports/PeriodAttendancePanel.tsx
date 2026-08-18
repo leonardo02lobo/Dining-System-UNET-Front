@@ -16,12 +16,12 @@ import { Spinner } from '../ui/Spinner'
 import type { Career } from '../../types/career'
 import {
   GENDER_OPTIONS,
-  PERSON_TYPE_OPTIONS,
   personTypeAllowsCareer,
   type AttendanceStatsResponse,
   type Gender,
   type PersonType,
 } from '../../types/statistics'
+import { usePersonTypeOptions } from '../../hooks/usePersonTypeOptions'
 import { notify } from '../../utils/toast'
 
 function toIsoDate(daysAgo = 0) {
@@ -38,7 +38,8 @@ function formatDisplayDate(value: string) {
 const DEFAULT_FROM = toIsoDate(30)
 const DEFAULT_TO = toIsoDate(0)
 
-const PERSON_TYPE_SELECT_OPTIONS = [{ value: '', label: 'Todos' }, ...PERSON_TYPE_OPTIONS]
+// Las opciones se componen en el render: los cuatro del padrón vienen de la constante y
+// las etiquetas de gente externa del catálogo del servidor (`usePersonTypeOptions`).
 const GENDER_SELECT_OPTIONS = [{ value: '', label: 'Todos' }, ...GENDER_OPTIONS]
 
 /** Qué gráficas mostrar según tipo de persona/carrera filtrados (ver design.md). */
@@ -66,6 +67,10 @@ export function PeriodAttendancePanel() {
   const [validationError, setValidationError] = useState('')
   const [result, setResult] = useState<AttendanceStatsResponse | null>(null)
   const [hasQueried, setHasQueried] = useState(false)
+
+  // Los cuatro del padrón más las etiquetas de gente externa del catálogo.
+  const personTypeOptions = usePersonTypeOptions()
+  const personTypeSelectOptions = [{ value: '', label: 'Todos' }, ...personTypeOptions]
 
   const showCareerFilter = personTypeAllowsCareer(personType || null)
 
@@ -138,7 +143,7 @@ export function PeriodAttendancePanel() {
   const hasResults = hasQueried && totalAttended > 0
   const chartPlan = pickChartPlan(personType, career)
 
-  const personTypeLabel = PERSON_TYPE_OPTIONS.find((o) => o.value === personType)?.label
+  const personTypeLabel = personTypeOptions.find((o) => o.value === personType)?.label
   const genderLabel = GENDER_OPTIONS.find((o) => o.value === gender)?.label
   const chips: FilterChip[] = [
     { label: `Período: ${formatDisplayDate(dateFrom)} - ${formatDisplayDate(dateTo)}` },
@@ -155,7 +160,7 @@ export function PeriodAttendancePanel() {
           <DateInput label="Hasta" value={dateTo} onChange={setDateTo} minDate={dateFrom || undefined} className="w-full sm:w-48" />
           <Select
             label="Tipo de persona"
-            options={PERSON_TYPE_SELECT_OPTIONS}
+            options={personTypeSelectOptions}
             value={personType}
             onChange={(e) => handlePersonTypeChange(e.target.value)}
             className="w-full sm:w-52"

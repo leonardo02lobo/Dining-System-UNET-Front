@@ -16,15 +16,16 @@ import type { Career } from '../../types/career'
 import type { LunchSession } from '../../types/lunchSession'
 import {
   GENDER_OPTIONS,
-  PERSON_TYPE_OPTIONS,
   personTypeAllowsCareer,
   type AttendanceStatsResponse,
   type Gender,
   type PersonType,
 } from '../../types/statistics'
+import { usePersonTypeOptions } from '../../hooks/usePersonTypeOptions'
 import { notify } from '../../utils/toast'
 
-const PERSON_TYPE_SELECT_OPTIONS = [{ value: '', label: 'Todos' }, ...PERSON_TYPE_OPTIONS]
+// Las opciones se componen en el render: los cuatro del padrón vienen de la constante y
+// las etiquetas de gente externa del catálogo del servidor (`usePersonTypeOptions`).
 const GENDER_SELECT_OPTIONS = [{ value: '', label: 'Todos' }, ...GENDER_OPTIONS]
 
 function toIsoDate() {
@@ -54,6 +55,10 @@ export function LunchSessionAttendancePanel() {
 
   const [result, setResult] = useState<AttendanceStatsResponse | null>(null)
   const [statsLoading, setStatsLoading] = useState(false)
+
+  // Los cuatro del padrón más las etiquetas de gente externa del catálogo.
+  const personTypeOptions = usePersonTypeOptions()
+  const personTypeSelectOptions = [{ value: '', label: 'Todos' }, ...personTypeOptions]
 
   const showCareerFilter = personTypeAllowsCareer(personType || null)
 
@@ -144,7 +149,7 @@ export function LunchSessionAttendancePanel() {
   const summary = result?.lunchSession
   const totalAttended = result?.summary.total ?? 0
 
-  const personTypeLabel = PERSON_TYPE_OPTIONS.find((o) => o.value === personType)?.label
+  const personTypeLabel = personTypeOptions.find((o) => o.value === personType)?.label
   const genderLabel = GENDER_OPTIONS.find((o) => o.value === gender)?.label
   const chips: FilterChip[] = [
     ...(personTypeLabel ? [{ label: `Tipo: ${personTypeLabel}`, onRemove: () => handlePersonTypeChange('') }] : []),
@@ -240,7 +245,7 @@ export function LunchSessionAttendancePanel() {
               <div className="flex flex-wrap items-end gap-4">
                 <Select
                   label="Tipo de persona"
-                  options={PERSON_TYPE_SELECT_OPTIONS}
+                  options={personTypeSelectOptions}
                   value={personType}
                   onChange={(e) => handlePersonTypeChange(e.target.value)}
                   className="w-full sm:w-52"

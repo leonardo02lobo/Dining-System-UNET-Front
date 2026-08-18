@@ -2,7 +2,7 @@ import type { Sanction } from './sanction'
 
 export interface Consumption {
   id: number
-  acceso_directo_id: number
+  acceso_directo_id?: number | null
   lunch_session_id: number
   registered_by_id: number
   registered_at: string
@@ -15,6 +15,13 @@ export interface Consumption {
   career?: string | null
   /** Rol de la persona (STUDENT/TEACHER/ADMINISTRATIVE/WORKER). Filtro por rol (#4) y gráficas (#3). */
   user_type?: string | null
+  /**
+   * Nombre de la etiqueta cuando el entrante es una persona externa, que no tiene
+   * `user_type`. Sin leerlo, el filtro por rol la hace desaparecer de la tabla y la
+   * gráfica amontona a todas las etiquetas en un único sector.
+   */
+  person_type?: string | null
+  external_person_id?: number | null
   /** Género de la persona (p. ej. "M"/"F"). Gráfica de género (#3). */
   gender?: string | null
 }
@@ -97,10 +104,19 @@ export interface ConsumptionCheckByDocument {
 export type ManualOrderBy = 'document_id' | 'registered_at'
 export type OrderDir = 'asc' | 'desc'
 
-/** Registro manual con datos de la persona embebidos para el listado/impresión */
+/**
+ * Registro manual con datos de la persona embebidos para el listado/impresión.
+ *
+ * `acceso_directo_id` y `user_type` son opcionales porque un registro manual puede ser
+ * de una persona externa, que no es acceso directo y no tiene tipo de usuario del
+ * padrón: su clasificación viaja en `person_type` con el nombre de su etiqueta. Los dos
+ * nunca vienen con valor a la vez, así que la fila se clasifica con una sola regla:
+ * `user_type ?? person_type` (ver `personClassLabel` en `utils/labels`).
+ */
 export interface ManualConsumption {
   id: number
-  acceso_directo_id: number
+  acceso_directo_id?: number | null
+  external_person_id?: number | null
   lunch_session_id: number
   date: string            // YYYY-MM-DD
   registered_by_id: number
@@ -109,13 +125,21 @@ export interface ManualConsumption {
   document_id: string
   first_name: string
   last_name: string
-  user_type: string
+  user_type?: string | null
+  /** Nombre de la etiqueta cuando la fila es de una persona externa. */
+  person_type?: string | null
   career: string | null
 }
 
 export interface ManualConsumptionCreate {
   date: string                  // YYYY-MM-DD (obligatoria)
   acceso_directo_id?: number
+  /**
+   * Persona externa. Se envía **en vez** del alta al vuelo: mandar `person` para alguien
+   * que ya está registrado como externo crearía un acceso directo con su misma cédula,
+   * es decir, la misma persona en dos padrones y contada dos veces.
+   */
+  external_person_id?: number
   document_id?: string
   /** Si la persona no es acceso directo, se envían sus datos para crearla al vuelo (Issue 2). */
   person?: AccesoDirectoIdentity
@@ -123,6 +147,8 @@ export interface ManualConsumptionCreate {
 
 export interface ManualConsumptionUpdate {
   acceso_directo_id?: number
+  /** Reasigna el registro a una persona externa; el servidor anula el otro identificador. */
+  external_person_id?: number
   date?: string
 }
 
@@ -132,16 +158,12 @@ export interface PaginatedManualConsumptions {
 }
 
 /**
- * Un ingreso del día (`GET /consumptions/day-summary`). Misma forma que el registro
- * manual salvo por lo que la relación completa admite y aquél no: personas externas,
- * que no son acceso directo y no tienen tipo de usuario del padrón. De ahí que
- * `acceso_directo_id` y `user_type` viajen opcionales.
+ * Un ingreso del día (`GET /consumptions/day-summary`). Tiene la misma forma que el
+ * registro manual, que desde `be-gente-externa-registro-manual` admite las dos clases de
+ * persona: el alias existe porque las dos pestañas del listado comparten tabla, columnas
+ * y PDF, y así no pueden divergir.
  */
-export interface DayConsumption extends Omit<ManualConsumption, 'acceso_directo_id' | 'user_type'> {
-  acceso_directo_id?: number | null
-  external_person_id?: number | null
-  user_type?: string | null
-}
+export type DayConsumption = ManualConsumption
 
 export interface PaginatedDayConsumptions {
   total: number

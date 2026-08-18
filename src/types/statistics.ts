@@ -1,13 +1,28 @@
-export type PersonType = 'STUDENT' | 'TEACHER' | 'ADMINISTRATIVE' | 'WORKER' | 'JUBILADO' | 'EXTERNO'
+/** Los cuatro tipos del padrón universitario: un enumerado del servidor. */
+export type PadronPersonType = 'STUDENT' | 'TEACHER' | 'ADMINISTRATIVE' | 'WORKER'
+
+/**
+ * Tipo de persona admitido por el filtro de asistencia: uno de los cuatro del padrón o
+ * el **nombre de una etiqueta de gente externa**.
+ *
+ * Era una unión cerrada de seis literales con `JUBILADO` y `EXTERNO` escritos aquí. Desde
+ * que las etiquetas las crea quien administra el comedor, el servidor admite los cuatro
+ * `UserType` más cualquier nombre del catálogo, así que un tipo cerrado en el cliente solo
+ * puede quedarse corto: la etiqueta de la jornada de ayer no se podría enviar.
+ */
+export type PersonType = PadronPersonType | (string & {})
 export type Gender = 'M' | 'F'
 
-export const PERSON_TYPE_OPTIONS: { value: PersonType; label: string }[] = [
+/**
+ * Solo los cuatro del padrón. Las etiquetas de gente externa se piden al catálogo
+ * (`usePersonTypeOptions`): un mapa de rótulos en el cliente no puede seguir el ritmo de
+ * unas etiquetas que se inventan al registrar a la gente.
+ */
+export const PERSON_TYPE_OPTIONS: { value: PadronPersonType; label: string }[] = [
   { value: 'STUDENT', label: 'Estudiantes' },
   { value: 'TEACHER', label: 'Docentes' },
   { value: 'ADMINISTRATIVE', label: 'Administrativos' },
   { value: 'WORKER', label: 'Obreros' },
-  { value: 'JUBILADO', label: 'Jubilados' },
-  { value: 'EXTERNO', label: 'Externos' },
 ]
 
 export const GENDER_OPTIONS: { value: Gender; label: string }[] = [
