@@ -4,6 +4,7 @@ import { lunchSessionApi } from '../api/lunchSession'
 import { consumptionApi } from '../api/consumption'
 import { lunchApi } from '../api/lunch'
 import { errorMessage } from '../utils/apiErrors'
+import { labelsPresentIn, matchesTypeFilter } from '../utils/entrantTypeFilter'
 import { notify } from '../utils/toast'
 import { generateSessionEntrantsPdf } from '../utils/pdfSessionEntrants'
 import { Badge } from '../components/ui/Badge'
@@ -209,10 +210,22 @@ export function SessionHistoryPage() {
   }
 
   // Filtro por rol client-side (#4): convive con "Solo acceso directo" (server-side).
-  const filteredEntrants = useMemo(() => {
-    if (roleFilter === 'ALL') return entrants
-    return entrants.filter((e) => (e.user_type ?? '').toUpperCase() === roleFilter)
-  }, [entrants, roleFilter])
+  const filteredEntrants = useMemo(
+    () => entrants.filter((e) => matchesTypeFilter(e, roleFilter)),
+    [entrants, roleFilter],
+  )
+
+  // Los cuatro roles del padrón más las etiquetas de la gente externa que entró a esta
+  // sesión. Se recalculan con los entrantes: son de esta sesión, no del catálogo.
+  const externalLabels = useMemo(() => labelsPresentIn(entrants), [entrants])
+  const roleFilterOptions = useMemo(
+    () => [...ROLE_FILTER_OPTIONS, ...externalLabels.map((l) => ({ value: l, label: l }))],
+    [externalLabels],
+  )
+  const chartTypeOptions = useMemo(
+    () => [...CHART_TYPE_OPTIONS, ...externalLabels.map((l) => ({ value: l, label: l }))],
+    [externalLabels],
+  )
 
   function toggleOnlyAccesoDirecto(next: boolean) {
     setOnlyAccesoDirecto(next)
@@ -272,7 +285,7 @@ export function SessionHistoryPage() {
   const chartEntrants = useMemo(() => {
     let list = entrants
     if (chartType !== 'ALL') {
-      list = list.filter((e) => (e.user_type ?? '').toUpperCase() === chartType)
+      list = list.filter((e) => matchesTypeFilter(e, chartType))
     }
     if (chartType === 'STUDENT' && chartCareer !== 'ALL') {
       list = list.filter((e) => careerKeyOf(e.career, careerOptions) === chartCareer)
@@ -361,7 +374,7 @@ export function SessionHistoryPage() {
                 </h2>
                 <div className="flex flex-wrap items-center gap-3">
                   <Select
-                    options={ROLE_FILTER_OPTIONS}
+                    options={roleFilterOptions}
                     value={roleFilter}
                     onChange={(e) => setRoleFilter(e.target.value)}
                     className="w-full sm:w-44"
@@ -472,7 +485,7 @@ export function SessionHistoryPage() {
           <div className="flex flex-wrap items-end gap-4 rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
             <Select
               label="Tipo"
-              options={CHART_TYPE_OPTIONS}
+              options={chartTypeOptions}
               value={chartType}
               onChange={(e) => { setChartType(e.target.value); setChartCareer('ALL') }}
               className="w-full sm:w-48"

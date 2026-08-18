@@ -40,3 +40,26 @@ export const ROLE_LABEL: Record<RoleName, string> = {
 export function roleLabel(value: string): string {
   return ROLE_LABEL[value as RoleName] ?? value
 }
+
+/**
+ * Clasificación efectiva de una fila de consumo: el tipo del padrón traducido cuando la
+ * persona es un acceso directo, y el nombre de la etiqueta **tal cual** cuando es una
+ * persona externa.
+ *
+ * Existe porque la regla estaba escrita en tres pantallas y ninguna contemplaba a la
+ * gente externa, que no tiene `user_type`: el listado de la fecha la enseñaba con un
+ * guion, el filtro por rol la hacía desaparecer de la tabla y su PDF la imprimía sin
+ * tipo. Los dos campos nunca vienen con valor a la vez (contrato del backend).
+ *
+ * La etiqueta no pasa por `USER_TYPE_LABEL` a propósito: las crea quien administra el
+ * comedor, así que un mapa de rótulos en el cliente solo puede quedarse corto — es lo que
+ * `fe-etiquetas-gente-externa` dejó dicho. Devuelve `null` y no `'—'`: el guion es
+ * decisión de cada vista (la tabla lo pinta, el PDF lo escribe, el filtro lo ignora).
+ */
+export function personClassLabel(
+  row: { user_type?: string | null; person_type?: string | null } | null | undefined,
+): string | null {
+  if (!row) return null
+  if (row.user_type) return userTypeLabel(row.user_type)
+  return row.person_type ?? null
+}
