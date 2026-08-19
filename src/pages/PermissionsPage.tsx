@@ -18,7 +18,14 @@ import { roleLabel } from '../utils/labels'
 /** Agrupa cada ruta en una sección legible (espejo de los grupos del NavBar). */
 function sectionOf(route: string): string {
   if (route.startsWith('/inventario')) return 'Inventario'
-  if (route.startsWith('/admin') || route === '/auditoria' || route === '/sedes') return 'Administración'
+  // `/usuarios` es un directorio administrativo (SUPER_ADMIN/ADMIN), no una
+  // pantalla de comedor: se agrupa donde el NavBar la muestra.
+  if (
+    route.startsWith('/admin') ||
+    route === '/auditoria' ||
+    route === '/sedes' ||
+    route === '/usuarios'
+  ) return 'Administración'
   return 'Comedor'
 }
 

@@ -20,6 +20,9 @@ export const sanctionApi = {
   create:  (data: SanctionCreate)    => apiClient.post<Sanction>('/sanctions/', data),
   revoke:  (id: number)              => apiClient.put<Sanction>(`/sanctions/${id}/revoke`),
   history: (accesoDirectoId: number) => apiClient.get<PaginatedSanctions>(`/sanctions/acceso_directo/${accesoDirectoId}`),
+  /** Historial de una persona externa; su gemelo del otro apartado. */
+  historyExternal: (externalPersonId: number) =>
+    apiClient.get<PaginatedSanctions>(`/sanctions/external_person/${externalPersonId}`),
   list:    (params?: { status?: string; acceso_directo_id?: number }) => {
     const p = new URLSearchParams()
     if (params?.status)              p.set('status', params.status)
@@ -40,4 +43,11 @@ export const sanctionApi = {
 
   /** Levanta la suspensión activa de una persona sin conocer el id de la sanción. */
   lift: (accesoDirectoId: number) => apiClient.put<Sanction>(`/sanctions/acceso_directo/${accesoDirectoId}/lift`),
+
+  /**
+   * Levanta la suspensión conociendo la sanción. Es la vía que sirve para las dos
+   * clases de persona —la de `lift` pide un acceso directo que la gente externa no
+   * tiene—, y de paso evita resolver dos veces cuál es la sanción activa.
+   */
+  liftBySanction: (sanctionId: number) => apiClient.put<Sanction>(`/sanctions/${sanctionId}/revoke`),
 }

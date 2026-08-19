@@ -21,7 +21,7 @@ import {
 } from '../utils/lunchRecalculation'
 import { notify } from '../utils/toast'
 import type { InventoryItem } from '../types/inventory'
-import type { LunchFormIngredient, LunchTemplateResponse, PreloadedLunch } from '../types/lunch'
+import type { LunchFormIngredient, LunchTemplateResponse, MealType, PreloadedLunch } from '../types/lunch'
 
 function todayIso() {
   return new Date().toISOString().split('T')[0]
@@ -62,6 +62,7 @@ function mapTemplateToPreloaded(template: LunchTemplateResponse): PreloadedLunch
   return {
     id: template.id,
     name: template.name,
+    meal_type: template.mealType ?? 'ALMUERZO',
     plate_count: basePlates,
     ingredients: template.ingredients.flatMap((item, index) => {
       const record = getRecord(item)
@@ -93,6 +94,7 @@ function mapTemplateToPreloaded(template: LunchTemplateResponse): PreloadedLunch
 export function LunchTestPage() {
   const [lunchName, setLunchName] = useState('Arroz con pollo')
   const [date, setDate] = useState(todayIso())
+  const [mealType, setMealType] = useState<MealType>('ALMUERZO')
   const [plateCount, setPlateCount] = useState(500)
   const [desiredPlateCount, setDesiredPlateCount] = useState(500)
   const [ingredients, setIngredients] = useState<LunchFormIngredient[]>([])
@@ -348,10 +350,12 @@ export function LunchTestPage() {
       <LunchDetailsForm
         lunchName={lunchName}
         date={date}
+        mealType={mealType}
         plateCount={plateCount}
         desiredPlateCount={desiredPlateCount}
         onLunchNameChange={setLunchName}
         onDateChange={setDate}
+        onMealTypeChange={setMealType}
         onPlateCountChange={setPlateCount}
         onDesiredPlateCountChange={setDesiredPlateCount}
       />

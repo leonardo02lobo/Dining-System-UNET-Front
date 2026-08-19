@@ -16,6 +16,7 @@ export const MOCK_PRELOADED_LUNCHES: PreloadedLunch[] = [
   {
     id: 1,
     name: 'Arroz con pollo (plantilla)',
+    meal_type: 'ALMUERZO',
     plate_count: 500,
     ingredients: [
       { ingredient_id: 6, ingredient_name: 'Arroz',  category: 'Cereal',   unit: 'kg', base_quantity: 60 },
@@ -26,6 +27,7 @@ export const MOCK_PRELOADED_LUNCHES: PreloadedLunch[] = [
   {
     id: 2,
     name: 'Pasta con verduras (plantilla)',
+    meal_type: 'ALMUERZO',
     plate_count: 400,
     ingredients: [
       { ingredient_id: 2, ingredient_name: 'Pasta',  category: 'Víveres', unit: 'kg', base_quantity: 20 },

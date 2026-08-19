@@ -75,7 +75,7 @@ export function ListUser() {
 
   function exportPdf() {
     const doc = new jsPDF()
-    doc.text('Directorio de Usuarios', 14, 15)
+    doc.text('Lista de Usuarios', 14, 15)
     autoTable(doc, {
       startY: 22,
       head: [['Nombre', 'Correo', 'Rol', 'Estado']],
@@ -184,7 +184,7 @@ export function ListUser() {
   return (
     <div>
       <PageHeader
-        title="Directorio de Usuarios"
+        title="Lista de Usuarios"
         subtitle={`${filtered.length} usuario${filtered.length !== 1 ? 's' : ''} encontrado${filtered.length !== 1 ? 's' : ''}`}
         actions={
           <>
