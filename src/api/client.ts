@@ -93,7 +93,15 @@ async function request<T>(
       (typeof detail === 'string' ? detail : detail?.message) ??
       'Error del servidor'
 
-    const err: ApiError = { message, status: response.status, details: data.details }
+    const err: ApiError = {
+      message,
+      status: response.status,
+      details: data.details,
+      // Un `detail` que es objeto lleva más que su `message`: el 409 de stock
+      // insuficiente trae la lista de insumos que faltan, y perderla aquí
+      // obligaría a cada pantalla a repetir el fetch para averiguar por qué.
+      detail: detail && typeof detail === 'object' ? detail : undefined,
+    }
 
     // 403 con sanción activa: adjuntar el objeto sanción al error
     if (response.status === 403 && detail?.sanction) {

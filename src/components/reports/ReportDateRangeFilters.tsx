@@ -1,4 +1,5 @@
 import { Download, BarChart3, FileSpreadsheet, FileText } from 'lucide-react'
+import type { ConsumptionDateBasis } from '../../api/reports'
 import type { InventoryCategory } from '../../types/inventory'
 import { DateInput } from '../ui/DateInput'
 
@@ -6,10 +7,12 @@ interface ReportDateRangeFiltersProps {
   dateFrom: string
   dateTo: string
   categoryId: string
+  dateBasis: ConsumptionDateBasis
   categories: InventoryCategory[]
   onDateFromChange: (value: string) => void
   onDateToChange: (value: string) => void
   onCategoryChange: (value: string) => void
+  onDateBasisChange: (value: ConsumptionDateBasis) => void
   onGenerate: () => void
   onDownloadPdf: () => void
   onDownloadCsv: () => void
@@ -34,10 +37,12 @@ export function ReportDateRangeFilters({
   dateFrom,
   dateTo,
   categoryId,
+  dateBasis,
   categories,
   onDateFromChange,
   onDateToChange,
   onCategoryChange,
+  onDateBasisChange,
   onGenerate,
   onDownloadPdf,
   onDownloadCsv,
@@ -89,6 +94,22 @@ export function ReportDateRangeFilters({
                 {category.name}
               </option>
             ))}
+          </select>
+        </div>
+        {/* DEC-03 — el mismo periodo da dos números según qué fecha se mire, y
+            las dos son legítimas: por eso se elige, en vez de fijar una. */}
+        <div>
+          <label className={fieldLabel} htmlFor="report-date-basis">
+            Periodo según
+          </label>
+          <select
+            id="report-date-basis"
+            value={dateBasis}
+            onChange={(e) => onDateBasisChange(e.target.value as ConsumptionDateBasis)}
+            className={`${dateInputClass} max-w-[260px]`}
+          >
+            <option value="movement">Fecha del movimiento (cuándo se descontó)</option>
+            <option value="service">Fecha del servicio (para qué día era)</option>
           </select>
         </div>
       </div>

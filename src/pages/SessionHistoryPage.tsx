@@ -28,7 +28,7 @@ import {
 } from '../utils/sessionStats'
 import type { Consumption } from '../types/consumption'
 import type { LunchSession } from '../types/lunchSession'
-import type { LunchResponse } from '../types/lunch'
+import { MEAL_TYPE_LABEL, type LunchResponse } from '../types/lunch'
 
 // Paleta de colores para las gráficas de la sesión (issue #3).
 const CHART_COLORS = [
@@ -134,7 +134,9 @@ export function SessionHistoryPage() {
   const [onlyAccesoDirecto, setOnlyAccesoDirecto] = useState(false)
   const [roleFilter, setRoleFilter] = useState('ALL')
 
-  const [menu, setMenu] = useState<LunchResponse | null>(null)
+  // INT-01/INT-02 — todos los servicios CONFIRMADOS de la fecha. Un borrador es
+  // lo que alguien planificaba, no lo que se sirvió, así que no cuenta como menú.
+  const [menus, setMenus] = useState<LunchResponse[]>([])
   const [menuLoading, setMenuLoading] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [chartsOpen, setChartsOpen] = useState(false)
@@ -190,12 +192,11 @@ export function SessionHistoryPage() {
 
   const loadMenu = useCallback(async (session: LunchSession) => {
     setMenuLoading(true)
-    setMenu(null)
+    setMenus([])
     try {
-      const lunches = await lunchApi.listLunches({ date: session.date })
-      setMenu(lunches[0] ?? null)
+      setMenus(await lunchApi.listLunches({ date: session.date, status: 'CONFIRMED' }))
     } catch {
-      setMenu(null)
+      setMenus([])
     } finally {
       setMenuLoading(false)
     }
@@ -236,7 +237,7 @@ export function SessionHistoryPage() {
     if (!selected || downloading) return
     setDownloading(true)
     try {
-      await generateSessionEntrantsPdf({ session: selected, entrants: filteredEntrants, onlyAccesoDirecto, menu })
+      await generateSessionEntrantsPdf({ session: selected, entrants: filteredEntrants, onlyAccesoDirecto, menus })
     } catch {
       notify.error('No se pudo generar el PDF de la sesión.')
     } finally {
@@ -437,29 +438,36 @@ export function SessionHistoryPage() {
               <Card variant="outlined" padding="md">
                 <div className="mb-2 flex items-center gap-2">
                   <Utensils size={18} className="text-slate-700" />
-                  <h3 className="text-sm font-bold text-slate-900">Menú del día</h3>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    {menus.length > 1 ? 'Menús del día' : 'Menú del día'}
+                  </h3>
                 </div>
                 {menuLoading ? (
                   <p className="text-sm text-slate-500">Cargando menú...</p>
-                ) : !menu ? (
-                  <p className="text-sm text-slate-500">No hay menú registrado para este día.</p>
+                ) : menus.length === 0 ? (
+                  <p className="text-sm text-slate-500">No hay menú confirmado para este día.</p>
                 ) : (
-                  <div className="space-y-2 text-sm">
-                    <p className="font-semibold text-slate-800">
-                      {menu.name}{' '}
-                      <span className="font-normal text-slate-500">· {menu.platesQuantity} platos</span>
-                    </p>
-                    {menu.ingredients.length === 0 ? (
-                      <p className="text-slate-500">Sin ingredientes registrados.</p>
-                    ) : (
-                      <ul className="list-disc space-y-0.5 pl-5 text-slate-600">
-                        {menu.ingredients.map((ing) => (
-                          <li key={ing.id}>
-                            {ing.inventoryItem?.name ?? `Insumo #${ing.inventoryItemId}`}: {ing.calculatedQuantity} {ing.unit}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                  <div className="space-y-4 text-sm">
+                    {menus.map((menu) => (
+                      <div key={menu.id} className="space-y-2">
+                        <p className="font-semibold text-slate-800">
+                          <span className="text-slate-500">{MEAL_TYPE_LABEL[menu.mealType]}:</span>{' '}
+                          {menu.name}{' '}
+                          <span className="font-normal text-slate-500">· {menu.platesQuantity} platos</span>
+                        </p>
+                        {menu.ingredients.length === 0 ? (
+                          <p className="text-slate-500">Sin ingredientes registrados.</p>
+                        ) : (
+                          <ul className="list-disc space-y-0.5 pl-5 text-slate-600">
+                            {menu.ingredients.map((ing) => (
+                              <li key={ing.id}>
+                                {ing.inventoryItem?.name ?? `Insumo #${ing.inventoryItemId}`}: {ing.calculatedQuantity} {ing.unit}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
               </Card>

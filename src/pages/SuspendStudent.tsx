@@ -7,6 +7,7 @@ import { normalizeCedula } from '../utils/cedula'
 import { errorMessage, CONFLICT } from '../utils/apiErrors'
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner'
 import { maxSanctionEndDate, todayISO, validateSanctionEndDate } from '../utils/sanctionDates'
+import { suspensionTarget } from '../utils/suspensionTarget'
 import { notify } from '../utils/toast'
 import type { Student } from '../types/user'
 import type { Sanction } from '../types/sanction'
@@ -69,17 +70,23 @@ export function SuspendStudent() {
     try {
       const data = await studentApi.lookup(clean)
       setStudent(data)
-      // Si es acceso directo, consultamos la sanción activa y el histórico.
-      // A la gente externa no se la sanciona, así que ni se pregunta.
-      if (data.acceso_directo_id && data.person_kind !== 'external') {
+      // Sanción activa e histórico de quien sea: acceso directo o persona externa.
+      // Quien está en el padrón y todavía no es ninguna de las dos cosas no puede
+      // tener sanciones —nunca ha sido nadie en el sistema—, así que no se pregunta.
+      const externalId = data.person_kind === 'external' ? data.external_person_id : undefined
+      if (data.acceso_directo_id || externalId) {
         try {
-          const check = await consumptionApi.check(data.acceso_directo_id)
+          const check = externalId
+            ? await consumptionApi.checkByDocument(data.cedula)
+            : await consumptionApi.check(data.acceso_directo_id!)
           setActiveSanction(check.active_sanction)
         } catch {
           // Si la consulta de sanción falla, continuamos sin bloquear la búsqueda.
         }
         try {
-          const history = await sanctionApi.history(data.acceso_directo_id)
+          const history = externalId
+            ? await sanctionApi.historyExternal(externalId)
+            : await sanctionApi.history(data.acceso_directo_id!)
           setSuspensionCount(history.total)
         } catch {
           // El conteo de suspensiones es informativo: si falla, no bloquea la búsqueda.
@@ -109,7 +116,7 @@ export function SuspendStudent() {
   }
 
   async function handleQuickSuspend() {
-    if (!student?.acceso_directo_id) return
+    if (!student) return
     const reason = suspendReason.trim()
     if (reason.length < 3) {
       setSuspendError('Indica el motivo de la suspensión (mínimo 3 caracteres).')
@@ -127,7 +134,7 @@ export function SuspendStudent() {
     setSuspendDateError(null)
     try {
       const sanction = await sanctionApi.quickCreate({
-        acceso_directo_id: student.acceso_directo_id,
+        ...suspensionTarget(student),
         reason,
         // `null` explícito = suspensión indefinida.
         end_date: suspendIndefinite ? null : suspendEndDate,
@@ -147,10 +154,12 @@ export function SuspendStudent() {
 
   // ── Reactivar la suspensión activa ──────────────────────────────
   async function handleLift() {
-    if (!student?.acceso_directo_id) return
+    // Por id de sanción: la persona externa no tiene acceso directo por el que
+    // resolverla, y aquí ya se sabe cuál es la que está activa.
+    if (!student || !activeSanction) return
     setLifting(true)
     try {
-      await sanctionApi.lift(student.acceso_directo_id)
+      await sanctionApi.liftBySanction(activeSanction.id)
       setActiveSanction(null)
       notify.success(`${student.name} fue reactivado.`)
     } catch (err: any) {
@@ -161,9 +170,10 @@ export function SuspendStudent() {
   }
 
   const isSuspended = activeSanction !== null || (student?.is_suspended ?? false)
-  const isExternal = student?.person_kind === 'external'
-  const canSuspend =
-    !!student?.is_acceso_directo && !isExternal && activeSanction === null
+  // Se puede suspender a cualquiera a quien la búsqueda encuentre. Quien no es
+  // acceso directo ni persona externa se da de alta al vuelo al suspenderlo, que es
+  // lo mismo que ocurre al registrarle un consumo.
+  const canSuspend = !!student && activeSanction === null
 
   return (
     <div>
@@ -232,18 +242,6 @@ export function SuspendStudent() {
               <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 Usuario suspendido.
                 <span className="mt-0.5 block text-xs text-red-600">Motivo: {activeSanction.reason}</span>
-              </div>
-            ) : isExternal ? (
-              // Se muestra la ficha, no se oculta: esconderla devolvería el "no la
-              // encuentra" que este cambio elimina. Lo que hay que decir es que no se
-              // la puede sancionar, no que no existe.
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                Es una persona externa y no puede ser suspendida. Para retirarle el acceso,
-                dale de baja desde la pantalla de Gente Externa.
-              </div>
-            ) : !student.is_acceso_directo ? (
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                Este usuario no tiene acceso directo, por lo que no puede ser suspendido.
               </div>
             ) : null
           }

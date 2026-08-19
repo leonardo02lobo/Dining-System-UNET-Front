@@ -43,7 +43,9 @@ export function SuspendedListPage() {
     if (!liftTarget) return
     setLiftLoading(true)
     try {
-      await sanctionApi.lift(liftTarget.acceso_directo_id)
+      // Por id de sanción: sirve igual para un acceso directo que para una persona
+      // externa, que no tiene por dónde resolverse en la ruta de acceso directo.
+      await sanctionApi.liftBySanction(liftTarget.sanction_id)
       notify.success('Suspensión levantada. El usuario fue reactivado.')
       setLiftTarget(null)
       await refetch()
@@ -69,8 +71,14 @@ export function SuspendedListPage() {
     {
       key: 'user_type',
       header: 'Tipo',
+      // La persona externa no tiene tipo de usuario del padrón: lo que la clasifica
+      // es la etiqueta con la que se la dio de alta.
       render: (_, row) => (
-        <Badge variant="info">{userTypeLabel(row.user_type)}</Badge>
+        <Badge variant={row.person_kind === 'external' ? 'warning' : 'info'}>
+          {row.person_kind === 'external'
+            ? row.external_label || 'Persona externa'
+            : userTypeLabel(row.user_type ?? '')}
+        </Badge>
       ),
     },
     {

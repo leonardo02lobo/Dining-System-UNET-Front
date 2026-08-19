@@ -4,7 +4,7 @@ import autoTable from 'jspdf-autotable'
 import { ConsumptionReportTable } from '../components/reports/ConsumptionReportTable'
 import { ReportChartsPanel } from '../components/reports/ReportChartsPanel'
 import { ReportDateRangeFilters } from '../components/reports/ReportDateRangeFilters'
-import { reportsApi } from '../api/reports'
+import { reportsApi, type ConsumptionDateBasis } from '../api/reports'
 import { inventoryApi } from '../api/inventory'
 import type { ConsumptionReportItem } from '../types/report'
 import type { InventoryCategory } from '../types/inventory'
@@ -42,6 +42,9 @@ export function ConsumptionReportPage() {
   const [dateFrom, setDateFrom] = useState(toIsoDate(80))
   const [dateTo, setDateTo] = useState(toIsoDate(0))
   const [categoryId, setCategoryId] = useState('')
+  // DEC-03 — por defecto, la fecha del movimiento: es lo que el reporte decía
+  // hasta ahora y lo que cuadra con el saldo actual de la despensa.
+  const [dateBasis, setDateBasis] = useState<ConsumptionDateBasis>('movement')
   const [categories, setCategories] = useState<InventoryCategory[]>([])
   const [items, setItems] = useState<ConsumptionReportItem[] | null>(null)
   const [loading, setLoading] = useState(false)
@@ -89,6 +92,7 @@ export function ConsumptionReportPage() {
         fromDate: dateFrom,
         toDate: dateTo,
         categoryId: categoryId ? Number(categoryId) : undefined,
+        dateBasis,
       })
       setItems(data)
       notify.success(`Reporte generado con ${data.length} insumo(s).`)
@@ -119,6 +123,7 @@ export function ConsumptionReportPage() {
         fromDate: dateFrom,
         toDate: dateTo,
         categoryId: categoryId ? Number(categoryId) : undefined,
+        dateBasis,
       })
 
       if (reportItems.length === 0) {
@@ -188,6 +193,19 @@ export function ConsumptionReportPage() {
       doc.text(`${formatDisplayDate(dateFrom)} al ${formatDisplayDate(dateTo)}`, 20, 66)
       doc.text(selectedCategory?.name ?? 'Todas las categorías', 108, 66)
       doc.text(generatedAt, 190, 66)
+      // Sin esta línea el mismo periodo podría dar dos totales distintos sin que
+      // el documento dijera cuál de las dos fechas se usó (DEC-03).
+      doc.setFontSize(8)
+      doc.setTextColor(71, 85, 105)
+      doc.text(
+        dateBasis === 'service'
+          ? 'Periodo según la fecha del servicio (para qué día era el insumo)'
+          : 'Periodo según la fecha del movimiento (cuándo se descontó)',
+        20,
+        72,
+      )
+      doc.setFontSize(9)
+      doc.setTextColor(15, 23, 42)
 
       autoTable(doc, {
         startY: 82,
@@ -251,6 +269,7 @@ export function ConsumptionReportPage() {
         fromDate: dateFrom,
         toDate: dateTo,
         categoryId: categoryId ? Number(categoryId) : undefined,
+        dateBasis,
       })
       const categorySuffix = categoryId ? `-categoria-${categoryId}` : ''
       downloadBlob(csv, `reporte-consumo-${dateFrom}-${dateTo}${categorySuffix}.csv`)
@@ -270,6 +289,7 @@ export function ConsumptionReportPage() {
         dateFrom={dateFrom}
         dateTo={dateTo}
         categoryId={categoryId}
+        dateBasis={dateBasis}
         categories={categories}
         onDateFromChange={(value) => {
           setDateFrom(value)
@@ -281,6 +301,10 @@ export function ConsumptionReportPage() {
         }}
         onCategoryChange={(value) => {
           setCategoryId(value)
+          setItems(null)
+        }}
+        onDateBasisChange={(value) => {
+          setDateBasis(value)
           setItems(null)
         }}
         onGenerate={handleGenerate}

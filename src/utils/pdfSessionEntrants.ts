@@ -2,7 +2,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import type { Consumption } from '../types/consumption'
 import type { LunchSession } from '../types/lunchSession'
-import type { LunchResponse } from '../types/lunch'
+import { MEAL_TYPE_LABEL, type LunchResponse } from '../types/lunch'
 import { logoUnetDataUri, logoDecanatoDataUri } from './pdfLogos'
 
 /** Posición vertical (mm) tras la última tabla generada por jspdf-autotable. */
@@ -34,8 +34,12 @@ interface SessionEntrantsPdfParams {
   session: LunchSession
   entrants: Consumption[]
   onlyAccesoDirecto?: boolean
-  /** Menú del día de la sesión (issue #2). Si falta, se omite la sección. */
-  menu?: LunchResponse | null
+  /**
+   * Menús **confirmados** del día de la sesión (issue #2, INT-01/INT-02). Son
+   * varios porque una fecha admite desayuno, almuerzo y cena; un borrador no
+   * entra aquí, porque nunca se sirvió. Vacío: se omite la sección.
+   */
+  menus?: LunchResponse[]
 }
 
 /**
@@ -48,7 +52,7 @@ export async function generateSessionEntrantsPdf({
   session,
   entrants,
   onlyAccesoDirecto,
-  menu,
+  menus = [],
 }: SessionEntrantsPdfParams): Promise<void> {
   const [unetLogo, deanLogo] = await Promise.all([
     loadPdfImage(logoUnetDataUri, 500, 500),
@@ -77,33 +81,39 @@ export async function generateSessionEntrantsPdf({
 
   let cursorY = 47
 
-  // Sección de menú del día (issue #2): nombre, platos e ingredientes usados.
-  if (menu) {
+  // Sección de menús del día (issue #2): uno por servicio confirmado.
+  if (menus.length > 0) {
     doc.setTextColor(3, 33, 106)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(10)
-    doc.text('Menú del día', 14, cursorY)
-    doc.setTextColor(60)
-    doc.setFont('helvetica', 'normal')
-    doc.text(`${menu.name} · ${menu.platesQuantity} platos`, 14, cursorY + 5)
-    cursorY += 9
+    doc.text(menus.length === 1 ? 'Menú del día' : 'Menús del día', 14, cursorY)
+    cursorY += 5
 
-    if (menu.ingredients.length > 0) {
-      autoTable(doc, {
-        startY: cursorY,
-        head: [['Ingrediente', 'Cantidad', 'Unidad']],
-        body: menu.ingredients.map((ing) => [
-          ing.inventoryItem?.name ?? `Insumo #${ing.inventoryItemId}`,
-          String(ing.calculatedQuantity),
-          ing.unit,
-        ]),
-        headStyles: { fillColor: [3, 33, 106] },
-        styles: { fontSize: 9 },
-      })
-      cursorY = lastTableFinalY(doc, cursorY) + 8
-    } else {
-      doc.text('Sin ingredientes registrados.', 14, cursorY)
-      cursorY += 8
+    for (const menu of menus) {
+      doc.setTextColor(60)
+      doc.setFont('helvetica', 'bold')
+      doc.text(`${MEAL_TYPE_LABEL[menu.mealType] ?? ''}: ${menu.name}`.trim(), 14, cursorY)
+      doc.setFont('helvetica', 'normal')
+      doc.text(`${menu.platesQuantity} platos`, 14, cursorY + 5)
+      cursorY += 9
+
+      if (menu.ingredients.length > 0) {
+        autoTable(doc, {
+          startY: cursorY,
+          head: [['Ingrediente', 'Cantidad', 'Unidad']],
+          body: menu.ingredients.map((ing) => [
+            ing.inventoryItem?.name ?? `Insumo #${ing.inventoryItemId}`,
+            String(ing.calculatedQuantity),
+            ing.unit,
+          ]),
+          headStyles: { fillColor: [3, 33, 106] },
+          styles: { fontSize: 9 },
+        })
+        cursorY = lastTableFinalY(doc, cursorY) + 8
+      } else {
+        doc.text('Sin ingredientes registrados.', 14, cursorY)
+        cursorY += 8
+      }
     }
   }
 
