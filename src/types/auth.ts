@@ -34,4 +34,10 @@ export interface ApiError {
   message: string
   status: number
   details?: Record<string, string[]>
+  /**
+   * `detail` del backend cuando viaja como objeto y no como texto: es el cuerpo
+   * estructurado del error (por ejemplo el 409 de stock insuficiente, con la
+   * lista de insumos que faltan). `message` seguirá siendo su resumen legible.
+   */
+  detail?: Record<string, unknown>
 }

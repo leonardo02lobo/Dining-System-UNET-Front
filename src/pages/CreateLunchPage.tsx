@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, Plus } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { AlertTriangle, ChevronDown, Plus } from 'lucide-react'
+import { LunchDatePlanner, todayIso, type PlannerRange } from '../components/lunch/LunchDatePlanner'
 import { LunchDetailsForm } from '../components/lunch/LunchDetailsForm'
 import { LunchFooterActions } from '../components/lunch/LunchFooterActions'
 import { LunchIngredientsTable } from '../components/lunch/LunchIngredientsTable'
 import { LunchRecalculationTable } from '../components/lunch/LunchRecalculationTable'
+import { MissingStockModal } from '../components/lunch/MissingStockModal'
 import { PreloadedLunchBar } from '../components/lunch/PreloadedLunchBar'
+import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { PageHeader } from '../components/ui/PageHeader'
-import { Table, type ColumnDef } from '../components/ui/Table'
 import { notify } from '../utils/toast'
 import { errorMessage } from '../utils/apiErrors'
-import { Badge } from '../components/ui/Badge'
 import { inventoryApi } from '../api/inventory'
 import { lunchApi } from '../api/lunch'
 import {
@@ -26,18 +28,16 @@ import {
   scaleIngredient,
 } from '../utils/lunchRecalculation'
 import type { InventoryItem } from '../types/inventory'
-import type {
-  LunchFormIngredient,
-  LunchResponse,
-  LunchStockValidationItem,
-  LunchTemplateResponse,
-  PreloadedLunch,
+import {
+  MEAL_TYPE_LABEL,
+  type LunchFormIngredient,
+  type LunchMissingStockItem,
+  type LunchResponse,
+  type LunchTemplateResponse,
+  type MealType,
+  type PreloadedLunch,
 } from '../types/lunch'
 import { generateLunchListPdf } from '../utils/pdfLunch'
-
-function todayIso() {
-  return new Date().toISOString().split('T')[0]
-}
 
 interface PantryItem {
   id: number
@@ -47,23 +47,6 @@ interface PantryItem {
   available: number
 }
 
-interface LunchIngredientDetail {
-  id: number
-  name: string
-  quantity: number | null
-  unit: string
-}
-
-const lunchDetailColumns: ColumnDef<LunchIngredientDetail>[] = [
-  { key: 'name', header: 'Ingrediente', sortable: true },
-  {
-    key: 'quantity',
-    header: 'Cantidad utilizada',
-    sortable: true,
-    render: (_, ingredient) => `${ingredient.quantity ?? 'Sin cantidad'} ${ingredient.unit}`,
-  },
-]
-
 function mapInventoryItemToPantry(item: InventoryItem): PantryItem {
   return {
     id: item.id,
@@ -72,6 +55,14 @@ function mapInventoryItemToPantry(item: InventoryItem): PantryItem {
     unit: item.unit,
     available: item.currentStock,
   }
+}
+
+function toNumber(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function getRecord(value: unknown) {
+  return value && typeof value === 'object' ? value as Record<string, unknown> : null
 }
 
 function mapTemplateToPreloaded(template: LunchTemplateResponse): PreloadedLunch {
@@ -85,6 +76,7 @@ function mapTemplateToPreloaded(template: LunchTemplateResponse): PreloadedLunch
   return {
     id: template.id,
     name: template.name,
+    meal_type: template.mealType ?? 'ALMUERZO',
     plate_count: basePlates,
     ingredients: template.ingredients.flatMap((item, index) => {
       const record = getRecord(item)
@@ -113,96 +105,77 @@ function mapTemplateToPreloaded(template: LunchTemplateResponse): PreloadedLunch
   }
 }
 
-function formatDisplayDate(value: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value || 'Sin fecha'
-
-  return date.toLocaleDateString('es-VE')
-}
-
-function toNumber(value: unknown) {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null
-}
-
-function getRecord(value: unknown) {
-  return value && typeof value === 'object' ? value as Record<string, unknown> : null
-}
-
-function mapLunchIngredientDetails(lunch: LunchResponse): LunchIngredientDetail[] {
-  return lunch.ingredients.flatMap((item, index) => {
-    const record = getRecord(item)
-    if (!record) return []
-
-    const inventoryItem = getRecord(record.inventoryItem)
+/** Ingredientes de un almuerzo del servidor, en la forma que usa el formulario. */
+function mapLunchToFormIngredients(
+  lunch: LunchResponse,
+  pantry: PantryItem[],
+): LunchFormIngredient[] {
+  return lunch.ingredients.flatMap((ingredient) => {
+    const inventoryItem = getRecord(ingredient.inventoryItem)
     const name = typeof inventoryItem?.name === 'string' ? inventoryItem.name : null
-    const quantity = toNumber(record.calculatedQuantity)
-    const unit = typeof record.unit === 'string' ? record.unit : ''
-
     if (!name) return []
+    const categoryRecord = getRecord(inventoryItem?.category)
+    const pantryItem = pantry.find((item) => item.id === ingredient.inventoryItemId)
 
     return [{
-      id: toNumber(record.id) ?? index,
-      name,
-      quantity,
-      unit,
+      ingredient_id: ingredient.inventoryItemId,
+      ingredient_name: name,
+      category: typeof categoryRecord?.name === 'string' ? categoryRecord.name : 'Sin categoría',
+      unit: ingredient.unit,
+      base_quantity: ingredient.baseQuantity,
+      base_plates: lunch.basePlatesQuantity,
+      calculated_quantity: ingredient.calculatedQuantity,
+      available_quantity: pantryItem?.available ?? 0,
     }]
   })
 }
 
-function buildInsufficientStockMessage(items: LunchStockValidationItem[]) {
-  const insufficientItems = items.filter((item) => !item.isSufficient)
-
-  if (insufficientItems.length === 0) {
-    return 'No hay suficiente stock para confirmar el servicio de alimentación.'
-  }
-
-  const details = insufficientItems
-    .map((item) =>
-      `${item.name}: requiere ${formatQuantity(item.requiredQuantity, item.unit)}, disponible ${formatStock(item.availableStock, item.unit)}, faltan ${formatQuantity(item.missingQuantity, item.unit)}`
-    )
-    .join('; ')
-
-  return `No hay suficiente stock para confirmar el servicio de alimentación. ${details}.`
-}
+const DEFAULT_NAME = 'Arroz con pollo'
+const DEFAULT_PLATES = 500
 
 export function CreateLunchPage() {
-  const [lunchName, setLunchName] = useState('Arroz con pollo')
+  const navigate = useNavigate()
+
+  // --- Paso 1: la fecha manda -----------------------------------------------
   const [date, setDate] = useState(todayIso())
-  const [plateCount, setPlateCount] = useState(500)
-  const [desiredPlateCount, setDesiredPlateCount] = useState(500)
+  const [range, setRange] = useState<PlannerRange>('day')
+  const [plannedLunches, setPlannedLunches] = useState<LunchResponse[]>([])
+  const [plannedLoading, setPlannedLoading] = useState(false)
+  const [plannedError, setPlannedError] = useState('')
+
+  // --- Formulario del servicio ----------------------------------------------
+  const [editingLunchId, setEditingLunchId] = useState<number | null>(null)
+  const [editingStatus, setEditingStatus] = useState<'DRAFT' | null>(null)
+  const [lunchName, setLunchName] = useState(DEFAULT_NAME)
+  const [mealType, setMealType] = useState<MealType>('ALMUERZO')
+  const [plateCount, setPlateCount] = useState(DEFAULT_PLATES)
+  const [desiredPlateCount, setDesiredPlateCount] = useState(DEFAULT_PLATES)
   const [ingredients, setIngredients] = useState<LunchFormIngredient[]>([])
   const [preloadedId, setPreloadedId] = useState<number | null>(null)
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editTarget, setEditTarget] = useState<LunchFormIngredient | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<LunchFormIngredient | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [saveError, setSaveError] = useState('')
-  const [pantry, setPantry] = useState<PantryItem[]>([])
-  const [pantryLoading, setPantryLoading] = useState(false)
-  const [pantryError, setPantryError] = useState('')
-  const [createdLunches, setCreatedLunches] = useState<LunchResponse[]>([])
-  const [createdLunchesLoading, setCreatedLunchesLoading] = useState(false)
-  const [createdLunchesError, setCreatedLunchesError] = useState('')
-  const [createdLunchesOpen, setCreatedLunchesOpen] = useState(false)
-  const [lunchDetailOpen, setLunchDetailOpen] = useState(false)
-  const [lunchDetail, setLunchDetail] = useState<LunchResponse | null>(null)
-  const [lunchDetailLoading, setLunchDetailLoading] = useState(false)
-  const [lunchDetailError, setLunchDetailError] = useState('')
-  // Edición de almuerzos creados (#10): solo los DRAFT son editables (backend 409 si CONFIRMED).
-  const [editingLunch, setEditingLunch] = useState(false)
-  const [editLunchName, setEditLunchName] = useState('')
-  const [editLunchDate, setEditLunchDate] = useState('')
-  const [editLunchPlates, setEditLunchPlates] = useState(1)
-  const [savingLunchEdit, setSavingLunchEdit] = useState(false)
-  const [lunchEditError, setLunchEditError] = useState('')
   const [preloadedTemplates, setPreloadedTemplates] = useState<PreloadedLunch[]>([])
   const [templatesLoading, setTemplatesLoading] = useState(false)
   const [templatesError, setTemplatesError] = useState('')
 
+  // --- Inventario (contexto, nunca veto: ver FE-03) --------------------------
+  const [pantry, setPantry] = useState<PantryItem[]>([])
+  const [pantryLoading, setPantryLoading] = useState(false)
+  const [pantryError, setPantryError] = useState('')
+
+  // --- Modales y estado de las acciones -------------------------------------
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editTarget, setEditTarget] = useState<LunchFormIngredient | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<LunchFormIngredient | null>(null)
+  const [deleteDraftTarget, setDeleteDraftTarget] = useState<LunchResponse | null>(null)
+  const [deletingDraft, setDeletingDraft] = useState(false)
+  const [confirmPreviewOpen, setConfirmPreviewOpen] = useState(false)
+  const [missingItems, setMissingItems] = useState<LunchMissingStockItem[] | null>(null)
+  const [savingDraft, setSavingDraft] = useState(false)
+  const [confirming, setConfirming] = useState(false)
+  const [saveError, setSaveError] = useState('')
+
   const [selectedPantryId, setSelectedPantryId] = useState('')
   const [editQty, setEditQty] = useState('')
   const [ingredientDropdownOpen, setIngredientDropdownOpen] = useState(false)
-  const downloadDisabled = !lunchName.trim() || !date || plateCount < 1 || ingredients.length === 0
 
   const plateDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -218,14 +191,16 @@ export function CreateLunchPage() {
 
   const editQtyNumber = Number(editQty)
   const hasValidEditQty = editQty.trim() !== '' && Number.isFinite(editQtyNumber) && editQtyNumber > 0
-  const selectedIngredientAlreadyAdded = !editTarget && ingredients.some((i) => i.ingredient_id === Number(selectedPantryId))
-  const exceedsSelectedStock = !!selectedPantryItem && hasValidEditQty && editQtyNumber > selectedPantryItem.available
-  const selectedStockError = exceedsSelectedStock
-    ? `No hay suficiente stock de ${selectedPantryItem.name}. Disponible: ${formatStock(selectedPantryItem.available, selectedPantryItem.unit)}.`
+  const selectedIngredientAlreadyAdded =
+    !editTarget && ingredients.some((item) => item.ingredient_id === Number(selectedPantryId))
+  // FE-03 — pedir más de lo que hay es legítimo en un borrador: se avisa, no se
+  // bloquea. Quien planifica el viernes todavía no ha ido al mercado.
+  const exceedsSelectedStock =
+    !!selectedPantryItem && hasValidEditQty && editQtyNumber > selectedPantryItem.available
+  const selectedStockWarning = exceedsSelectedStock && selectedPantryItem
+    ? `Hoy solo hay ${formatStock(selectedPantryItem.available, selectedPantryItem.unit)} de ${selectedPantryItem.name}. Puedes guardarlo igual: la confirmación es la que exige existencias.`
     : ''
 
-  // La regla de tres exige una base > 0; el stepper ya limita a 1, pero una
-  // plantilla corrupta podría traer 0 y dejaría el recálculo en blanco.
   const plateCountError = !isValidPlateCount(plateCount)
     ? 'La cantidad base de platos debe ser mayor que cero para poder recalcular.'
     : !isValidPlateCount(desiredPlateCount)
@@ -234,7 +209,18 @@ export function CreateLunchPage() {
 
   const previews = useMemo(
     () => getRecalculationPreview(ingredients, plateCount, desiredPlateCount),
-    [ingredients, plateCount, desiredPlateCount]
+    [ingredients, plateCount, desiredPlateCount],
+  )
+
+  /** Insumos cuya cantidad para los platos deseados supera la existencia actual. */
+  const insufficientIngredients = useMemo(
+    () =>
+      ingredients.filter(
+        (item) =>
+          payloadQuantity(scaleIngredient(item, desiredPlateCount), item.unit) >
+          item.available_quantity,
+      ),
+    [ingredients, desiredPlateCount],
   )
 
   const lunchIngredientPayloads = useMemo(
@@ -251,24 +237,66 @@ export function CreateLunchPage() {
     [ingredients, plateCount, desiredPlateCount],
   )
 
-  const lunchIngredientDetails = useMemo(
-    () => lunchDetail ? mapLunchIngredientDetails(lunchDetail) : [],
-    [lunchDetail],
-  )
+  const formIsComplete =
+    lunchName.trim().length > 0 && ingredients.length > 0 && !plateCountError && !!date
+  const isPastDate = date < todayIso()
 
   const loadPantry = useCallback(async () => {
     setPantryLoading(true)
     setPantryError('')
-
     try {
       const data = await inventoryApi.listItems()
       setPantry(data.map(mapInventoryItemToPantry))
+      return data.map(mapInventoryItemToPantry)
     } catch {
       setPantryError('No se pudieron cargar los ingredientes del inventario.')
+      return []
     } finally {
       setPantryLoading(false)
     }
   }, [])
+
+  const loadTemplates = useCallback(async () => {
+    setTemplatesLoading(true)
+    setTemplatesError('')
+    try {
+      const templates = await lunchApi.listLunchTemplates()
+      setPreloadedTemplates(templates.map(mapTemplateToPreloaded))
+    } catch {
+      setTemplatesError('No se pudieron cargar las plantillas de servicio de alimentación.')
+    } finally {
+      setTemplatesLoading(false)
+    }
+  }, [])
+
+  /**
+   * Planificación visible. En vista diaria se pide la fecha exacta al servidor;
+   * en semana/mes se trae la lista y se recorta aquí, para no disparar una
+   * petición por día del calendario.
+   */
+  const loadPlanned = useCallback(async () => {
+    setPlannedLoading(true)
+    setPlannedError('')
+    try {
+      const data = range === 'day'
+        ? await lunchApi.listLunches({ date })
+        : await lunchApi.listLunches()
+      setPlannedLunches(data)
+    } catch {
+      setPlannedError('No se pudo cargar la planificación de esta fecha.')
+    } finally {
+      setPlannedLoading(false)
+    }
+  }, [date, range])
+
+  useEffect(() => {
+    void loadPlanned()
+  }, [loadPlanned])
+
+  useEffect(() => {
+    void loadPantry()
+    void loadTemplates()
+  }, [loadPantry, loadTemplates])
 
   // Cada cambio de platos recalcula TODOS los ingredientes desde su cantidad
   // original (`base_quantity`/`base_plates`), no desde el último resultado.
@@ -282,45 +310,35 @@ export function CreateLunchPage() {
     }
   }, [plateCount])
 
-  useEffect(() => {
-    let mounted = true
+  // --- Formulario -----------------------------------------------------------
 
-    async function loadInitialData() {
-      setTemplatesLoading(true)
-      setTemplatesError('')
+  function resetForm(nextDate = date) {
+    setEditingLunchId(null)
+    setEditingStatus(null)
+    setLunchName(DEFAULT_NAME)
+    setMealType('ALMUERZO')
+    setPlateCount(DEFAULT_PLATES)
+    setDesiredPlateCount(DEFAULT_PLATES)
+    setIngredients([])
+    setPreloadedId(null)
+    setSaveError('')
+    setDate(nextDate)
+  }
 
-      try {
-        const data = await inventoryApi.listItems()
-        if (!mounted) return
-        setPantry(data.map(mapInventoryItemToPantry))
-      } catch {
-        if (!mounted) return
-        setPantryError('No se pudieron cargar los ingredientes del inventario.')
-      } finally {
-        if (mounted) setPantryLoading(false)
-      }
-
-      try {
-        const templates = await lunchApi.listLunchTemplates()
-        if (!mounted) return
-        setPreloadedTemplates(templates.map(mapTemplateToPreloaded))
-      } catch {
-        if (!mounted) return
-        setTemplatesError('No se pudieron cargar las plantillas de servicio de alimentación.')
-      } finally {
-        if (mounted) setTemplatesLoading(false)
-      }
-    }
-
-    loadInitialData()
-
-    return () => {
-      mounted = false
-    }
-  }, [])
+  function handleOpenDraft(lunch: LunchResponse) {
+    setEditingLunchId(lunch.id)
+    setEditingStatus('DRAFT')
+    setLunchName(lunch.name)
+    setMealType(lunch.mealType)
+    setDate(lunch.date)
+    setPlateCount(lunch.basePlatesQuantity)
+    setDesiredPlateCount(lunch.platesQuantity)
+    setIngredients(mapLunchToFormIngredients(lunch, pantry))
+    setSaveError('')
+  }
 
   function handleLoadPreloaded() {
-    const template = preloadedTemplates.find((l) => l.id === preloadedId)
+    const template = preloadedTemplates.find((item) => item.id === preloadedId)
     if (!template) return
 
     if (template.ingredients.length === 0) {
@@ -329,18 +347,14 @@ export function CreateLunchPage() {
     }
 
     setLunchName(template.name)
+    setMealType(template.meal_type)
     setPlateCount(template.plate_count)
     setDesiredPlateCount(template.plate_count)
 
     const loaded = template.ingredients.flatMap((item) => {
-      const pantryItem = pantry.find((p) => p.id === item.ingredient_id)
+      const pantryItem = pantry.find((entry) => entry.id === item.ingredient_id)
       if (!pantryItem) return []
-
-      return buildIngredientFromTemplate(
-        item,
-        template.plate_count,
-        pantryItem.available
-      )
+      return buildIngredientFromTemplate(item, template.plate_count, pantryItem.available)
     })
     setIngredients(loaded)
     setSaveError('')
@@ -352,20 +366,20 @@ export function CreateLunchPage() {
     setEditQty('')
     setIngredientDropdownOpen(false)
     setModalOpen(true)
-    loadPantry()
+    void loadPantry()
   }
 
   function openEditModal(item: LunchFormIngredient) {
     setEditTarget(item)
     setSelectedPantryId(String(item.ingredient_id))
-    setEditQty(String(item.calculated_quantity))
+    setEditQty(String(item.base_quantity))
     setIngredientDropdownOpen(false)
     setModalOpen(true)
   }
 
   function handleSaveIngredient() {
     const pantryItem = selectedPantryItem
-    if (!pantryItem || !hasValidEditQty || exceedsSelectedStock) return
+    if (!pantryItem || !hasValidEditQty) return
     if (!isValidPlateCount(plateCount)) {
       setSaveError('Define una cantidad de platos mayor que cero antes de agregar ingredientes.')
       return
@@ -377,21 +391,14 @@ export function CreateLunchPage() {
 
     if (editTarget) {
       setIngredients((prev) =>
-        prev.map((i) =>
-          i.ingredient_id === editTarget.ingredient_id
-            ? {
-                ...i,
-                base_quantity: qty,
-                base_plates: plateCount,
-                calculated_quantity: qty,
-              }
-            : i
-        )
+        prev.map((item) =>
+          item.ingredient_id === editTarget.ingredient_id
+            ? { ...item, base_quantity: qty, base_plates: plateCount, calculated_quantity: qty }
+            : item,
+        ),
       )
     } else {
-      const exists = ingredients.some((i) => i.ingredient_id === pantryItem.id)
-      if (exists) return
-
+      if (ingredients.some((item) => item.ingredient_id === pantryItem.id)) return
       setIngredients((prev) => [
         ...prev,
         {
@@ -410,186 +417,165 @@ export function CreateLunchPage() {
     setModalOpen(false)
   }
 
-  function handleDelete(item: LunchFormIngredient) {
-    setDeleteTarget(item)
-  }
-
-  function confirmDelete() {
+  function confirmDeleteIngredient() {
     if (!deleteTarget) return
-    setIngredients((prev) => prev.filter((i) => i.ingredient_id !== deleteTarget.ingredient_id))
+    setIngredients((prev) => prev.filter((item) => item.ingredient_id !== deleteTarget.ingredient_id))
     setDeleteTarget(null)
   }
 
-  async function loadCreatedLunches() {
-    setCreatedLunchesLoading(true)
-    setCreatedLunchesError('')
+  // --- Guardar borrador (FE-02) --------------------------------------------
+
+  function validateForm(): string {
+    if (!lunchName.trim()) return 'Ingresa el nombre del servicio de alimentación.'
+    if (!date) return 'Selecciona la fecha del servicio.'
+    if (isPastDate) return 'No se puede planificar para una fecha anterior a hoy.'
+    if (ingredients.length === 0) return 'Agrega al menos un ingrediente al servicio.'
+    return plateCountError
+  }
+
+  /** Persiste el borrador (alta o actualización) y devuelve el almuerzo guardado. */
+  async function persistDraft(): Promise<LunchResponse | null> {
+    const problem = validateForm()
+    if (problem) {
+      setSaveError(problem)
+      return null
+    }
+
+    setSaveError('')
+    const payload = {
+      name: lunchName.trim(),
+      date,
+      mealType,
+      platesQuantity: desiredPlateCount,
+      basePlatesQuantity: plateCount,
+      ingredients: lunchIngredientPayloads,
+    }
 
     try {
-      const data = await lunchApi.listLunches()
-      setCreatedLunches(data)
-    } catch {
-      setCreatedLunchesError('No se pudieron cargar los servicios de alimentación del servidor.')
-    } finally {
-      setCreatedLunchesLoading(false)
-    }
-  }
+      if (editingLunchId !== null) {
+        // Actualizar el mismo borrador —y no crear otro— es lo que evita que un
+        // intento fallido de confirmación deje duplicados en la fecha (FE-05).
+        // Encabezado y receta viajan juntos: el backend los aplica en la misma
+        // transacción, así que no existe un borrador con la mitad del cambio.
+        return await lunchApi.updateLunch(editingLunchId, payload)
+      }
 
-  function openCreatedLunchesModal() {
-    setCreatedLunchesOpen(true)
-    loadCreatedLunches()
-  }
-
-  async function openLunchDetail(lunchId: number) {
-    setLunchDetailOpen(true)
-    setLunchDetail(null)
-    setLunchDetailError('')
-    setEditingLunch(false)
-    setLunchEditError('')
-    setLunchDetailLoading(true)
-
-    try {
-      const data = await lunchApi.getLunch(lunchId)
-      setLunchDetail(data)
-    } catch {
-      setLunchDetailError('No se pudo cargar el detalle del servicio de alimentación.')
-    } finally {
-      setLunchDetailLoading(false)
-    }
-  }
-
-  function startEditLunch() {
-    if (!lunchDetail) return
-    setEditLunchName(lunchDetail.name)
-    setEditLunchDate(lunchDetail.date)
-    setEditLunchPlates(lunchDetail.platesQuantity)
-    setLunchEditError('')
-    setEditingLunch(true)
-  }
-
-  async function handleSaveLunchEdit() {
-    if (!lunchDetail) return
-    const name = editLunchName.trim()
-    if (!name) {
-      setLunchEditError('Ingresa el nombre del servicio de alimentación.')
-      return
-    }
-    setSavingLunchEdit(true)
-    setLunchEditError('')
-    try {
-      const updated = await lunchApi.updateLunch(lunchDetail.id, {
-        name,
-        date: editLunchDate,
-        platesQuantity: Math.max(1, editLunchPlates),
-      })
-      setLunchDetail(updated)
-      setEditingLunch(false)
-      notify.success('Servicio de alimentación actualizado.')
-      await loadCreatedLunches()
+      const created = await lunchApi.createLunch(payload)
+      setEditingLunchId(created.id)
+      setEditingStatus('DRAFT')
+      return created
     } catch (err) {
-      setLunchEditError(
+      setSaveError(
         errorMessage(
           err,
-          { 409: 'Este servicio de alimentación no es editable (solo los borradores pueden editarse).' },
-          'No se pudo actualizar el servicio de alimentación.',
+          {
+            404: 'Alguno de los insumos ya no existe en el inventario.',
+            409: 'No se pudo guardar el borrador: revisa que no haya insumos repetidos y que las unidades coincidan con el inventario.',
+          },
+          'No se pudo guardar el borrador. Intenta nuevamente.',
         ),
       )
-    } finally {
-      setSavingLunchEdit(false)
+      return null
     }
   }
 
-  async function handleSave() {
-    const trimmedName = lunchName.trim()
-
-    if (!trimmedName) {
-      setSaveError('Ingresa el nombre del servicio de alimentación.')
-      return
-    }
-
-    if (ingredients.length === 0) {
-      setSaveError('Agrega al menos un ingrediente al servicio de alimentación.')
-      return
-    }
-
-    if (plateCountError) {
-      setSaveError(plateCountError)
-      return
-    }
-
-    const localInsufficientItems = ingredients.filter(
-      (item) => payloadQuantity(scaleIngredient(item, desiredPlateCount), item.unit) > item.available_quantity,
-    )
-    if (localInsufficientItems.length > 0) {
-      setSaveError(
-        `No hay suficiente stock para guardar el servicio de alimentación. ${
-          localInsufficientItems
-            .map((item) =>
-              `${item.ingredient_name}: requiere ${formatQuantity(scaleIngredient(item, desiredPlateCount), item.unit)}, disponible ${formatStock(item.available_quantity, item.unit)}`
-            )
-            .join('; ')
-        }.`,
-      )
-      return
-    }
-
-    setSaving(true)
-    setSaveError('')
-
+  async function handleSaveDraft() {
+    setSavingDraft(true)
     try {
-      const result = await lunchApi.createConfirmedLunch({
-        name: trimmedName,
-        date,
-        platesQuantity: desiredPlateCount,
-        basePlatesQuantity: plateCount,
-        ingredients: lunchIngredientPayloads,
-      })
+      const saved = await persistDraft()
+      if (!saved) return
+      notify.success('Borrador guardado. El inventario no se ha modificado.')
+      await loadPlanned()
+    } finally {
+      setSavingDraft(false)
+    }
+  }
+
+  function handleOpenConfirmPreview() {
+    const problem = validateForm()
+    if (problem) {
+      setSaveError(problem)
+      return
+    }
+    setSaveError('')
+    setConfirmPreviewOpen(true)
+  }
+
+  /**
+   * FE-02 — confirmar: primero se guarda el borrador (para que lo confirmado sea
+   * exactamente lo que está en pantalla) y después se confirma. Un faltante no
+   * es un error de la petición: abre el modal y el servicio sigue en borrador.
+   */
+  async function handleConfirm() {
+    setConfirming(true)
+    setConfirmPreviewOpen(false)
+    try {
+      const draft = await persistDraft()
+      if (!draft) return
+
+      const result = await lunchApi.confirmLunch(draft.id)
 
       if (result.status === 'insufficient_stock') {
-        setSaveError(buildInsufficientStockMessage(result.items))
+        setMissingItems(result.items)
+        // El stock que devolvió el backend es el bueno: se refresca la despensa
+        // para que la pantalla deje de mostrar el que ya no es.
+        await loadPantry()
         return
       }
 
-      // El backend guarda SIEMPRE la plantilla al confirmar (#11); refrescamos la lista.
-      const templates = await lunchApi.listLunchTemplates()
-      setPreloadedTemplates(templates.map(mapTemplateToPreloaded))
-
-      if (createdLunchesOpen) {
-        await loadCreatedLunches()
-      }
-
-      const updatedPantry = await inventoryApi.listItems()
-      setPantry(updatedPantry.map(mapInventoryItemToPantry))
-
-      notify.success('Servicio confirmado y plantilla guardada correctamente.')
-    } catch {
-      setSaveError('No se pudo guardar el servicio de alimentación. Intenta nuevamente.')
+      notify.success('Servicio confirmado: el inventario quedó descontado.')
+      resetForm(draft.date)
+      await Promise.all([loadPlanned(), loadPantry(), loadTemplates()])
+    } catch (err) {
+      setSaveError(
+        errorMessage(
+          err,
+          {
+            409: 'Este servicio ya no puede confirmarse (puede que ya esté confirmado o que se haya quedado sin ingredientes).',
+          },
+          'No se pudo confirmar el servicio. Intenta nuevamente.',
+        ),
+      )
     } finally {
-      setSaving(false)
+      setConfirming(false)
+    }
+  }
+
+  async function handleDeleteDraft() {
+    if (!deleteDraftTarget) return
+    setDeletingDraft(true)
+    try {
+      await lunchApi.deleteLunch(deleteDraftTarget.id)
+      if (editingLunchId === deleteDraftTarget.id) resetForm()
+      notify.success('Borrador eliminado.')
+      setDeleteDraftTarget(null)
+      await loadPlanned()
+    } catch (err) {
+      notify.error(
+        errorMessage(
+          err,
+          { 409: 'Un servicio confirmado no puede eliminarse.' },
+          'No se pudo eliminar el borrador.',
+        ),
+      )
+    } finally {
+      setDeletingDraft(false)
     }
   }
 
   async function handleDownload() {
     const trimmedName = lunchName.trim()
-
     if (!trimmedName) {
-      setSaveError('Ingresa el nombre del servicio de alimentación antes de descargar la lista.')
+      setSaveError('Ingresa el nombre del servicio antes de descargar la lista.')
       return
     }
-
     if (ingredients.length === 0) {
       setSaveError('Agrega al menos un ingrediente antes de descargar la lista.')
       return
     }
-
     setSaveError('')
-
     try {
-      await generateLunchListPdf({
-        name: trimmedName,
-        date,
-        plateCount,
-        ingredients,
-      })
+      await generateLunchListPdf({ name: trimmedName, date, plateCount, ingredients })
     } catch {
       setSaveError('No se pudo generar el archivo PDF. Intenta nuevamente.')
     }
@@ -597,7 +583,24 @@ export function CreateLunchPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Crear servicio de alimentación" />
+      <PageHeader
+        title="Planificar servicios de alimentación"
+        subtitle="Elige la fecha, arma la receta y guárdala como borrador. Confirmar es lo que descuenta el inventario."
+      />
+
+      <LunchDatePlanner
+        date={date}
+        range={range}
+        lunches={plannedLunches}
+        loading={plannedLoading}
+        error={plannedError}
+        editingLunchId={editingLunchId}
+        onDateChange={(value) => setDate(value)}
+        onRangeChange={setRange}
+        onOpenDraft={handleOpenDraft}
+        onDeleteDraft={setDeleteDraftTarget}
+        onCreateNew={() => resetForm()}
+      />
 
       <PreloadedLunchBar
         options={preloadedTemplates}
@@ -616,27 +619,33 @@ export function CreateLunchPage() {
         </div>
       )}
 
-      <div>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={openCreatedLunchesModal}
-        >
-          Ver servicios de alimentación creados
-        </Button>
-      </div>
+      <section className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="text-[15px] font-bold text-black">
+            {editingLunchId === null ? 'Nuevo servicio' : `Editando servicio #${editingLunchId}`}
+          </h2>
+          {editingStatus === 'DRAFT' && <Badge variant="warning">Borrador</Badge>}
+          {editingLunchId !== null && (
+            <Button variant="ghost" size="sm" onClick={() => resetForm()}>
+              Empezar uno nuevo
+            </Button>
+          )}
+        </div>
 
-      <LunchDetailsForm
-        lunchName={lunchName}
-        date={date}
-        plateCount={plateCount}
-        desiredPlateCount={desiredPlateCount}
-        onLunchNameChange={setLunchName}
-        onDateChange={setDate}
-        onPlateCountChange={setPlateCount}
-        onDesiredPlateCountChange={setDesiredPlateCount}
-      />
+        <LunchDetailsForm
+          lunchName={lunchName}
+          date={date}
+          mealType={mealType}
+          plateCount={plateCount}
+          desiredPlateCount={desiredPlateCount}
+          minDate={todayIso()}
+          onLunchNameChange={setLunchName}
+          onDateChange={setDate}
+          onMealTypeChange={setMealType}
+          onPlateCountChange={setPlateCount}
+          onDesiredPlateCountChange={setDesiredPlateCount}
+        />
+      </section>
 
       {plateCountError && (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -652,7 +661,7 @@ export function CreateLunchPage() {
             items={ingredients}
             plateCount={plateCount}
             onEdit={openEditModal}
-            onDelete={handleDelete}
+            onDelete={setDeleteTarget}
           />
         </div>
 
@@ -665,7 +674,29 @@ export function CreateLunchPage() {
         </div>
       </div>
 
-      {/* Botón central entre/bajo ambas tablas (issue #9) */}
+      {/* FE-03 — aviso, no bloqueo: el borrador puede guardarse igual. */}
+      {insufficientIngredients.length > 0 && (
+        <div className="flex gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <AlertTriangle size={18} className="mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="font-semibold">
+              Hoy no hay existencias suficientes para {insufficientIngredients.length}{' '}
+              {insufficientIngredients.length === 1 ? 'insumo' : 'insumos'}.
+            </p>
+            <p>
+              Puedes guardar el borrador de todos modos; la confirmación es la que exige el
+              stock:{' '}
+              {insufficientIngredients
+                .map((item) =>
+                  `${item.ingredient_name} (requiere ${formatQuantity(scaleIngredient(item, desiredPlateCount), item.unit)}, hay ${formatStock(item.available_quantity, item.unit)})`,
+                )
+                .join('; ')}
+              .
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-center">
         <Button type="button" onClick={openAddModal} leftIcon={<Plus size={20} />}>
           Agregar Ingrediente
@@ -679,12 +710,17 @@ export function CreateLunchPage() {
       )}
 
       <LunchFooterActions
-        onSave={handleSave}
+        onSaveDraft={handleSaveDraft}
+        onConfirm={handleOpenConfirmPreview}
         onDownload={handleDownload}
-        saving={saving}
-        downloadDisabled={downloadDisabled || saving}
+        savingDraft={savingDraft}
+        confirming={confirming}
+        saveDisabled={!formIsComplete}
+        confirmDisabled={!formIsComplete}
+        downloadDisabled={!formIsComplete || savingDraft || confirming}
       />
 
+      {/* --- Modal: agregar / editar ingrediente ----------------------------- */}
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -699,7 +735,7 @@ export function CreateLunchPage() {
               variant="primary"
               size="sm"
               onClick={handleSaveIngredient}
-              disabled={!selectedPantryId || !hasValidEditQty || selectedIngredientAlreadyAdded || exceedsSelectedStock}
+              disabled={!selectedPantryId || !hasValidEditQty || selectedIngredientAlreadyAdded}
             >
               {editTarget ? 'Actualizar' : 'Agregar'}
             </Button>
@@ -760,6 +796,7 @@ export function CreateLunchPage() {
               </>
             )}
           </div>
+
           {pantryError && (
             <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
               {pantryError}
@@ -770,7 +807,9 @@ export function CreateLunchPage() {
               No hay ingredientes registrados en inventario.
             </div>
           )}
+
           <Input
+            id="ingredient-base-quantity"
             label={`Cantidad original para ${plateCount} platos${selectedPantryItem ? ` (${selectedPantryItem.unit})` : ''}`}
             hint="Esta es la cantidad base: el recálculo por regla de tres siempre parte de ella."
             type="number"
@@ -780,192 +819,88 @@ export function CreateLunchPage() {
             onChange={(e) => setEditQty(e.target.value)}
             fullWidth
           />
-          {selectedStockError && (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {selectedStockError}
+
+          {selectedStockWarning && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              {selectedStockWarning}
             </div>
           )}
         </div>
       </Modal>
 
+      {/* --- Modal: previo a confirmar --------------------------------------- */}
       <Modal
-        open={createdLunchesOpen}
-        onClose={() => setCreatedLunchesOpen(false)}
-        title="Servicios de alimentación creados"
-        size="md"
+        open={confirmPreviewOpen}
+        onClose={() => setConfirmPreviewOpen(false)}
+        title="Confirmar servicio de alimentación"
+        size="lg"
         footer={
-          <Button variant="ghost" size="sm" onClick={() => setCreatedLunchesOpen(false)}>
-            Cerrar
-          </Button>
+          <>
+            <Button variant="ghost" size="sm" onClick={() => setConfirmPreviewOpen(false)}>
+              Cancelar
+            </Button>
+            <Button variant="primary" size="sm" loading={confirming} onClick={handleConfirm}>
+              Confirmar y descontar
+            </Button>
+          </>
         }
       >
-        <div className="flex flex-col gap-3">
-          {createdLunchesError && (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {createdLunchesError}
-            </div>
-          )}
+        <div className="flex flex-col gap-4">
+          <div className="flex gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            <AlertTriangle size={18} className="mt-0.5 flex-shrink-0" />
+            <p>
+              Al confirmar se descuentan <span className="font-semibold">de inmediato</span> los
+              insumos del inventario y el servicio deja de poder editarse o eliminarse.
+            </p>
+          </div>
 
-          {createdLunchesLoading ? (
-            <div className="rounded-md border border-slate-200 bg-white px-3 py-8 text-center text-sm text-slate-500">
-              Cargando servicios de alimentación...
+          <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-xs font-semibold uppercase text-slate-500">Servicio</dt>
+              <dd className="text-slate-900">{lunchName.trim()}</dd>
             </div>
-          ) : createdLunches.length === 0 ? (
-            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-8 text-center text-sm text-slate-500">
-              No hay servicios de alimentación creados.
+            <div>
+              <dt className="text-xs font-semibold uppercase text-slate-500">Tipo</dt>
+              <dd className="text-slate-900">{MEAL_TYPE_LABEL[mealType]}</dd>
             </div>
-          ) : (
-            <ul className="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200">
-              {createdLunches.map((lunch) => (
-                <li key={lunch.id}>
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left transition hover:bg-blue-50"
-                    onClick={() => openLunchDetail(lunch.id)}
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold text-slate-900">
-                        {lunch.name}
-                      </span>
-                      <span className="text-xs text-slate-500">
-                        Fecha del servicio de alimentación: {formatDisplayDate(lunch.date)}
-                      </span>
-                    </span>
-                    <span className="text-xs font-semibold text-[#03216a]">Ver detalle</span>
-                  </button>
+            <div>
+              <dt className="text-xs font-semibold uppercase text-slate-500">Fecha</dt>
+              <dd className="text-slate-900">{date}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase text-slate-500">Platos</dt>
+              <dd className="text-slate-900">{desiredPlateCount}</dd>
+            </div>
+          </dl>
+
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-slate-900">
+              Se descontarán {ingredients.length}{' '}
+              {ingredients.length === 1 ? 'insumo' : 'insumos'}
+            </h3>
+            <ul className="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 text-sm">
+              {ingredients.map((item) => (
+                <li key={item.ingredient_id} className="flex justify-between gap-3 px-3 py-2">
+                  <span className="min-w-0 truncate text-slate-800">{item.ingredient_name}</span>
+                  <span className="tabular-nums text-slate-600">
+                    {formatQuantity(scaleIngredient(item, desiredPlateCount), item.unit)}
+                  </span>
                 </li>
               ))}
             </ul>
-          )}
+          </div>
         </div>
       </Modal>
 
-      <Modal
-        open={lunchDetailOpen}
-        onClose={() => setLunchDetailOpen(false)}
-        title="Detalle del servicio de alimentación"
-        size="lg"
-        footer={
-          <Button variant="ghost" size="sm" onClick={() => setLunchDetailOpen(false)}>
-            Cerrar
-          </Button>
-        }
-      >
-        {lunchDetailLoading && (
-          <div className="py-10 text-center text-sm text-slate-500">
-            Cargando detalle...
-          </div>
-        )}
+      {/* --- Modal: insumos faltantes (FE-04) -------------------------------- */}
+      <MissingStockModal
+        open={missingItems !== null}
+        items={missingItems ?? []}
+        onClose={() => setMissingItems(null)}
+        onGoToInventory={() => navigate('/inventario')}
+      />
 
-        {lunchDetailError && (
-          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {lunchDetailError}
-          </div>
-        )}
-
-        {!lunchDetailLoading && !lunchDetailError && lunchDetail && (
-          <div className="flex flex-col gap-5">
-            {/* Estado + acción de edición (#10) */}
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <Badge variant={lunchDetail.status === 'DRAFT' ? 'warning' : 'neutral'}>
-                {lunchDetail.status === 'DRAFT' ? 'Borrador' : lunchDetail.status === 'CONFIRMED' ? 'Confirmado' : lunchDetail.status}
-              </Badge>
-              {!editingLunch && (
-                lunchDetail.status === 'DRAFT' ? (
-                  <Button variant="secondary" size="sm" onClick={startEditLunch}>
-                    Editar
-                  </Button>
-                ) : (
-                  <span className="text-xs text-slate-500">Solo los borradores son editables</span>
-                )
-              )}
-            </div>
-
-            {lunchEditError && (
-              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {lunchEditError}
-              </div>
-            )}
-
-            {editingLunch ? (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Input
-                  label="Nombre del servicio de alimentación"
-                  value={editLunchName}
-                  onChange={(e) => setEditLunchName(e.target.value)}
-                  fullWidth
-                />
-                <Input
-                  label="Fecha del servicio de alimentación"
-                  type="date"
-                  value={editLunchDate}
-                  onChange={(e) => setEditLunchDate(e.target.value)}
-                  fullWidth
-                />
-                <Input
-                  label="Platos"
-                  type="number"
-                  min={1}
-                  value={editLunchPlates}
-                  onChange={(e) => setEditLunchPlates(Math.max(1, Number(e.target.value) || 1))}
-                  fullWidth
-                />
-                <div className="flex items-end gap-2">
-                  <Button size="sm" loading={savingLunchEdit} onClick={handleSaveLunchEdit}>
-                    Guardar cambios
-                  </Button>
-                  <Button variant="ghost" size="sm" disabled={savingLunchEdit} onClick={() => setEditingLunch(false)}>
-                    Cancelar
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-                <div>
-                  <span className="block text-xs font-semibold uppercase text-slate-500">
-                    Servicio de alimentación
-                  </span>
-                  <span className="text-slate-900">{lunchDetail.name}</span>
-                </div>
-                <div>
-                  <span className="block text-xs font-semibold uppercase text-slate-500">
-                    Fecha de creación
-                  </span>
-                  <span className="text-slate-900">{formatDisplayDate(lunchDetail.createdAt)}</span>
-                </div>
-                <div>
-                  <span className="block text-xs font-semibold uppercase text-slate-500">
-                    Fecha del servicio de alimentación
-                  </span>
-                  <span className="text-slate-900">{formatDisplayDate(lunchDetail.date)}</span>
-                </div>
-                <div>
-                  <span className="block text-xs font-semibold uppercase text-slate-500">
-                    Platos
-                  </span>
-                  <span className="text-slate-900">{lunchDetail.platesQuantity}</span>
-                </div>
-              </div>
-            )}
-
-            <div>
-              <h3 className="mb-2 text-sm font-semibold text-slate-900">Ingredientes</h3>
-              {lunchIngredientDetails.length === 0 ? (
-                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                  El detalle del servicio de alimentación no trae ingredientes con nombre y cantidad en la respuesta.
-                </div>
-              ) : (
-                <Table<LunchIngredientDetail>
-                  columns={lunchDetailColumns}
-                  rows={lunchIngredientDetails}
-                  keyField="id"
-                />
-              )}
-            </div>
-          </div>
-        )}
-      </Modal>
-
+      {/* --- Modal: quitar ingrediente del formulario ------------------------ */}
       <Modal
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
@@ -976,7 +911,7 @@ export function CreateLunchPage() {
             <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(null)}>
               Cancelar
             </Button>
-            <Button variant="danger" size="sm" onClick={confirmDelete}>
+            <Button variant="danger" size="sm" onClick={confirmDeleteIngredient}>
               Quitar
             </Button>
           </>
@@ -986,6 +921,38 @@ export function CreateLunchPage() {
           ¿Estás seguro de que deseas quitar{' '}
           <span className="font-semibold text-slate-900">{deleteTarget?.ingredient_name}</span>{' '}
           del servicio de alimentación?
+        </p>
+      </Modal>
+
+      {/* --- Modal: eliminar borrador (FE-05) -------------------------------- */}
+      <Modal
+        open={!!deleteDraftTarget}
+        onClose={() => {
+          if (!deletingDraft) setDeleteDraftTarget(null)
+        }}
+        title="Eliminar borrador"
+        size="sm"
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={deletingDraft}
+              onClick={() => setDeleteDraftTarget(null)}
+            >
+              Cancelar
+            </Button>
+            <Button variant="danger" size="sm" loading={deletingDraft} onClick={handleDeleteDraft}>
+              Eliminar
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-600">
+          Se eliminará el borrador{' '}
+          <span className="font-semibold text-slate-900">{deleteDraftTarget?.name}</span> del{' '}
+          {deleteDraftTarget?.date}. El inventario no se ve afectado, porque un borrador nunca
+          llegó a descontarlo.
         </p>
       </Modal>
     </div>

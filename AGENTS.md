@@ -1,4 +1,4 @@
-# CLAUDE.md — Dining System UNET (Frontend)
+# AGENTS.md — Dining System UNET (Frontend)
 
 ## 1. Project Overview
 
@@ -162,8 +162,8 @@ All authenticated routes render inside `Index` (Header + sidebar `NavBar` +
 | `/comedor/reporte` | `ReportsPage` | Consumption report with charts |
 | `/comedor/historial` | `SessionHistoryPage` | Past sessions with attendance breakdown and printable entrant lists |
 | `/comedor/registro-manual` | `ManualRegistrationPage` | Add/edit/delete registrations attached to a date; printable listing. Second tab lists **every** entry of that date (counter + manual), and the duplicate warning uses the **selected** date, not today |
-| `/comedor/suspender` | `SuspendStudent` | Same lookup flow as registration, but the action is a quick suspension, with an end date capped at 365 days or an explicit "Indefinida". **Anyone the search finds can be suspended**: a direct-access person, an external one, or someone in the roster who has never eaten (the server creates their direct-access record on the fly, exactly as when registering a meal) |
-| `/suspendidos` | `SuspendedListPage` | Currently suspended people of **both** kinds — an external one shows its label where a roster person shows their user type; lift a suspension by its id (which emails the person) |
+| `/comedor/suspender` | `SuspendStudent` | Same lookup flow as registration, but the action is a quick suspension, with an end date capped at 365 days or an explicit "Indefinida" |
+| `/suspendidos` | `SuspendedListPage` | Currently suspended people; lift a suspension (which emails the person) |
 | `/verificar-acceso-directo` | `VerifyAccesoDirectoPage` | Self-service verification screen for the `ACCESO_DIRECTO` role |
 | `/accesos_directos` | `AccesoDirectoPage` | CRUD of direct-access people |
 | `/accesos_directos/importar` | `StudentImportPage` | Import of the official student roster: multi-file, auto-detected encoding/delimiter, merge, paged preview, chunked upload. The path keeps its historical prefix (twin of `_PERMISSIONS`) but the screen writes to `/students` |
@@ -305,21 +305,19 @@ Behaviour worth knowing:
 | `accessReason.ts`, `career.ts`, `sedes.ts` | catalogues | |
 | `lunchSession.ts` | `/lunch-sessions` | `open`, `today` (404 → `null`), `openList`, `close`, `list`, `listByRange` |
 | `consumption.ts` | `/consumptions` | `register`, `check`, `list`, `sessionRecent`, `userStats`, manual CRUD, plus `checkByDocument` (resolves by cédula, so it also answers for someone who is not yet a direct-access person) and `daySummary` (every entry of a date, counter + manual) |
-| `sanction.ts` | `/sanctions` | `create`, `quickCreate`, `revoke`, `lift`, `liftBySanction`, `list`, `suspended`, `history`, `historyExternal`. `create`/`quickCreate` take a `SanctionPersonTarget`: `acceso_directo_id`, `external_person_id` or `person` — **exactly one**, built by `utils/suspensionTarget.ts` from the `Student` on screen. `liftBySanction` is the kind-agnostic lift (an external person has no direct-access id to resolve by) |
+| `sanction.ts` | `/sanctions` | `create`, `quickCreate`, `revoke`, `lift`, `list`, `suspended`, `history` |
 | `inventory.ts` | `/inventory` | Categories, items, stock increase, PDF export |
-| `lunch.ts` | `/lunches`, `/lunch-templates` | CRUD + `confirmLunch`. Saving a draft and confirming it are **two** calls, on purpose (see below) |
+| `lunch.ts` | `/lunches`, `/lunch-templates` | CRUD + the composed `createConfirmedLunch` flow |
 | `reports.ts` | `/reports`, `/consumption-reports` | JSON reports + CSV/PDF blobs |
 | `statistics.ts` | `/statistics` | Attendance by period / by session, with demographic filters |
 | `emailTemplate.ts` | `/email-templates`, `/email-settings` | `get(key)` / `update(key, …)` for the `sanction` and `sanction_lift` templates, + sender settings |
 | `audit.ts` | `/auth/audit-logs`, `/audit-logs` | `auditApi` is the login audit (date/role filters). `processHistoryApi` is the process trail: `list` (any person, or one session via `login_audit_id`), `listMine` (**strips `user_id`** — the server scopes it to the caller anyway), `filterCatalog` and `export('csv'\|'pdf')`, which sends the filters **without** the page window because whoever exports from page 3 is not asking for page 3 |
 
-**Saving a draft and confirming are separate.** `POST /lunches` persists the whole
-draft —header and ingredients— in one transaction and touches no stock; only
-`lunchApi.confirmLunch` discounts the pantry, and it returns
-`{ status: 'insufficient_stock', items }` when the stock measured under the
-confirmation's own lock is short, leaving the meal a draft. `/lunches/{id}/stock-validation`
-is a preview for warning, never the decision. Neither call creates the template — the
-backend upserts the mirror template automatically on confirm.
+**`lunchApi.createConfirmedLunch`** composes the whole meal-creation flow in one
+call: create → add ingredients → refetch → recalculate → validate stock → confirm.
+If stock is short it returns `{ status: 'insufficient_stock', items }` **without
+confirming**. It does *not* create the template — the backend upserts the mirror
+template automatically on confirm.
 
 ---
 
@@ -406,24 +404,6 @@ useEffect(() => {
   which is how `ACCESO_DIRECTO` ended up unlabelled in some of them and not others.
   An unknown value still falls through to the raw string rather than blanking the
   cell.
-  **`personClassLabel(row)` is how a consumption row gets classified**: `user_type`
-  translated for a direct-access person, `person_type` — the external person's label —
-  written verbatim for an external one, `null` for neither. The rule was written in
-  three screens and none of them knew about external people, who have no `user_type`:
-  the day list showed them with a dash, the role filter made them vanish from the
-  table, and the PDF printed them untyped. The label deliberately does **not** go
-  through `USER_TYPE_LABEL` — labels are created by whoever runs the dining hall, so a
-  rótulo map in the client can only fall short.
-- `utils/entrantTypeFilter.ts` — `labelsPresentIn()` and `matchesTypeFilter()` for the
-  session-entrants filter. The options are derived from the rows on screen, not from
-  the full label catalogue: offering the label of an event nobody attended in this
-  session only builds a filter that returns an empty table.
-- `hooks/usePersonTypeOptions.ts` — the "person type" filter of the attendance panels:
-  the four roster types plus the label catalogue from `GET /external-people/labels`. It
-  used to be a fixed six-value list with `JUBILADO`/`EXTERNO` written in the client, so
-  a label created yesterday could not be picked even though the server accepts any
-  catalogue name here. A failing catalogue leaves the four roster types and the panel
-  still queries.
 - `utils/sanctionDates.ts` — the suspension end-date window (today … today + 365)
   and its validation, kept apart from the modals so both can share it and it can be
   tested without rendering a form.
@@ -458,12 +438,7 @@ useEffect(() => {
   the backend rejects the overlap as "cédula repetida dentro del archivo".
 - `utils/rosterRealFiles.verify.test.ts` — acceptance check that runs the whole
   pipeline over the real CSVs in the project root, and skips when they are absent.
-- `utils/sessionStats.ts`, `chartPercent.ts` — chart data shaping. `roleStats()`
-  groups external people **by label**, one slice each, behind the four roster roles;
-  it used to dump everyone who was not from the roster into a single "Externo"
-  slice, which said "47 externals attended" when the question asked which group
-  they came from. Rows with neither classification get their own slice so the
-  slices still add up to the total.
+- `utils/sessionStats.ts`, `chartPercent.ts` — chart data shaping.
 
 ### TypeScript strictness
 
@@ -512,9 +487,7 @@ here** — the bundle is public.
   register a consumption (that is what makes the bulk deactivation mean something);
   registering an external person sends `external_person_id`, never the on-the-fly
   `person` payload, which would duplicate them as a direct-access record; at most one open session per sede; an active sanction blocks
-  registration with a `403` carrying the sanction, **for external people too** —
-  their suspension is temporary and carries a reason, while the `INACTIVE` state
-  stays the definitive removal; confirmed lunches are immutable;
+  registration with a `403` carrying the sanction; confirmed lunches are immutable;
   a sanction's `end_date` may not exceed `MAX_SANCTION_DAYS` (365) from its start,
   though a null one still means indefinite.
 - **The role arrives as `ACCESO_DIRECTO`.** It used to travel as `BENEFICIARIO` —
@@ -531,9 +504,9 @@ here** — the bundle is public.
 
 ---
 
-## 13. Tooling in `.claude/`
+## 13. Tooling in `.Codex/`
 
-Three project agents with persistent memory under `.claude/agent-memory/`:
+Three project agents with persistent memory under `.Codex/agent-memory/`:
 `unet-dining-architect`, `unet-fastapi-backend-dev`, `unet-frontend-developer`
 (the last one tracks API contracts, duplicate patterns, mock status and Tauri
 issues).

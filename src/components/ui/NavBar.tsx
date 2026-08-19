@@ -33,7 +33,6 @@ const navGroups: NavGroup[] = [
       { to: '/verificar-acceso-directo',  label: 'Verificar Acceso Directo' },
       { to: '/accesos_directos',         label: 'Accesos Directos'         },
       { to: '/gente-externa',            label: 'Gente Externa'            },
-      { to: '/usuarios',                 label: 'Lista de Usuario'       },
     ],
   },
   {
@@ -52,6 +51,7 @@ const navGroups: NavGroup[] = [
     items: [
       { to: '/auditoria',            label: 'Auditoría de Acceso'  },
       { to: '/auditoria/procesos',   label: 'Historial de Procesos' },
+      { to: '/usuarios',             label: 'Lista de Usuarios'     },
       { to: '/admin/permisos',       label: 'Gestión de Permisos'  },
       { to: '/admin/plantilla-correo', label: 'Plantilla de Correo' },
       { to: '/accesos_directos/importar', label: 'Importar Estudiantes (CSV)'   },

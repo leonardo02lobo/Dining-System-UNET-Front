@@ -1,78 +1,148 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// fixes.md #19 — composed createConfirmedLunch flow extracted into lunchApi.
+/**
+ * FE-06 — la capa API después de separar borrador y confirmación.
+ *
+ * El flujo compuesto `createConfirmedLunch` (crear → ingredientes → recalcular →
+ * validar → confirmar) desapareció: encadenaba cinco peticiones y guardar
+ * significaba descontar. Ahora crear es **una** petición y confirmar es una
+ * decisión aparte y explícita.
+ */
 
 const get = vi.fn()
 const post = vi.fn()
+const put = vi.fn()
 
 vi.mock('./client', () => ({
   apiClient: {
     get: (url: string) => get(url),
     post: (url: string, body: unknown) => post(url, body),
+    put: (url: string, body: unknown) => put(url, body),
+    patch: vi.fn(),
+    delete: vi.fn(),
   },
 }))
 
 import { lunchApi } from './lunch'
 
-const baseParams = {
-  name: 'Arroz con pollo',
-  date: '2026-07-01',
-  platesQuantity: 600,
-  basePlatesQuantity: 500,
-  ingredients: [{ inventoryItemId: 1, baseQuantity: 10, calculatedQuantity: 12, unit: 'kg' }],
-  saveAsTemplate: false,
-}
+const ingredients = [{ inventoryItemId: 1, baseQuantity: 10, calculatedQuantity: 12, unit: 'kg' }]
 
 beforeEach(() => {
   get.mockReset()
   post.mockReset()
+  put.mockReset()
 })
 
-function stubHappyPath(isValid: boolean) {
-  post.mockImplementation((url: string) => {
-    if (url === '/lunches') return Promise.resolve({ id: 99 })
-    return Promise.resolve({ id: 99 }) // ingredients, recalculate, confirm, template
-  })
-  get.mockImplementation((url: string) => {
-    if (url.endsWith('/stock-validation')) {
-      return Promise.resolve({ isValid, items: isValid ? [] : [{ isSufficient: false }] })
-    }
-    return Promise.resolve({ id: 99 }) // getLunch
-  })
-}
+describe('lunchApi.createLunch', () => {
+  it('crea el borrador con sus ingredientes en una sola petición', async () => {
+    post.mockResolvedValue({ id: 99, status: 'DRAFT' })
 
-describe('lunchApi.createConfirmedLunch', () => {
-  it('confirms the lunch when stock is sufficient', async () => {
-    stubHappyPath(true)
-    const result = await lunchApi.createConfirmedLunch(baseParams)
+    await lunchApi.createLunch({
+      name: 'Arroz con pollo',
+      date: '2026-09-01',
+      mealType: 'ALMUERZO',
+      platesQuantity: 600,
+      basePlatesQuantity: 500,
+      ingredients,
+    })
 
-    expect(result.status).toBe('confirmed')
-    // A confirm call must have happened.
-    expect(post).toHaveBeenCalledWith('/lunches/99/confirm', expect.anything())
+    expect(post).toHaveBeenCalledTimes(1)
+    expect(post).toHaveBeenCalledWith('/lunches', expect.objectContaining({ ingredients }))
   })
 
-  it('returns insufficient_stock and does NOT confirm when stock is short', async () => {
-    stubHappyPath(false)
-    const result = await lunchApi.createConfirmedLunch(baseParams)
+  it('no confirma nada al guardar un borrador', async () => {
+    post.mockResolvedValue({ id: 99, status: 'DRAFT' })
 
-    expect(result.status).toBe('insufficient_stock')
-    const confirmCalled = post.mock.calls.some(([url]) => String(url).endsWith('/confirm'))
-    expect(confirmCalled).toBe(false)
+    await lunchApi.createLunch({
+      name: 'Arroz con pollo',
+      date: '2026-09-01',
+      platesQuantity: 600,
+      basePlatesQuantity: 500,
+      ingredients,
+    })
+
+    expect(post.mock.calls.some(([url]) => String(url).endsWith('/confirm'))).toBe(false)
+  })
+})
+
+describe('lunchApi.listLunches', () => {
+  it('filtra por fecha y por estado', async () => {
+    get.mockResolvedValue([])
+
+    await lunchApi.listLunches({ date: '2026-09-01', status: 'CONFIRMED' })
+
+    expect(get).toHaveBeenCalledWith('/lunches?date=2026-09-01&status=CONFIRMED')
   })
 
-  it('creates a template only when saveAsTemplate is true', async () => {
-    stubHappyPath(true)
-    await lunchApi.createConfirmedLunch({ ...baseParams, saveAsTemplate: true })
+  it('sin parámetros pide la lista completa', async () => {
+    get.mockResolvedValue([])
 
-    const templateCalled = post.mock.calls.some(([url]) => url === '/lunch-templates')
-    expect(templateCalled).toBe(true)
+    await lunchApi.listLunches()
+
+    expect(get).toHaveBeenCalledWith('/lunches')
+  })
+})
+
+describe('lunchApi.setLunchIngredients', () => {
+  it('reemplaza la receta completa en una sola petición', async () => {
+    put.mockResolvedValue({ id: 99 })
+
+    await lunchApi.setLunchIngredients(99, ingredients)
+
+    expect(put).toHaveBeenCalledWith('/lunches/99/ingredients', ingredients)
+  })
+})
+
+describe('lunchApi.confirmLunch', () => {
+  it('devuelve el almuerzo confirmado cuando el stock alcanza', async () => {
+    post.mockResolvedValue({ id: 99, status: 'CONFIRMED' })
+
+    const result = await lunchApi.confirmLunch(99)
+
+    expect(post).toHaveBeenCalledWith('/lunches/99/confirm', {})
+    expect(result).toEqual({ status: 'confirmed', lunch: { id: 99, status: 'CONFIRMED' } })
   })
 
-  it('does not create a template when saveAsTemplate is false', async () => {
-    stubHappyPath(true)
-    await lunchApi.createConfirmedLunch(baseParams)
+  it('devuelve los faltantes —sin lanzar— cuando el backend responde 409 por stock', async () => {
+    const items = [{
+      inventoryItemId: 7,
+      ingredientId: 3,
+      name: 'Pollo',
+      requiredQuantity: 25,
+      availableStock: 5,
+      missingQuantity: 20,
+      unit: 'kg',
+    }]
+    post.mockRejectedValue({
+      status: 409,
+      message: 'No hay suficiente stock para confirmar el servicio',
+      detail: { code: 'insufficient_stock', lunchId: 99, items },
+    })
 
-    const templateCalled = post.mock.calls.some(([url]) => url === '/lunch-templates')
-    expect(templateCalled).toBe(false)
+    const result = await lunchApi.confirmLunch(99)
+
+    expect(result).toEqual({ status: 'insufficient_stock', items })
+  })
+
+  it('propaga los demás 409: doble confirmación no es un problema de stock', async () => {
+    post.mockRejectedValue({
+      status: 409,
+      message: 'Lunch already confirmed',
+      detail: undefined,
+    })
+
+    await expect(lunchApi.confirmLunch(99)).rejects.toMatchObject({
+      message: 'Lunch already confirmed',
+    })
+  })
+
+  it('propaga un 409 cuyo detalle es de otro tipo', async () => {
+    post.mockRejectedValue({
+      status: 409,
+      message: 'Otro conflicto',
+      detail: { code: 'something_else' },
+    })
+
+    await expect(lunchApi.confirmLunch(99)).rejects.toMatchObject({ status: 409 })
   })
 })

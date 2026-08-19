@@ -7,6 +7,7 @@ import { sanctionApi } from '../api/sanction'
 import { normalizeCedula } from '../utils/cedula'
 import { errorMessage, CONFLICT } from '../utils/apiErrors'
 import { maxSanctionEndDate, todayISO, validateSanctionEndDate } from '../utils/sanctionDates'
+import { suspensionTarget } from '../utils/suspensionTarget'
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner'
 import { useCan } from '../hooks/useCan'
 import type { Student } from '../types/user'
@@ -258,11 +259,14 @@ export function RegisterDining() {
       // `null` si falló: `PersonDayStatus` lo dice como "no se pudo comprobar" en vez
       // de afirmar que la persona no ha comido.
       setCheck(checkResult.status === 'fulfilled' ? checkResult.value : null)
-      // Conteo histórico de suspensiones (#8). A la gente externa no se la sanciona,
-      // así que ni se pregunta. Informativo: si falla, no bloquea la consulta.
-      if (data.acceso_directo_id && data.person_kind !== 'external') {
+      // Conteo histórico de suspensiones (#8), de quien ya existe en algún apartado.
+      // Informativo: si falla, no bloquea la consulta.
+      const externalId = data.person_kind === 'external' ? data.external_person_id : undefined
+      if (data.acceso_directo_id || externalId) {
         try {
-          const history = await sanctionApi.history(data.acceso_directo_id)
+          const history = externalId
+            ? await sanctionApi.historyExternal(externalId)
+            : await sanctionApi.history(data.acceso_directo_id!)
           setSuspensionCount(history.total)
         } catch {
           /* ignore: el conteo es informativo */
@@ -400,7 +404,7 @@ export function RegisterDining() {
   }
 
   async function handleQuickSuspend() {
-    if (!suspendTarget?.acceso_directo_id) return
+    if (!suspendTarget) return
     const reason = suspendReason.trim()
     if (reason.length < 3) {
       setSuspendError('Indica el motivo de la suspensión (mínimo 3 caracteres).')
@@ -419,7 +423,7 @@ export function RegisterDining() {
     setSuspendDateError(null)
     try {
       const sanction = await sanctionApi.quickCreate({
-        acceso_directo_id: suspendTarget.acceso_directo_id,
+        ...suspensionTarget(suspendTarget),
         reason,
         // `null` explícito = indefinida. Omitir la clave dejaría al servidor
         // adivinando lo que el operador eligió a propósito.
@@ -428,7 +432,7 @@ export function RegisterDining() {
       // Solo refleja la sanción en la ficha visible si sigue siendo la misma persona.
       // Se escribe sobre el resultado de la comprobación, que es la única fuente que
       // leen las cajas de estado: dos fuentes para el mismo hecho acaban discrepando.
-      if (student?.acceso_directo_id === suspendTarget.acceso_directo_id) {
+      if (student?.cedula === suspendTarget.cedula) {
         setCheck((c) => (c ? { ...c, active_sanction: sanction } : c))
       }
       setSuspendOpen(false)
@@ -461,8 +465,10 @@ export function RegisterDining() {
   const currentSedeName = user?.sede_name ?? session?.sede?.name ?? null
   const activeSanction = check?.active_sanction ?? null
   const isSuspended = activeSanction !== null || (student?.is_suspended ?? false)
-  const canSuspend =
-    canRegister && !!student?.is_acceso_directo && student.person_kind !== 'external' && activeSanction === null
+  // Se puede suspender a cualquiera a quien la taquilla pueda atender: acceso
+  // directo, persona externa o alguien del padrón que aún no ha comido nunca —a ese
+  // último el servidor lo da de alta al vuelo, igual que al registrarle el consumo—.
+  const canSuspend = canRegister && !!student && activeSanction === null
   // Ya comió: registrar de nuevo no puede salir bien, así que el botón se apaga
   // antes del intento. El modal de duplicado por 409 se conserva igualmente — es la
   // red que atrapa el caso de dos taquillas registrando a la vez, que ninguna

@@ -23,6 +23,7 @@ export interface LunchFormIngredient {
 export interface PreloadedLunch {
   id: number
   name: string
+  meal_type: MealType
   /** Cantidad base de platos de la plantilla (denominador de la regla de tres). */
   plate_count: number
   ingredients: Array<{
@@ -50,7 +51,25 @@ export interface RecalculationPreview {
   new_quantity: number
 }
 
-export type LunchStatus = 'DRAFT' | 'CONFIRMED' | 'CANCELLED'
+/**
+ * Espejo exacto del enum `LunchStatus` del backend. No incluye `CANCELLED`:
+ * no existe allí, y tiparlo hacía creer que cancelar un confirmado era algo que
+ * el sistema sabe hacer. Cuando exista un flujo real de cancelación con reverso
+ * de inventario, se agrega aquí y en el backend a la vez.
+ */
+export type LunchStatus = 'DRAFT' | 'CONFIRMED'
+
+/** Espejo del enum `MealType` del backend: qué servicio del día se planifica. */
+export type MealType = 'DESAYUNO' | 'ALMUERZO' | 'CENA' | 'MERIENDA'
+
+export const MEAL_TYPES: MealType[] = ['DESAYUNO', 'ALMUERZO', 'MERIENDA', 'CENA']
+
+export const MEAL_TYPE_LABEL: Record<MealType, string> = {
+  DESAYUNO: 'Desayuno',
+  ALMUERZO: 'Almuerzo',
+  MERIENDA: 'Merienda',
+  CENA: 'Cena',
+}
 
 export interface LunchIngredientPayload {
   inventoryItemId: number
@@ -64,6 +83,8 @@ export interface LunchCreatePayload {
   date: string
   platesQuantity: number
   basePlatesQuantity: number
+  mealType?: MealType
+  /** Viajan con el encabezado: el backend crea todo en una sola transacción. */
   ingredients: LunchIngredientPayload[]
 }
 
@@ -71,11 +92,39 @@ export interface LunchUpdatePayload {
   name?: string
   date?: string
   platesQuantity?: number
+  basePlatesQuantity?: number
+  mealType?: MealType
+  /**
+   * Reemplaza la receta completa en la misma transacción que el encabezado.
+   * Omitirla deja los ingredientes como estaban.
+   */
+  ingredients?: LunchIngredientPayload[]
+}
+
+/** Un insumo que no alcanza, tal como lo devuelve el 409 de `/confirm`. */
+export interface LunchMissingStockItem {
+  inventoryItemId: number
+  ingredientId: number
+  name: string
+  requiredQuantity: number
+  availableStock: number
+  missingQuantity: number
+  unit: string
+}
+
+/** Cuerpo del 409 `insufficient_stock` (BE-03). */
+export interface LunchInsufficientStockDetail {
+  code: 'insufficient_stock'
+  message: string
+  lunchId: number
+  items: LunchMissingStockItem[]
 }
 
 export interface LunchTemplateCreatePayload extends LunchCreatePayload {
   lunchId: number
 }
+
+/** Plantilla precargada en el formulario, con el tipo de servicio que traía. */
 
 /** Ingrediente enviado al crear/editar una plantilla */
 export interface LunchTemplateIngredientPayload {
@@ -114,6 +163,7 @@ export interface LunchResponse {
   date: string
   platesQuantity: number
   basePlatesQuantity: number
+  mealType: MealType
   status: LunchStatus
   createdById: number
   createdAt: string
@@ -136,6 +186,7 @@ export interface LunchTemplateResponse {
   date: string
   platesQuantity: number
   basePlatesQuantity: number
+  mealType: MealType
   createdById: number
   createdAt: string
   updatedAt: string
