@@ -406,6 +406,24 @@ useEffect(() => {
   which is how `ACCESO_DIRECTO` ended up unlabelled in some of them and not others.
   An unknown value still falls through to the raw string rather than blanking the
   cell.
+  **`personClassLabel(row)` is how a consumption row gets classified**: `user_type`
+  translated for a direct-access person, `person_type` — the external person's label —
+  written verbatim for an external one, `null` for neither. The rule was written in
+  three screens and none of them knew about external people, who have no `user_type`:
+  the day list showed them with a dash, the role filter made them vanish from the
+  table, and the PDF printed them untyped. The label deliberately does **not** go
+  through `USER_TYPE_LABEL` — labels are created by whoever runs the dining hall, so a
+  rótulo map in the client can only fall short.
+- `utils/entrantTypeFilter.ts` — `labelsPresentIn()` and `matchesTypeFilter()` for the
+  session-entrants filter. The options are derived from the rows on screen, not from
+  the full label catalogue: offering the label of an event nobody attended in this
+  session only builds a filter that returns an empty table.
+- `hooks/usePersonTypeOptions.ts` — the "person type" filter of the attendance panels:
+  the four roster types plus the label catalogue from `GET /external-people/labels`. It
+  used to be a fixed six-value list with `JUBILADO`/`EXTERNO` written in the client, so
+  a label created yesterday could not be picked even though the server accepts any
+  catalogue name here. A failing catalogue leaves the four roster types and the panel
+  still queries.
 - `utils/sanctionDates.ts` — the suspension end-date window (today … today + 365)
   and its validation, kept apart from the modals so both can share it and it can be
   tested without rendering a form.
@@ -440,7 +458,12 @@ useEffect(() => {
   the backend rejects the overlap as "cédula repetida dentro del archivo".
 - `utils/rosterRealFiles.verify.test.ts` — acceptance check that runs the whole
   pipeline over the real CSVs in the project root, and skips when they are absent.
-- `utils/sessionStats.ts`, `chartPercent.ts` — chart data shaping.
+- `utils/sessionStats.ts`, `chartPercent.ts` — chart data shaping. `roleStats()`
+  groups external people **by label**, one slice each, behind the four roster roles;
+  it used to dump everyone who was not from the roster into a single "Externo"
+  slice, which said "47 externals attended" when the question asked which group
+  they came from. Rows with neither classification get their own slice so the
+  slices still add up to the total.
 
 ### TypeScript strictness
 

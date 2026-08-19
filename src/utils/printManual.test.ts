@@ -43,3 +43,43 @@ describe('printManualList', () => {
     expect(fakeDoc.write).toHaveBeenCalled()
   })
 })
+
+/**
+ * fe-gente-externa-registro-manual — el PDF clasifica igual que la tabla.
+ *
+ * La regla es la misma (`personClassLabel`) y se comparte a propósito: escrita dos veces,
+ * la columna Tipo del PDF y la de la pantalla acabarían diciendo cosas distintas de la
+ * misma fila.
+ */
+describe('printManualList — clasificación de la columna Tipo', () => {
+  function htmlOf(rows: ManualConsumption[]): string {
+    const fakeDoc = { write: vi.fn(), close: vi.fn() }
+    const fakeWin = { document: fakeDoc, focus: vi.fn(), print: vi.fn() } as unknown as Window
+    vi.spyOn(window, 'open').mockReturnValue(fakeWin)
+    printManualList('2026-08-03', rows)
+    return fakeDoc.write.mock.calls.map(([html]) => String(html)).join('')
+  }
+
+  it('escribe el rol traducido de un acceso directo y la etiqueta de una persona externa', () => {
+    const html = htmlOf([
+      { document_id: '20000000', first_name: 'Ana', last_name: 'Pérez', user_type: 'TEACHER',
+        career: null, registered_at: '2026-08-03T12:00:00Z' } as ManualConsumption,
+      { document_id: '10000000', first_name: 'Luis', last_name: 'Ríos', external_person_id: 42,
+        person_type: 'Jornada Deportiva', career: null,
+        registered_at: '2026-08-03T13:00:00Z' } as ManualConsumption,
+    ])
+
+    expect(html).toContain('Docente')
+    expect(html).toContain('Jornada Deportiva')
+  })
+
+  it('una fila sin ninguna de las dos clasificaciones escribe el guion sin fallar', () => {
+    const html = htmlOf([
+      { document_id: '10000000', first_name: 'Luis', last_name: 'Ríos', career: null,
+        registered_at: '2026-08-03T13:00:00Z' } as ManualConsumption,
+    ])
+
+    expect(html).toContain('10000000')
+    expect(html).toContain('—')
+  })
+})
